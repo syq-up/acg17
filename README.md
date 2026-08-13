@@ -12,7 +12,7 @@ ACG17 是一个面向个人媒体库的 ACG 资源管理与浏览项目，支持
 - 小说创建、章节新增与编辑、标签、搜索、在线阅读和回收站
 - 游戏信息、封面/图标/预览图管理、收藏、随机展示和回收站
 - 桌面端与移动端阅读页面
-- 上传文件的路径校验、图片格式识别、缩略图生成和失败文件清理
+- 上传文件的路径校验、图片格式识别、缩略图生成、短期签名访问和失败文件清理
 - 逻辑删除资源；插画和漫画进入回收站后默认保留 14 天，定时任务会自动清理
 
 动画页面目前是前端占位页面，上传功能尚未实现。
@@ -96,13 +96,14 @@ cp acg17-admin/src/main/resources/application-dev.yml.example \
 - 将 `file.uploadFolder` 改为一个存在且可写的绝对路径；
 - 如果启用邮件发送，将 `spring.mail` 下的示例账号和授权码替换为真实配置。
 
-后端必须通过环境变量提供 JWT 密钥，密钥至少包含 32 字节。例如：
+后端必须通过环境变量分别提供 JWT 密钥和媒体 URL 签名密钥，两者都至少包含 32 字节。生产环境应使用彼此独立的随机值。例如：
 
 ```bash
 export JWT_SECRET='请替换为至少 32 字节的随机字符串'
+export MEDIA_URL_SECRET='请替换为另一个至少 32 字节的随机字符串'
 ```
 
-`.env` 只会被 Docker Compose 自动读取；如果把 `JWT_SECRET` 写入 `.env`，启动 Spring Boot 前仍需将它导出到当前 shell 环境中。
+`.env` 只会被 Docker Compose 自动读取；如果把这两个密钥写入 `.env`，启动 Spring Boot 前仍需将它们导出到当前 shell 环境中。媒体签名默认有效 60 分钟，可通过 `MEDIA_URL_EXPIRATION_MINUTES` 调整。
 
 启动后端：
 
@@ -158,7 +159,7 @@ npm run build
 npm run preview
 ```
 
-生产构建产物位于 `acg17-ui/dist`。部署时需要让前端站点将 `/api` 转发到后端，并保持后端的 `/api/file/**` 静态文件访问路径可用。
+生产构建产物位于 `acg17-ui/dist`。部署时需要让前端站点将 `/api` 整体转发到后端，其中包括 `/api/media` 签名媒体接口和 `/api/public-assets/**` 公开装饰素材路径。
 
 ## 配置说明
 
@@ -177,9 +178,10 @@ npm run preview
 | `/api/novel-chapter` | 小说章节和章节内容 |
 | `/api/novel-tag` | 小说标签 |
 | `/api/game` | 游戏信息、文件、收藏和回收站 |
-| `/api/file/**` | 上传文件的静态访问路径 |
+| `/api/media` | 校验短期签名后读取用户上传的媒体文件 |
+| `/api/public-assets/**` | 无需登录的站点装饰素材 |
 
-> 除登录接口和随机插画接口外，业务接口默认需要在请求头中携带 `Authorization: Bearer <token>`。前端会在登录后自动添加该请求头。
+> 除登录、随机插画、签名媒体和公开装饰素材接口外，业务接口默认需要在请求头中携带 `Authorization: Bearer <token>`。前端会在登录后自动添加该请求头。
 
 ### 文件存储
 
@@ -193,13 +195,17 @@ npm run preview
 | `file.mangaFolder` | `manga/` | 漫画目录 |
 | `file.novelFolder` | `novels/` | 小说目录 |
 | `file.gameFolder` | `games/` | 游戏目录 |
-| `file.staticAccessPath` | `/file/**` | 静态资源映射 |
+| `file.publicAssetFolder` | `illustrations/web-img/` | 允许公开访问的站点装饰素材目录 |
+| `file.publicAssetAccessPath` | `/public-assets/**` | 公开装饰素材的访问路径 |
 
 上传限制和 ZIP 解压保护也在该文件中配置：单文件默认 512 MB、单次请求默认 1 GB、单张插画默认 100 MB；漫画 ZIP 默认最多 5,000 个条目、单个条目 100 MB、解压后总大小 1 GB。前端上传提示可能比后端限制更严格，以后端配置为准。
+
+用户上传的插画、漫画、游戏文件和头像不再直接映射为静态资源。后端返回的媒体 URL 会绑定规范化后的相对路径和过期时间，并使用 HMAC-SHA256 签名；`/api/media` 只有在签名有效、尚未过期且目标文件位于上传根目录内时才返回文件。签名 URL 在有效期内等同于临时访问凭证，不应写入公开日志或长期保存。
 
 ### 认证与自动清理
 
 - JWT 默认有效期为 24 小时，可通过 `JWT_EXPIRATION_HOURS` 调整；
+- 媒体签名 URL 默认有效期为 60 分钟，可通过 `MEDIA_URL_EXPIRATION_MINUTES` 调整；
 - 默认 5 分钟内最多允许 10 次失败登录，可通过 `LOGIN_MAX_ATTEMPTS` 和 `LOGIN_WINDOW_MINUTES` 调整；
 - 每天 03:00 清理过期插画，03:10 清理过期漫画，04:00 清理上传残留和待重试删除文件；
 - 逻辑删除资源在回收站中保留 14 天，超过期限后由定时任务物理清理。
@@ -217,7 +223,7 @@ docker compose up -d mysql
 
 ## 安全提示
 
-- 不要提交 `.env`、`application-dev.yml`、JWT 密钥、邮件授权码或生产数据；
-- 生产环境应使用高强度随机 JWT 密钥，并将上传目录放在应用目录之外；
+- 不要提交 `.env`、`application-dev.yml`、JWT 密钥、媒体签名密钥、邮件授权码或生产数据；
+- 生产环境应使用彼此独立的高强度随机 JWT 密钥和媒体签名密钥，并将上传目录放在应用目录之外；
 - 应修改 SQL 中的默认管理员凭据，并限制数据库和上传文件目录的访问权限；
 - 生产部署建议在反向代理层配置 HTTPS、域名和 `/api` 路由转发。
