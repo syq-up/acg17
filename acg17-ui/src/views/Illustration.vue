@@ -218,7 +218,7 @@ export default {
 
     // 删除插画作品
     function deleteArtwork(i) {
-      server.get('/illustration/deleteById/'+illustration.list[i].id)
+      server.delete('/illustration/' + illustration.list[i].id)
           .then(()=>{
             illustration.list.splice(i, 1)
             ElMessage.success('插画删除成功！')
@@ -229,7 +229,7 @@ export default {
     }
     // 回收已删除的插画作品
     function restoreArtwork(i) {
-      server.get('/illustration/restoreById/'+illustration.list[i].id)
+      server.put('/illustration/' + illustration.list[i].id + '/restore')
           .then(()=>{
             illustration.list.splice(i, 1)
             ElMessage.success('插画回收成功！')

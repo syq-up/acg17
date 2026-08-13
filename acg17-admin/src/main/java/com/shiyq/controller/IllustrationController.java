@@ -75,7 +75,7 @@ public class IllustrationController {
     /**
      * 逻辑删除一张插画
      */
-    @GetMapping("/deleteById/{id}")
+    @DeleteMapping("/{id}")
     public ResultVO deleteById(@PathVariable @Positive(message = "插画ID必须大于0") int id) {
         if (!illustrationService.deleteById(id)) {
             throw ApiException.notFound("插画不存在或已删除");
@@ -86,7 +86,7 @@ public class IllustrationController {
     /**
      * 回收一张逻辑删除的插画
      */
-    @GetMapping("/restoreById/{id}")
+    @PutMapping("/{id}/restore")
     public ResultVO restoreById(@PathVariable @Positive(message = "插画ID必须大于0") int id) {
         if (!illustrationService.restoreById(id)) {
             throw ApiException.notFound("插画不存在或不在回收站中");

@@ -268,7 +268,7 @@ export default {
     }
     // 删除小说
     function deleteNovel(novelId) {
-      server.get('/novel/deleteById/' + novelId)
+      server.delete('/novel/' + novelId)
         .then(() => {
           // 从列表中移除对应的小说
           const index = novel.list.findIndex(item => item.id === novelId)

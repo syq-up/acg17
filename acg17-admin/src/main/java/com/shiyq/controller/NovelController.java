@@ -97,7 +97,7 @@ public class NovelController {
     /**
      * 删除小说
      */
-    @GetMapping("/deleteById/{id}")
+    @DeleteMapping("/{id}")
     public ResultVO deleteById(@PathVariable @Positive(message = "小说ID必须大于0") int id) {
         if (!novelService.deleteNovelById(id)) {
             throw ApiException.notFound("小说作品不存在或已删除");
