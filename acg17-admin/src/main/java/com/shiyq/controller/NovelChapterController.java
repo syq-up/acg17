@@ -3,8 +3,11 @@ package com.shiyq.controller;
 import com.shiyq.entity.DTO.NovelChapterCreateDTO;
 import com.shiyq.entity.DTO.NovelChapterUpdateDTO;
 import com.shiyq.entity.VO.ResultVO;
+import com.shiyq.exception.ApiException;
 import com.shiyq.service.NovelChapterService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -36,17 +39,28 @@ public class NovelChapterController {
 
     @GetMapping("/getContentById/{id}")
     public ResultVO getContentById(@PathVariable int id) {
-        return ResultVO.success(chapterService.getContentById(id));
+        var chapter = chapterService.getContentById(id);
+        if (chapter == null) {
+            throw ApiException.notFound("小说章节不存在");
+        }
+        return ResultVO.success(chapter);
     }
 
     @PostMapping("/addChapter")
-    public ResultVO addChapter(@RequestBody NovelChapterCreateDTO request) {
-        return chapterService.addChapter(request) ? ResultVO.success() : ResultVO.error("新增章节失败...");
+    public ResponseEntity<ResultVO> addChapter(@RequestBody NovelChapterCreateDTO request) {
+        if (!chapterService.addChapter(request)) {
+            throw ApiException.notFound("小说不存在或已删除");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResultVO.created("新增章节成功", null));
     }
 
     @PostMapping("/updateChapter")
     public ResultVO updateChapter(@RequestBody NovelChapterUpdateDTO request) {
-        return chapterService.updateChapter(request) ? ResultVO.success() : ResultVO.error("更新章节失败...");
+        if (!chapterService.updateChapter(request)) {
+            throw ApiException.notFound("小说章节不存在");
+        }
+        return ResultVO.success("更新章节成功");
     }
 
 }

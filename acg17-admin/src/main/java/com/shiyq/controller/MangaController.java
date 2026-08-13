@@ -8,8 +8,11 @@ import com.shiyq.entity.VO.MangaVO;
 import com.shiyq.entity.VO.MangaDetailVO;
 import com.shiyq.entity.VO.PageVO;
 import com.shiyq.entity.VO.ResultVO;
+import com.shiyq.exception.ApiException;
 import com.shiyq.service.MangaService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -54,6 +57,9 @@ public class MangaController {
     @GetMapping("/{id}")
     public ResultVO getMangaById(@PathVariable long id) {
         MangaDetailVO mangaDetailVO = mangaService.getMangaById(id);
+        if (mangaDetailVO == null) {
+            throw ApiException.notFound("漫画不存在");
+        }
         return ResultVO.success(mangaDetailVO);
     }
 
@@ -63,13 +69,10 @@ public class MangaController {
      * @return 漫画详情
      */
     @PostMapping("/addManga")
-    public ResultVO addManga(@ModelAttribute MangaUploadDTO mangaUploadDTO) {
-        try {
-            String result = mangaService.addManga(mangaUploadDTO);
-            return ResultVO.success("新增成功", result);
-        } catch (Exception e) {
-            return ResultVO.error("新增漫画失败: " + e.getMessage());
-        }
+    public ResponseEntity<ResultVO> addManga(@ModelAttribute MangaUploadDTO mangaUploadDTO) throws Exception {
+        String result = mangaService.addManga(mangaUploadDTO);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResultVO.created("新增成功", result));
     }
 
     /**
@@ -79,14 +82,12 @@ public class MangaController {
      * @return 新章节信息
      */
     @PostMapping("/{id}/chapters")
-    public ResultVO addMangaChapter(@PathVariable long id,
-                                    @ModelAttribute MangaChapterUploadDTO mangaChapterUploadDTO) {
-        try {
-            MangaChapterVO chapter = mangaService.addMangaChapter(id, mangaChapterUploadDTO);
-            return ResultVO.success("新增章节成功", chapter);
-        } catch (Exception e) {
-            return ResultVO.error("新增漫画章节失败: " + e.getMessage());
-        }
+    public ResponseEntity<ResultVO> addMangaChapter(
+            @PathVariable long id,
+            @ModelAttribute MangaChapterUploadDTO mangaChapterUploadDTO) {
+        MangaChapterVO chapter = mangaService.addMangaChapter(id, mangaChapterUploadDTO);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResultVO.created("新增章节成功", chapter));
     }
 
     /**
@@ -97,11 +98,10 @@ public class MangaController {
      */
     @PutMapping("/{id}")
     public ResultVO updateManga(@PathVariable long id, @RequestBody MangaUpdateDTO mangaUpdateDTO) {
-        boolean success = mangaService.updateManga(id, mangaUpdateDTO);
-        if (success) {
-            return ResultVO.success("更新成功");
+        if (!mangaService.updateManga(id, mangaUpdateDTO)) {
+            throw ApiException.notFound("漫画不存在或已删除");
         }
-        return ResultVO.error("更新漫画失败");
+        return ResultVO.success("更新成功");
     }
 
     /**
@@ -111,11 +111,10 @@ public class MangaController {
      */
     @DeleteMapping("/{id}")
     public ResultVO deleteManga(@PathVariable long id) {
-        boolean success = mangaService.deleteMangaById(id);
-        if (success) {
-            return ResultVO.success("删除成功");
+        if (!mangaService.deleteMangaById(id)) {
+            throw ApiException.notFound("漫画不存在或已删除");
         }
-        return ResultVO.error("删除漫画失败");
+        return ResultVO.success("删除成功");
     }
 
     /**
@@ -125,11 +124,10 @@ public class MangaController {
      */
     @PutMapping("/{id}/restore")
     public ResultVO restoreManga(@PathVariable long id) {
-        boolean success = mangaService.restoreMangaById(id);
-        if (success) {
-            return ResultVO.success("恢复成功");
+        if (!mangaService.restoreMangaById(id)) {
+            throw ApiException.notFound("漫画不存在或不在回收站中");
         }
-        return ResultVO.error("恢复漫画失败");
+        return ResultVO.success("恢复成功");
     }
 
     /**
@@ -141,11 +139,10 @@ public class MangaController {
     @PutMapping("/{id}/favorite")
     public ResultVO updateFavoriteStatus(@PathVariable long id, 
                                          @RequestParam boolean favorite) {
-        boolean success = mangaService.updateFavoriteStatus(id, favorite);
-        if (success) {
-            return ResultVO.success("收藏状态更新成功");
+        if (!mangaService.updateFavoriteStatus(id, favorite)) {
+            throw ApiException.notFound("漫画不存在或已删除");
         }
-        return ResultVO.error("收藏状态更新失败");
+        return ResultVO.success("收藏状态更新成功");
     }
 
     /**
@@ -157,11 +154,10 @@ public class MangaController {
     @PostMapping("/{id}/tags")
     public ResultVO addTagToManga(@PathVariable long id,
                                  @RequestParam Integer tagId) {
-        boolean success = mangaService.addTagToManga(id, tagId);
-        if (success) {
-            return ResultVO.success("标签添加成功");
+        if (!mangaService.addTagToManga(id, tagId)) {
+            throw ApiException.notFound("漫画或标签不存在");
         }
-        return ResultVO.error("标签添加失败");
+        return ResultVO.success("标签添加成功");
     }
 
     /**
@@ -173,11 +169,10 @@ public class MangaController {
     @DeleteMapping("/{id}/tags")
     public ResultVO removeTagFromManga(@PathVariable long id,
                                       @RequestParam Integer tagId) {
-        boolean success = mangaService.removeTagFromManga(id, tagId);
-        if (success) {
-            return ResultVO.success("标签删除成功");
+        if (!mangaService.removeTagFromManga(id, tagId)) {
+            throw ApiException.notFound("漫画或标签不存在");
         }
-        return ResultVO.error("标签删除失败");
+        return ResultVO.success("标签删除成功");
     }
 
     /**
@@ -191,11 +186,10 @@ public class MangaController {
     public ResultVO deleteMangaPage(@RequestParam int mangaId,
                                     @RequestParam int chapterId,
                                     @RequestParam int pageNum) {
-        boolean success = mangaService.realDeleteMangaPage(mangaId, chapterId, pageNum);
-        if (success) {
-            return ResultVO.success("页面删除成功");
+        if (!mangaService.realDeleteMangaPage(mangaId, chapterId, pageNum)) {
+            throw ApiException.notFound("漫画页面不存在");
         }
-        return ResultVO.error("页面文件删除失败");
+        return ResultVO.success("页面删除成功");
     }
 
      /**
@@ -206,7 +200,7 @@ public class MangaController {
     public ResultVO getRandomManga() {
         MangaDetailVO mangaDetailVO = mangaService.getRandomManga();
         if (mangaDetailVO == null) {
-            return ResultVO.error("没有漫画可供随机获取");
+            throw ApiException.notFound("没有漫画可供随机获取");
         }
         return ResultVO.success(mangaDetailVO);
     }

@@ -2,10 +2,16 @@ package com.shiyq.controller;
 
 import com.shiyq.entity.VO.ReorderRequest;
 import com.shiyq.entity.VO.ResultVO;
+import com.shiyq.entity.VO.IllustrationVO;
+import com.shiyq.exception.ApiException;
 import com.shiyq.service.IllustrationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 /**
  * <p>
@@ -30,8 +36,10 @@ public class IllustrationController {
      * 【单张插画作品】上传
      */
     @PostMapping("/upload")
-    public ResultVO upload(@RequestParam("file") MultipartFile file) throws Exception {
-        return ResultVO.success(illustrationService.upload(file));
+    public ResponseEntity<ResultVO> upload(@RequestParam("file") MultipartFile file) throws IOException {
+        IllustrationVO illustration = illustrationService.upload(file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResultVO.created("上传成功", illustration));
     }
 
     /**
@@ -55,7 +63,11 @@ public class IllustrationController {
      */
     @GetMapping("/getRandomArtwork")
     public ResultVO getRandomArtwork() {
-        return ResultVO.success(illustrationService.getRandomIllustration());
+        IllustrationVO illustration = illustrationService.getRandomIllustration();
+        if (illustration == null) {
+            throw ApiException.notFound("没有可用插画");
+        }
+        return ResultVO.success(illustration);
     }
 
     /**
@@ -63,9 +75,10 @@ public class IllustrationController {
      */
     @GetMapping("/deleteById/{id}")
     public ResultVO deleteById(@PathVariable int id) {
-        return illustrationService.deleteById(id)
-                ? ResultVO.success("OK")
-                : ResultVO.error("失败，请稍后尝试……");
+        if (!illustrationService.deleteById(id)) {
+            throw ApiException.notFound("插画不存在或已删除");
+        }
+        return ResultVO.success("OK");
     }
 
     /**
@@ -73,9 +86,10 @@ public class IllustrationController {
      */
     @GetMapping("/restoreById/{id}")
     public ResultVO restoreById(@PathVariable int id) {
-        return illustrationService.restoreById(id)
-                ? ResultVO.success("OK")
-                : ResultVO.error("失败，请稍后尝试……");
+        if (!illustrationService.restoreById(id)) {
+            throw ApiException.notFound("插画不存在或不在回收站中");
+        }
+        return ResultVO.success("OK");
     }
 
     /**
@@ -83,9 +97,10 @@ public class IllustrationController {
      */
     @PostMapping("/reorder")
     public ResultVO reorder(@RequestBody ReorderRequest reorderRequest) {
-        return illustrationService.reorder(reorderRequest)
-                ? ResultVO.success("OK")
-                : ResultVO.error("自定义排序失败，请稍后尝试……");
+        if (!illustrationService.reorder(reorderRequest)) {
+            throw ApiException.notFound("待排序的插画不存在");
+        }
+        return ResultVO.success("OK");
     }
 
 }

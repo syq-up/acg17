@@ -2,9 +2,12 @@ package com.shiyq.controller;
 
 import com.shiyq.entity.DTO.NovelCreateDTO;
 import com.shiyq.entity.VO.*;
+import com.shiyq.exception.ApiException;
 import com.shiyq.service.NovelChapterService;
 import com.shiyq.service.NovelService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -51,8 +54,9 @@ public class NovelController {
     @GetMapping("/getNovelById/{id}")
     public ResultVO getNovelById(@PathVariable int id) {
         NovelVO vo = novelService.getNovelById(id);
-        if (vo == null)
-            return ResultVO.error("小说作品不存在...");
+        if (vo == null) {
+            throw ApiException.notFound("小说作品不存在");
+        }
         return ResultVO.success(vo);
     }
 
@@ -63,8 +67,9 @@ public class NovelController {
     public ResultVO getContentById(@PathVariable int id) {
         // 查小说
         NovelVO novelVO = novelService.getNovelById(id);
-        if (novelVO == null)
-            return ResultVO.error("小说作品不存在...");
+        if (novelVO == null) {
+            throw ApiException.notFound("小说作品不存在");
+        }
         ResultVO result = ResultVO.success(novelVO);
         // 查章节
         List<NovelChapterVO> chapterVOList = chapterService.getList(id);
@@ -80,8 +85,10 @@ public class NovelController {
     }
 
     @PostMapping("/addNovel")
-    public ResultVO addNovel(@RequestBody NovelCreateDTO request) {
-         return ResultVO.success(novelService.addNovel(request));
+    public ResponseEntity<ResultVO> addNovel(@RequestBody NovelCreateDTO request) {
+        NovelVO novel = novelService.addNovel(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResultVO.created("新增小说成功", novel));
     }
 
     /**
@@ -89,14 +96,9 @@ public class NovelController {
      */
     @GetMapping("/deleteById/{id}")
     public ResultVO deleteById(@PathVariable int id) {
-        // 查小说
-        NovelVO novelVO = novelService.getNovelById(id);
-        if (novelVO == null)
-            return ResultVO.error("小说作品不存在...");
-        // 删除小说
-        Boolean b = novelService.deleteNovelById(id);
-        if (!b)
-            return ResultVO.error("删除小说失败...");
+        if (!novelService.deleteNovelById(id)) {
+            throw ApiException.notFound("小说作品不存在或已删除");
+        }
         return ResultVO.success("删除小说成功");
     }
 
@@ -106,7 +108,7 @@ public class NovelController {
     @PutMapping("/{id}/restore")
     public ResultVO restoreNovel(@PathVariable int id) {
         if (!novelService.restoreNovelById(id)) {
-            return ResultVO.error("小说不存在、已经恢复或不属于当前用户");
+            throw ApiException.notFound("小说不存在或不在回收站中");
         }
         return ResultVO.success("恢复小说成功");
     }

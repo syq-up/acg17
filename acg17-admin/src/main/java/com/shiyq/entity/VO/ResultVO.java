@@ -83,6 +83,16 @@ public class ResultVO extends HashMap<String, Object> {
     }
 
     /**
+     * 返回资源创建成功消息
+     * @param msg 返回内容
+     * @param data 数据对象
+     * @return 创建成功消息
+     */
+    public static ResultVO created(String msg, Object data) {
+        return new ResultVO(HttpStatus.CREATED, msg, data);
+    }
+
+    /**
      * 返回错误消息
      * @return 警告消息
      */

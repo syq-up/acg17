@@ -5,8 +5,11 @@ import com.shiyq.entity.DTO.GameUpdateDTO;
 import com.shiyq.entity.DTO.GameUploadDTO;
 import com.shiyq.entity.VO.PageVO;
 import com.shiyq.entity.VO.ResultVO;
+import com.shiyq.exception.ApiException;
 import com.shiyq.service.GameService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -39,13 +42,10 @@ public class GameController {
      * @return 新增结果
      */
     @PostMapping("/addGame")
-    public ResultVO addGame(@ModelAttribute GameUploadDTO gameUploadDTO) {
-        try {
-            String result = gameService.addGame(gameUploadDTO);
-            return ResultVO.success("新增成功", result);
-        } catch (Exception e) {
-            return ResultVO.error("新增游戏失败: " + e.getMessage());
-        }
+    public ResponseEntity<ResultVO> addGame(@ModelAttribute GameUploadDTO gameUploadDTO) throws Exception {
+        String result = gameService.addGame(gameUploadDTO);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResultVO.created("新增成功", result));
     }
 
     /**
@@ -56,16 +56,11 @@ public class GameController {
      */
     @GetMapping("/{id}")
     public ResultVO getGameById(@PathVariable Integer id) {
-        try {
-            Game game = gameService.getGameById(id);
-            if (game != null) {
-                return ResultVO.success("查询成功", game);
-            } else {
-                return ResultVO.error("游戏不存在");
-            }
-        } catch (Exception e) {
-            return ResultVO.error("查询失败：" + e.getMessage());
+        Game game = gameService.getGameById(id);
+        if (game == null) {
+            throw ApiException.notFound("游戏不存在");
         }
+        return ResultVO.success("查询成功", game);
     }
 
     /**
@@ -77,16 +72,10 @@ public class GameController {
      */
     @PutMapping("/{id}")
     public ResultVO updateGame(@PathVariable Integer id, @RequestBody GameUpdateDTO gameUpdateDTO) {
-        try {
-            boolean success = gameService.updateGame(id, gameUpdateDTO);
-            if (success) {
-                return ResultVO.success("更新成功");
-            } else {
-                return ResultVO.error("更新失败");
-            }
-        } catch (Exception e) {
-            return ResultVO.error("更新失败：" + e.getMessage());
+        if (!gameService.updateGame(id, gameUpdateDTO)) {
+            throw ApiException.notFound("游戏不存在或已删除");
         }
+        return ResultVO.success("更新成功");
     }
 
     /**
@@ -97,16 +86,10 @@ public class GameController {
      */
     @DeleteMapping("/{id}")
     public ResultVO deleteGame(@PathVariable Integer id) {
-        try {
-            boolean success = gameService.deleteGame(id);
-            if (success) {
-                return ResultVO.success("删除成功");
-            } else {
-                return ResultVO.error("删除失败");
-            }
-        } catch (Exception e) {
-            return ResultVO.error("删除失败：" + e.getMessage());
+        if (!gameService.deleteGame(id)) {
+            throw ApiException.notFound("游戏不存在或已删除");
         }
+        return ResultVO.success("删除成功");
     }
 
     /**
@@ -117,16 +100,10 @@ public class GameController {
      */
     @PutMapping("/{id}/restore")
     public ResultVO restoreGame(@PathVariable Integer id) {
-        try {
-            boolean success = gameService.restoreGame(id);
-            if (success) {
-                return ResultVO.success("恢复游戏成功");
-            } else {
-                return ResultVO.error("恢复游戏失败");
-            }
-        } catch (Exception e) {
-            return ResultVO.error("恢复游戏失败：" + e.getMessage());
+        if (!gameService.restoreGame(id)) {
+            throw ApiException.notFound("游戏不存在或不在回收站中");
         }
+        return ResultVO.success("恢复游戏成功");
     }
 
     /**
@@ -139,16 +116,10 @@ public class GameController {
     @PutMapping("/{id}/favorite")
     public ResultVO updateFavorite(@PathVariable Integer id,
                                    @RequestParam boolean favorite) {
-        try {
-            boolean success = gameService.updateFavorite(id, favorite);
-            if (success) {
-                return ResultVO.success("更新收藏状态成功");
-            } else {
-                return ResultVO.error("更新收藏状态失败");
-            }
-        } catch (Exception e) {
-            return ResultVO.error("更新收藏状态失败：" + e.getMessage());
+        if (!gameService.updateFavorite(id, favorite)) {
+            throw ApiException.notFound("游戏不存在或已删除");
         }
+        return ResultVO.success("更新收藏状态成功");
     }
 
     /**
@@ -157,16 +128,11 @@ public class GameController {
      */
     @GetMapping("/random")
     public ResultVO getRandomGame() {
-        try {
-            Game game = gameService.getRandomGame();
-            if (game != null) {
-                return ResultVO.success("查询成功", game);
-            } else {
-                return ResultVO.error("没有可用游戏");
-            }
-        } catch (Exception e) {
-            return ResultVO.error("查询失败：" + e.getMessage());
+        Game game = gameService.getRandomGame();
+        if (game == null) {
+            throw ApiException.notFound("没有可用游戏");
         }
+        return ResultVO.success("查询成功", game);
     }
 
 }

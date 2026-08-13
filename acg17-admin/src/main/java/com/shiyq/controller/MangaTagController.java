@@ -1,6 +1,7 @@
 package com.shiyq.controller;
 
 import com.shiyq.entity.DO.MangaTag;
+import com.shiyq.exception.ApiException;
 import com.shiyq.service.MangaTagService;
 import com.shiyq.entity.VO.ResultVO;
 import com.shiyq.constant.MangaConstant;
@@ -45,7 +46,10 @@ public class MangaTagController {
     @GetMapping("/{id}")
     public ResultVO getTagById(@PathVariable Integer id) {
         MangaTag tag = mangaTagService.getOwnedTagById(id);
-        return tag == null ? ResultVO.error("标签不存在") : ResultVO.success(tag);
+        if (tag == null) {
+            throw ApiException.notFound("标签不存在");
+        }
+        return ResultVO.success(tag);
     }
 
     /**
@@ -71,7 +75,7 @@ public class MangaTagController {
         if (success) {
             return ResultVO.success("更新成功");
         }
-        return ResultVO.error("更新标签失败");
+        throw ApiException.notFound("标签不存在");
     }
 
     /**
@@ -86,9 +90,9 @@ public class MangaTagController {
             return ResultVO.success("删除成功");
         }
         if (result == MangaTagService.DeleteResult.IN_USE) {
-            return ResultVO.error("标签正在被漫画引用，无法删除");
+            throw ApiException.conflict("标签正在被漫画引用，无法删除");
         }
-        return ResultVO.error("标签不存在");
+        throw ApiException.notFound("标签不存在");
     }
 
     /**
@@ -101,7 +105,7 @@ public class MangaTagController {
         // 将英文分类名称转换为数字分类
         Integer numericCategory = MangaConstant.parseCategory(category);
         if (numericCategory == null) {
-            return ResultVO.error("无效的分类参数");
+            throw new IllegalArgumentException("无效的分类参数");
         }
         
         List<MangaTagVO> tags = mangaTagService.getTagsByCategory(numericCategory);
@@ -120,7 +124,7 @@ public class MangaTagController {
         // 将英文分类名称转换为数字分类
         Integer numericCategory = MangaConstant.parseCategory(category);
         if (numericCategory == null) {
-            return ResultVO.error("无效的分类参数");
+            throw new IllegalArgumentException("无效的分类参数");
         }
         
         MangaTag tag = mangaTagService.getOrCreateTagByNameAndCategory(tagName, numericCategory);
