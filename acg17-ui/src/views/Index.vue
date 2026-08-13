@@ -53,8 +53,8 @@ export default {
     // 初始化背景前缀
     const initBgImgPrefix = () => {
       bgImgPrefix.value = store.state.userInfo.username
-        ? `/api/file/illustrations/web-img/bg_category_r18/${Math.floor(Math.random()*1)+3}/`
-        : `/api/file/illustrations/web-img/bg_category_r17/${Math.floor(Math.random()*1)+1}/`
+        ? `/api/public-assets/bg_category_r18/${Math.floor(Math.random()*1)+3}/`
+        : `/api/public-assets/bg_category_r17/${Math.floor(Math.random()*1)+1}/`
     }
     // 页面加载时初始化
     initBgImgPrefix()

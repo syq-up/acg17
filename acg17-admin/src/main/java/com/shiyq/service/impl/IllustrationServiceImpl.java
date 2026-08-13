@@ -10,6 +10,7 @@ import com.shiyq.mapper.IllustrationMapper;
 import com.shiyq.mapper.UserMapper;
 import com.shiyq.service.FileStorageService;
 import com.shiyq.service.IllustrationService;
+import com.shiyq.service.MediaUrlSigner;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.shiyq.util.NanoIdUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,14 +46,13 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
     private String illustrationFolder;
     @Value("${file.illustrationThumbFolder}")
     private String illustrationThumbFolder;
-    @Value("${serverFileUrlPrefix}")
-    private String serverFileUrlPrefix;
     @Value("${file.maxIllustrationFileSize:100MB}")
     private String maxIllustrationFileSize = "100MB";
 
     private IllustrationMapper illustrationMapper;
     private UserMapper userMapper;
     private FileStorageService fileStorageService;
+    private MediaUrlSigner mediaUrlSigner;
 
     @Autowired
     public void setIllustrationMapper(IllustrationMapper illustrationMapper) {
@@ -67,6 +67,11 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
     @Autowired
     public void setFileStorageService(FileStorageService fileStorageService) {
         this.fileStorageService = fileStorageService;
+    }
+
+    @Autowired
+    public void setMediaUrlSigner(MediaUrlSigner mediaUrlSigner) {
+        this.mediaUrlSigner = mediaUrlSigner;
     }
 
 
@@ -148,8 +153,7 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
         }
         // 把路径修改为外网访问地址，再返回给前端
         return IllustrationConvert.INSTANCE.toVO(illustration)
-                .setUrlTiny(generateAccessUrl(illustration.getPath(),
-                        illustration.getSize() >= 20971520 ? "" : "!resizing-tiny"));
+                .setUrlTiny(generateAccessUrl(illustration.getPath(), illustrationFolder));
     }
 
     @Override
@@ -248,7 +252,10 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
      * 生成外网访问的URL
      */
     public String generateAccessUrl(String filename, String style) {
-        return serverFileUrlPrefix + style + filename;
+        if (filename == null || filename.trim().isEmpty()) {
+            return null;
+        }
+        return mediaUrlSigner.sign(style, filename);
     }
 
 }

@@ -69,7 +69,7 @@ export default {
     });
 
     // 随机背景图片
-    const backgroundImage = `/api/file/illustrations/web-img/bg/00${Math.floor(Math.random() * 9) + 1}.jpg`;
+    const backgroundImage = `/api/public-assets/bg/00${Math.floor(Math.random() * 9) + 1}.jpg`;
 
     // 随机图片状态
     const random = reactive({

@@ -14,6 +14,7 @@ import com.shiyq.mapper.MangaMapper;
 import com.shiyq.mapper.UserMapper;
 import com.shiyq.service.FileStorageService;
 import com.shiyq.service.MangaTagService;
+import com.shiyq.service.MediaUrlSigner;
 import com.shiyq.util.ImageConverterUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,9 +83,11 @@ class FileOperationConsistencyServiceTest {
         service.setIllustrationMapper(illustrationMapper);
         service.setUserMapper(userMapper);
         service.setFileStorageService(fileStorageService);
+        MediaUrlSigner mediaUrlSigner = mock(MediaUrlSigner.class);
+        when(mediaUrlSigner.sign(anyString(), anyString())).thenReturn("/api/media?signed=test");
+        service.setMediaUrlSigner(mediaUrlSigner);
         ReflectionTestUtils.setField(service, "illustrationFolder", "illustrations/upload");
         ReflectionTestUtils.setField(service, "illustrationThumbFolder", "illustrations/thumb");
-        ReflectionTestUtils.setField(service, "serverFileUrlPrefix", "/file/");
 
         service.upload(new MockMultipartFile("file", "image.jpg", "image/jpeg", pngBytes()));
 

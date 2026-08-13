@@ -12,6 +12,7 @@ import com.shiyq.entity.VO.MangaDetailVO;
 import com.shiyq.mapper.MangaMapper;
 import com.shiyq.mapper.MangaTagRelationMapper;
 import com.shiyq.service.FileStorageService;
+import com.shiyq.service.MediaUrlSigner;
 import com.shiyq.service.MangaService;
 import com.shiyq.service.MangaTagService;
 import com.shiyq.entity.VO.PageVO;
@@ -74,13 +75,11 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
     private MangaTagRelationMapper mangaTagRelationMapper;
     private MangaTagService mangaTagService;
     private FileStorageService fileStorageService;
+    private MediaUrlSigner mediaUrlSigner;
     
     @Value("${file.mangaFolder}")
     private String mangaFolder;
     
-    @Value("${serverFileUrlPrefix}")
-    private String serverFileUrlPrefix;
-
     @Value("${file.mangaZip.maxEntries:5000}")
     private int maxZipEntries = 5000;
 
@@ -108,6 +107,11 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
     @Autowired
     public void setFileStorageService(FileStorageService fileStorageService) {
         this.fileStorageService = fileStorageService;
+    }
+
+    @Autowired
+    public void setMediaUrlSigner(MediaUrlSigner mediaUrlSigner) {
+        this.mediaUrlSigner = mediaUrlSigner;
     }
 
     @Override
@@ -141,7 +145,10 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
      * 生成外网访问的URL
      */
     public String generateAccessUrl(String path) {
-        return serverFileUrlPrefix + mangaFolder + path;
+        if (path == null || path.trim().isEmpty()) {
+            return null;
+        }
+        return mediaUrlSigner.sign(mangaFolder, path);
     }
 
     @Override

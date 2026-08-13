@@ -50,8 +50,9 @@ file:
   mangaFolder: manga/ # 漫画上传的次级文件夹
   novelFolder: novels/ # 小说上传的次级文件夹
   gameFolder: games/ # 游戏上传的次级文件夹
-  # 静态资源对外暴露的访问路径
-  staticAccessPath: /file/**
+  # 只公开站点自带的装饰素材；用户上传文件由 /media 签名接口提供
+  publicAssetFolder: illustrations/web-img/
+  publicAssetAccessPath: /public-assets/**
   # 最大上传大小
   maxFileSize: 512MB # 单个文件最大大小
   maxRequestSize: 1024MB # 单次请求最大大小
@@ -61,9 +62,9 @@ file:
     maxEntrySize: 100MB # 单个文件最大解压大小
     maxExtractedSize: 1GB # 整个压缩包最大解压大小
 
-# 服务器地址
-serverFileUrlPrefix: ${server.servlet.context-path}/file/
-
 security:
   jwt:
     secret: ${JWT_SECRET}
+  media:
+    secret: ${MEDIA_URL_SECRET}
+    expiration-minutes: ${MEDIA_URL_EXPIRATION_MINUTES:60}

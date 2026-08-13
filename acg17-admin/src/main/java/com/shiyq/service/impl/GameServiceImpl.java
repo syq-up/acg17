@@ -10,6 +10,7 @@ import com.shiyq.entity.VO.PageVO;
 import com.shiyq.mapper.GameMapper;
 import com.shiyq.service.FileStorageService;
 import com.shiyq.service.GameService;
+import com.shiyq.service.MediaUrlSigner;
 import com.shiyq.util.DesktopIniUtil;
 import com.shiyq.util.ImageConverterUtil;
 import com.shiyq.util.ImageThumbnailUtil;
@@ -41,11 +42,9 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
 
     @Value("${file.gameFolder}")
     private String gameFolder;
-    @Value("${serverFileUrlPrefix}")
-    private String serverFileUrlPrefix;
-
     private GameMapper gameMapper;
     private FileStorageService fileStorageService;
+    private MediaUrlSigner mediaUrlSigner;
 
     @Autowired
     public void setGameMapper(GameMapper gameMapper) {
@@ -55,6 +54,11 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
     @Autowired
     public void setFileStorageService(FileStorageService fileStorageService) {
         this.fileStorageService = fileStorageService;
+    }
+
+    @Autowired
+    public void setMediaUrlSigner(MediaUrlSigner mediaUrlSigner) {
+        this.mediaUrlSigner = mediaUrlSigner;
     }
 
     @Override
@@ -71,14 +75,7 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
             
             // 处理封面和预览图片URL
             for (Game game : gameList) {
-                game.setCover(generateAccessUrl(game.getCover()));
-                if (game.getPreviewImages() != null && !game.getPreviewImages().isEmpty()) {
-                    List<String> processedPreviewImages = new ArrayList<>();
-                    for (String previewImage : game.getPreviewImages()) {
-                        processedPreviewImages.add(generateAccessUrl(previewImage));
-                    }
-                    game.setPreviewImages(processedPreviewImages);
-                }
+                addAccessUrls(game);
             }
             
             // 封装返回结果
@@ -99,7 +96,10 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
      * @return 完整的访问URL
      */
     private String generateAccessUrl(String path) {
-        return serverFileUrlPrefix + gameFolder + path;
+        if (path == null || path.trim().isEmpty()) {
+            return null;
+        }
+        return mediaUrlSigner.sign(gameFolder, path);
     }
 
     @Override
@@ -222,7 +222,11 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
 
     @Override
     public Game getGameById(Integer id) {
-        return gameMapper.selectByIdAndUserId(id, UserContext.requireCurrentUserId());
+        Game game = gameMapper.selectByIdAndUserId(id, UserContext.requireCurrentUserId());
+        if (game != null) {
+            addAccessUrls(game);
+        }
+        return game;
     }
 
     private String storeImage(MultipartFile image, Path directory, String baseName) throws IOException {
@@ -297,7 +301,13 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
         if (game == null) {
             return null;
         }
+        addAccessUrls(game);
+        return game;
+    }
+
+    private void addAccessUrls(Game game) {
         game.setCover(generateAccessUrl(game.getCover()));
+        game.setIcon(generateAccessUrl(game.getIcon()));
         if (game.getPreviewImages() != null && !game.getPreviewImages().isEmpty()) {
             List<String> processedPreviewImages = new ArrayList<>();
             for (String previewImage : game.getPreviewImages()) {
@@ -305,7 +315,6 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
             }
             game.setPreviewImages(processedPreviewImages);
         }
-        return game;
     }
 
 }

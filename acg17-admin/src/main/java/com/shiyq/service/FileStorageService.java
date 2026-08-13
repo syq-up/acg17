@@ -14,6 +14,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
@@ -53,6 +55,23 @@ public class FileStorageService {
             throw new IOException("文件路径超出指定目录: " + relativePath);
         }
         return target;
+    }
+
+    /**
+     * 解析签名中携带的上传根目录相对路径，并拒绝目录、符号链接和越界文件。
+     */
+    public Path resolveReadableFile(String relativePath) throws IOException {
+        Path root = uploadRoot();
+        Path target = resolveManagedPath("", relativePath);
+        if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+            throw new NoSuchFileException(relativePath);
+        }
+        Path realRoot = root.toRealPath();
+        Path realTarget = target.toRealPath();
+        if (!realTarget.startsWith(realRoot)) {
+            throw new IOException("媒体文件路径超出上传根目录: " + relativePath);
+        }
+        return realTarget;
     }
 
     public Path createStagingDirectory(String prefix) throws IOException {

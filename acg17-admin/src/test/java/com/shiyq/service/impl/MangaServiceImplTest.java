@@ -7,6 +7,7 @@ import com.shiyq.entity.VO.MangaDetailVO;
 import com.shiyq.mapper.MangaMapper;
 import com.shiyq.mapper.MangaTagRelationMapper;
 import com.shiyq.service.MangaTagService;
+import com.shiyq.service.MediaUrlSigner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,11 +48,14 @@ class MangaServiceImplTest {
         when(mangaMapper.getMangaDetailById(9L, USER_ID)).thenReturn(manga);
         MangaTagService mangaTagService = mock(MangaTagService.class);
         when(mangaTagService.getTagsByMangaId(9)).thenReturn(Collections.emptyList());
+        MediaUrlSigner mediaUrlSigner = mock(MediaUrlSigner.class);
+        when(mediaUrlSigner.sign("manga/", "9/cover.jpg")).thenReturn("/api/media?signed=cover");
+        when(mediaUrlSigner.sign("manga/", "9/1/page.png")).thenReturn("/api/media?signed=page");
 
         MangaServiceImpl service = new MangaServiceImpl();
         service.setMangaMapper(mangaMapper);
         service.setMangaTagService(mangaTagService);
-        ReflectionTestUtils.setField(service, "serverFileUrlPrefix", "/api/file/");
+        service.setMediaUrlSigner(mediaUrlSigner);
         ReflectionTestUtils.setField(service, "mangaFolder", "manga/");
 
         MangaDetailVO result = service.getMangaById(9L);
@@ -59,7 +63,7 @@ class MangaServiceImplTest {
         List<?> pageList = (List<?>) result.getPages().get(0).get("pagelist");
         Map<?, ?> page = (Map<?, ?>) pageList.get(0);
         String path = (String) page.get("path");
-        assertEquals("/api/file/manga/9/1/page.png", path);
+        assertEquals("/api/media?signed=page", path);
     }
 
     @Test
