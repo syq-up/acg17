@@ -133,20 +133,6 @@ public class MangaController {
     }
 
     /**
-     * 物理删除漫画
-     * @param id 漫画ID
-     * @return 删除结果
-     */
-    @DeleteMapping("/{id}/realDelete")
-    public ResultVO realDeleteManga(@PathVariable int id) {
-        boolean success = mangaService.realDeleteMangaById(id);
-        if (success) {
-            return ResultVO.success("清除成功");
-        }
-        return ResultVO.error("清除漫画失败");
-    }
-
-    /**
      * 更新漫画收藏状态
      * @param id 漫画ID
      * @param favorite 收藏状态

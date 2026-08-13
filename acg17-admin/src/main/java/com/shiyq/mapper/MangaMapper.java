@@ -94,14 +94,6 @@ public interface MangaMapper extends BaseMapper<Manga> {
     int restoreMangaById(@Param("id") Long id, @Param("userId") Integer userId);
 
     /**
-     * 物理删除漫画
-     * @param id 漫画ID
-     * @param userId 当前用户ID
-     * @return 受影响的行数
-     */
-    int realDeleteById(@Param("id") Integer id, @Param("userId") Integer userId);
-
-    /**
      * 更新当前用户漫画的收藏状态
      */
     int updateFavoriteByIdAndUserId(@Param("id") Long id,

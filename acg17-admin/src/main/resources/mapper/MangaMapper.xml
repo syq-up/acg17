@@ -97,11 +97,6 @@
         WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 1
     </update>
 
-    <!-- 物理删除 -->
-    <delete id="realDeleteById">
-        DELETE FROM `manga` WHERE `id` = #{id} AND `user_id` = #{userId}
-    </delete>
-
     <update id="updateFavoriteByIdAndUserId">
         UPDATE `manga`
         SET `favorite` = #{favorite}, `update_time` = NOW()

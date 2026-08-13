@@ -1089,26 +1089,6 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean realDeleteMangaById(int id) {
-        int userId = UserContext.requireCurrentUserId();
-        Manga manga = mangaMapper.getMangaDetailById((long) id, userId);
-        if (manga == null) {
-            return false;
-        }
-        Path mangaDirectory = resolveMangaPath(String.valueOf(manga.getId()));
-
-        boolean deleted = mangaMapper.realDeleteById(id, userId) > 0;
-        if (!deleted) {
-            return false;
-        }
-
-        deleteAfterCommit(mangaDirectory);
-
-        return true;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
     public boolean addTagToManga(long mangaId, Integer tagId) {
         int userId = UserContext.requireCurrentUserId();
         Manga manga = mangaMapper.getOwnedMangaById(mangaId, userId);

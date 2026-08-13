@@ -127,9 +127,6 @@
             :title="manga.deleted ? '恢复漫画' : '删除漫画'">
             <icon :icon="manga.deleted ? '#icon-restore' : '#icon-delete'" class="icon-svg"></icon>
           </button>
-          <button class="btn-icon remove" title="清除漫画" v-show="manga.deleted" @click="realDelete">
-            <icon icon="#icon-cancel" class="icon-svg"></icon>
-          </button>
           <button class="btn-icon" title="下载">
             <icon icon="#icon-download" class="icon-svg"></icon>
           </button>
@@ -490,20 +487,6 @@ export default {
       }
     }
 
-    async function realDelete() {
-      try {
-        const res = await server.delete(`/manga/${manga.id}/realDelete`)
-        if (res.code === 200) {
-          router.push(`/acg/manga`)
-          ElMessage.success('漫画已清除')
-        } else {
-          ElMessage.error('清除漫画失败')
-        }
-      } catch (error) {
-        console.error('清除操作失败:', error)
-      }
-    }
-
     // 随机打开一个漫画
     function randomManga() {
       scrollToTop()
@@ -709,7 +692,6 @@ export default {
       goToChapter,
       toggleFavorite,
       toggleDeleteStatus,
-      realDelete,
       searchByTag,
       randomManga,
       scrollToTop,
@@ -957,19 +939,12 @@ export default {
   border-color: #57d055;
   color: #57d055;
 }
-.btn-icon.remove {
-  border-color: #f56565;
-  color: #f56565;
-}
 
 .btn-icon.favorite:hover {
   background-color: #ff5c64;
 }
 .btn-icon.restore:hover {
   background-color: #57d055;
-}
-.btn-icon.remove:hover {
-  background-color: #f56565;
 }
 
 .icon {

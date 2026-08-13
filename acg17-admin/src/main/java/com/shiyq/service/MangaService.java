@@ -74,13 +74,6 @@ public interface MangaService extends IService<Manga> {
     boolean restoreMangaById(long id);
 
     /**
-     * 物理删除漫画
-     * @param id 漫画ID
-     * @return 是否删除成功
-     */
-    boolean realDeleteMangaById(int id);
-
-    /**
      * 更新漫画收藏状态
      * @param id 漫画ID
      * @param favorite 收藏状态
