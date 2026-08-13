@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shiyq.mapper.MangaTagMapper">
+
+    <select id="listWithCounts" resultType="com.shiyq.entity.VO.MangaTagVO">
+        SELECT t.`id` AS `tag_id`, t.`tag_name`, t.`category`, COUNT(active_manga.`id`) AS `tag_count`
+        FROM `manga_tag` t
+        LEFT JOIN `manga_tag_relation` r ON r.`tag_id` = t.`id`
+        LEFT JOIN `manga` active_manga
+               ON active_manga.`id` = r.`manga_id`
+              AND active_manga.`user_id` = #{userId}
+              AND active_manga.`deleted` = #{deleted}
+        WHERE t.`user_id` = #{userId}
+        <if test="category != null">
+            AND t.`category` = #{category}
+        </if>
+        GROUP BY t.`id`, t.`tag_name`, t.`category`
+        ORDER BY `tag_count` DESC, t.`tag_name`, t.`id`
+    </select>
+
+    <select id="listByMangaIdWithCounts" resultType="com.shiyq.entity.VO.MangaTagVO">
+        SELECT t.`id` AS `tag_id`, t.`tag_name`, t.`category`,
+               (
+                   SELECT COUNT(*)
+                   FROM `manga_tag_relation` count_relation
+                   INNER JOIN `manga` active_manga
+                           ON active_manga.`id` = count_relation.`manga_id`
+                          AND active_manga.`user_id` = #{userId}
+                          AND active_manga.`deleted` = 0
+                   WHERE count_relation.`tag_id` = t.`id`
+               ) AS `tag_count`
+        FROM `manga_tag_relation` r
+        INNER JOIN `manga` owned_manga
+                ON owned_manga.`id` = r.`manga_id`
+               AND owned_manga.`user_id` = #{userId}
+        INNER JOIN `manga_tag` t
+                ON t.`id` = r.`tag_id`
+               AND t.`user_id` = #{userId}
+        WHERE r.`manga_id` = #{mangaId}
+        ORDER BY t.`category`, `tag_count` DESC, t.`tag_name`, t.`id`
+    </select>
+
+</mapper>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shiyq.mapper.IllustrationMapper">
+    <select id="getListByCondition" resultType="com.shiyq.entity.DO.Illustration">
+        <bind name="offset" value="(pageNum-1)*pageSize"/>
+        SELECT * FROM `illustration`
+        <where>
+            <if test="userId != null">`user_id`=#{userId}</if>
+            <if test="deleted != null">AND `deleted`=#{deleted}</if>
+        </where>
+        ORDER BY `sort_order` DESC, `id` DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="getTotalByCondition" resultType="long">
+        SELECT COUNT(*) FROM `illustration`
+        <where>
+            <if test="userId != null">`user_id`=#{userId}</if>
+            <if test="deleted != null">AND `deleted`=#{deleted}</if>
+        </where>
+    </select>
+
+    <select id="getRandomRecord" resultType="com.shiyq.entity.DO.Illustration">
+        SELECT * FROM `illustration` WHERE `deleted` = 0 ORDER BY RAND() LIMIT 1
+    </select>
+
+    <update id="deleteByIdAndUserId">
+        UPDATE `illustration`
+        SET `deleted` = 1, `update_time` = NOW()
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+    </update>
+
+    <select id="getExpiredIds" resultType="int">
+        SELECT `id` FROM `illustration`
+        WHERE `deleted` = 1 AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+        ORDER BY `update_time`, `id`
+    </select>
+
+    <select id="selectExpiredByIdForUpdate" resultType="com.shiyq.entity.DO.Illustration">
+        SELECT * FROM `illustration`
+        WHERE `id` = #{id}
+          AND `deleted` = 1
+          AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+        FOR UPDATE
+    </select>
+
+    <delete id="realDeleteExpiredById">
+        DELETE FROM `illustration`
+        WHERE `id` = #{id}
+          AND `deleted` = 1
+          AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+    </delete>
+
+    <update id="restoreByIdAndUserId">
+        UPDATE `illustration`
+        SET `deleted` = 0, `update_time` = NOW()
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 1
+    </update>
+
+    <select id="selectActiveByIdForUpdate" resultType="com.shiyq.entity.DO.Illustration">
+        SELECT `id`, `sort_order`
+        FROM `illustration`
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+        FOR UPDATE
+    </select>
+
+    <update id="decrementSortOrderRange">
+        UPDATE `illustration`
+        SET `sort_order` = `sort_order` - 1,
+            `update_time` = `update_time`
+        WHERE `user_id` = #{userId}
+          AND `sort_order` &gt; #{oldSortOrder}
+          AND `sort_order` &lt;= #{targetSortOrder}
+        ORDER BY `sort_order` ASC
+    </update>
+
+    <update id="incrementSortOrderRange">
+        UPDATE `illustration`
+        SET `sort_order` = `sort_order` + 1,
+            `update_time` = `update_time`
+        WHERE `user_id` = #{userId}
+          AND `sort_order` &gt;= #{targetSortOrder}
+          AND `sort_order` &lt; #{oldSortOrder}
+        ORDER BY `sort_order` DESC
+    </update>
+
+    <update id="moveSortOrderToTemporary">
+        UPDATE `illustration`
+        SET `sort_order` = 0, `update_time` = `update_time`
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+    </update>
+
+    <update id="updateSortOrderByIdAndUserId">
+        UPDATE `illustration`
+        SET `sort_order` = #{sortOrder}, `update_time` = `update_time`
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+    </update>
+
+    <select id="getMaxSortOrder" resultType="int">
+        SELECT COALESCE(MAX(`sort_order`), 0)
+        FROM `illustration`
+        WHERE `user_id` = #{userId}
+    </select>
+
+    <select id="getAll" resultType="com.shiyq.entity.DO.Illustration">
+        SELECT `id`, `path` FROM `illustration`
+    </select>
+</mapper>

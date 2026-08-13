@@ -1,0 +1,129 @@
+package com.shiyq.controller;
+
+import com.shiyq.entity.DO.MangaTag;
+import com.shiyq.service.MangaTagService;
+import com.shiyq.entity.VO.ResultVO;
+import com.shiyq.constant.MangaConstant;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import com.shiyq.entity.VO.MangaTagListVO;
+import com.shiyq.entity.VO.MangaTagVO;
+
+/**
+ * <p>
+ * 漫画标签 前端控制器
+ * </p>
+ *
+ * @author shiyq
+ * @since 2022-01-19
+ */
+@RestController
+@RequestMapping("/manga-tag")
+public class MangaTagController {
+
+    @Autowired
+    private MangaTagService mangaTagService;
+
+    /**
+     * 获取所有标签
+     * @param deleted 是否统计回收站中的漫画
+     * @return 标签列表
+     */
+    @GetMapping("/list")
+    public ResultVO getTagList(@RequestParam(defaultValue = "false") boolean deleted) {
+        MangaTagListVO tags = mangaTagService.listTags(deleted);
+        return ResultVO.success(tags);
+    }
+
+    /**
+     * 根据ID获取标签
+     * @param id 标签ID
+     * @return 标签信息
+     */
+    @GetMapping("/{id}")
+    public ResultVO getTagById(@PathVariable Integer id) {
+        MangaTag tag = mangaTagService.getOwnedTagById(id);
+        return tag == null ? ResultVO.error("标签不存在") : ResultVO.success(tag);
+    }
+
+    /**
+     * 新增标签
+     * @param mangaTag 标签对象
+     * @return 新增结果
+     */
+    @PostMapping
+    public ResultVO addTag(@RequestBody MangaTag mangaTag) {
+        MangaTag savedTag = mangaTagService.getOrCreateTagByNameAndCategory(
+                mangaTag.getTagName(), mangaTag.getCategory());
+        return ResultVO.success(savedTag);
+    }
+
+    /**
+     * 更新标签
+     * @param mangaTag 标签对象
+     * @return 更新结果
+     */
+    @PutMapping
+    public ResultVO updateTag(@RequestBody MangaTag mangaTag) {
+        boolean success = mangaTagService.updateOwnedTag(mangaTag);
+        if (success) {
+            return ResultVO.success("更新成功");
+        }
+        return ResultVO.error("更新标签失败");
+    }
+
+    /**
+     * 删除标签
+     * @param id 标签ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/{id}")
+    public ResultVO deleteTag(@PathVariable Integer id) {
+        MangaTagService.DeleteResult result = mangaTagService.deleteUnusedTag(id);
+        if (result == MangaTagService.DeleteResult.DELETED) {
+            return ResultVO.success("删除成功");
+        }
+        if (result == MangaTagService.DeleteResult.IN_USE) {
+            return ResultVO.error("标签正在被漫画引用，无法删除");
+        }
+        return ResultVO.error("标签不存在");
+    }
+
+    /**
+     * 根据分类获取标签列表
+     * @param category 分类标记（支持英文名称：character, male, female, mixed, other, original 或数字：1-6）
+     * @return 标签列表
+     */
+    @GetMapping("/category/{category}")
+    public ResultVO getTagsByCategory(@PathVariable String category) {
+        // 将英文分类名称转换为数字分类
+        Integer numericCategory = MangaConstant.parseCategory(category);
+        if (numericCategory == null) {
+            return ResultVO.error("无效的分类参数");
+        }
+        
+        List<MangaTagVO> tags = mangaTagService.getTagsByCategory(numericCategory);
+        return ResultVO.success(tags);
+    }
+
+    /**
+     * 根据标签名和分类获取或创建标签
+     * @param tagName 标签名
+     * @param category 分类标记（支持英文名称：character, male, female, mixed, other, original 或数字：1-6）
+     * @return 标签信息
+     */
+    @PostMapping("/get-or-create-by-category")
+    public ResultVO getOrCreateTagByNameAndCategory(@RequestParam String tagName, 
+                                                               @RequestParam String category) {
+        // 将英文分类名称转换为数字分类
+        Integer numericCategory = MangaConstant.parseCategory(category);
+        if (numericCategory == null) {
+            return ResultVO.error("无效的分类参数");
+        }
+        
+        MangaTag tag = mangaTagService.getOrCreateTagByNameAndCategory(tagName, numericCategory);
+        return ResultVO.success(tag);
+    }
+}

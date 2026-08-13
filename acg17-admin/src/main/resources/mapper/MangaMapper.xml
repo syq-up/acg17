@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shiyq.mapper.MangaMapper">
+
+    <resultMap id="MangaResultMap" type="com.shiyq.entity.DO.Manga">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="title" property="title"/>
+        <result column="chinese_title" property="chineseTitle"/>
+        <result column="cover" property="cover"/>
+        <result column="description" property="description"/>
+        <result column="author" property="author"/>
+        <result column="pages" property="pages"/>
+        <result column="size" property="size"/>
+        <result column="favorite" property="favorite"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 根据条件分页查询漫画列表 -->
+    <select id="getListByCondition" resultType="com.shiyq.entity.DO.Manga">
+        <bind name="offset" value="(pageNum-1)*pageSize"/>
+        SELECT m.`id`, m.`title`, m.`chinese_title`, m.`cover`, m.`favorite` FROM `manga` m
+        <where>
+            <if test="userId != null">m.`user_id`=#{userId}</if>
+            <if test="deleted != null">AND m.`deleted`=#{deleted}</if>
+            <if test="author != null and author != ''">AND m.`author` LIKE CONCAT('%', #{author}, '%')</if>
+            <if test="title != null and title != ''">AND (m.`title` LIKE CONCAT('%', #{title}, '%') OR m.`chinese_title` LIKE CONCAT('%', #{title}, '%'))</if>
+            <if test="tagId != null">
+                AND EXISTS (
+                    SELECT 1 FROM `manga_tag_relation` r
+                    INNER JOIN `manga_tag` t
+                            ON t.`id` = r.`tag_id` AND t.`user_id` = #{userId}
+                    WHERE r.`manga_id` = m.`id` AND r.`tag_id` = #{tagId}
+                )
+            </if>
+        </where>
+        ORDER BY m.`id` DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <!-- 根据条件查询漫画总记录数 -->
+    <select id="getTotalByCondition" resultType="long">
+        SELECT COUNT(*) FROM `manga` m
+        <where>
+            <if test="userId != null">m.`user_id`=#{userId}</if>
+            <if test="deleted != null">AND m.`deleted`=#{deleted}</if>
+            <if test="author != null and author != ''">AND m.`author` LIKE CONCAT('%', #{author}, '%')</if>
+            <if test="title != null and title != ''">AND (m.`title` LIKE CONCAT('%', #{title}, '%') OR m.`chinese_title` LIKE CONCAT('%', #{title}, '%'))</if>
+            <if test="tagId != null">
+                AND EXISTS (
+                    SELECT 1 FROM `manga_tag_relation` r
+                    INNER JOIN `manga_tag` t
+                            ON t.`id` = r.`tag_id` AND t.`user_id` = #{userId}
+                    WHERE r.`manga_id` = m.`id` AND r.`tag_id` = #{tagId}
+                )
+            </if>
+        </where>
+    </select>
+
+    <!-- 根据ID查询漫画详情 -->
+    <select id="getMangaDetailById" resultMap="MangaResultMap">
+        SELECT `id`, `title`, `chinese_title`, `cover`, `description`, `author`, `size`,
+               `pages`, `favorite`, `update_time`, `deleted`, `user_id`
+        FROM `manga`
+        WHERE `id` = #{id} AND `user_id` = #{userId}
+    </select>
+
+    <select id="getOwnedMangaById" resultMap="MangaResultMap">
+        SELECT * FROM `manga`
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+    </select>
+
+    <select id="selectOwnedMangaByIdForUpdate" resultMap="MangaResultMap">
+        SELECT * FROM `manga`
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+        FOR UPDATE
+    </select>
+
+    <update id="updateChapterData">
+        UPDATE `manga`
+        SET `pages` = #{pages}, `size` = #{size}, `update_time` = NOW()
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+    </update>
+
+    <update id="deleteMangaByIdAndUserId">
+        UPDATE `manga`
+        SET `deleted` = 1, `update_time` = NOW()
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+    </update>
+
+    <!-- 恢复漫画 -->
+    <update id="restoreMangaById">
+        UPDATE `manga`
+        SET `deleted` = 0, `update_time` = NOW()
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 1
+    </update>
+
+    <!-- 物理删除 -->
+    <delete id="realDeleteById">
+        DELETE FROM `manga` WHERE `id` = #{id} AND `user_id` = #{userId}
+    </delete>
+
+    <update id="updateFavoriteByIdAndUserId">
+        UPDATE `manga`
+        SET `favorite` = #{favorite}, `update_time` = NOW()
+        WHERE `id` = #{id} AND `user_id` = #{userId} AND `deleted` = 0
+    </update>
+
+    <select id="getExpiredIds" resultType="int">
+        SELECT `id` FROM `manga`
+        WHERE `deleted` = 1 AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+        ORDER BY `update_time`, `id`
+    </select>
+
+    <select id="selectExpiredByIdForUpdate" resultMap="MangaResultMap">
+        SELECT * FROM `manga`
+        WHERE `id` = #{id}
+          AND `deleted` = 1
+          AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+        FOR UPDATE
+    </select>
+
+    <delete id="realDeleteExpiredById">
+        DELETE FROM `manga`
+        WHERE `id` = #{id}
+          AND `deleted` = 1
+          AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+    </delete>
+
+    <select id="getAllForFileCleanup" resultMap="MangaResultMap">
+        SELECT `id`, `pages` FROM `manga`
+    </select>
+
+    <!-- 随机获取一个漫画 -->
+    <select id="getRandomRecord" resultMap="MangaResultMap">
+        SELECT * FROM `manga`
+        WHERE `user_id` = #{userId} AND `deleted` = 0
+        ORDER BY RAND() LIMIT 1
+    </select>
+
+</mapper>

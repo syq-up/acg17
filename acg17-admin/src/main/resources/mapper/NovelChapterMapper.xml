@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shiyq.mapper.NovelChapterMapper">
+
+    <resultMap id="NovelChapterResultMap" type="com.shiyq.entity.DO.NovelChapter">
+        <id column="id" property="id"/>
+        <result column="novel_id" property="novelId"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content" typeHandler="com.shiyq.handler.StringListTypeHandler"/>
+        <result column="total_words" property="totalWords"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="getList" resultMap="NovelChapterResultMap">
+        SELECT c.`id`, c.`novel_id`, c.`title`, c.`total_words`, c.`sort_order`,
+               c.`create_time`, c.`update_time`
+        FROM `novel_chapter` c
+        INNER JOIN `novel` n ON n.`id` = c.`novel_id`
+        WHERE c.`novel_id` = #{novelId}
+          AND n.`user_id` = #{userId}
+          AND n.`deleted` = 0
+        ORDER BY c.`sort_order`, c.`id`
+    </select>
+
+    <select id="selectOwnedById" resultMap="NovelChapterResultMap">
+        SELECT c.*
+        FROM `novel_chapter` c
+        INNER JOIN `novel` n ON n.`id` = c.`novel_id`
+        WHERE c.`id` = #{id}
+          AND n.`user_id` = #{userId}
+          AND n.`deleted` = 0
+    </select>
+
+    <select id="getNextSortOrder" resultType="int">
+        SELECT COALESCE(MAX(c.`sort_order`), 0) + 1
+        FROM `novel_chapter` c
+        INNER JOIN `novel` n ON n.`id` = c.`novel_id`
+        WHERE c.`novel_id` = #{novelId}
+          AND n.`user_id` = #{userId}
+          AND n.`deleted` = 0
+    </select>
+
+    <update id="updateOwnedChapter">
+        UPDATE `novel_chapter` c
+        INNER JOIN `novel` n ON n.`id` = c.`novel_id`
+        SET c.`title` = #{chapter.title},
+            c.`content` = #{chapter.content,typeHandler=com.shiyq.handler.StringListTypeHandler},
+            c.`total_words` = #{chapter.totalWords},
+            c.`update_time` = NOW()
+        WHERE c.`id` = #{chapter.id}
+          AND n.`user_id` = #{userId}
+          AND n.`deleted` = 0
+    </update>
+
+</mapper>

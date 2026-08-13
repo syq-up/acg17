@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shiyq.mapper.UserInfoMapper">
+    <select id="selectUserInfoByUserId" resultType="com.shiyq.entity.VO.UserInfoVO">
+        SELECT u.`username`,
+               ui.`nickname`,
+               ui.`avatar_path` AS `avatarUrl`,
+               DATE_FORMAT(u.`create_time`, '%Y-%m-%d') AS `createTime`,
+               (SELECT COUNT(*)
+                FROM `illustration` i
+                WHERE i.`user_id` = u.`id` AND i.`deleted` = 0) AS `illustrationCount`,
+               (SELECT COALESCE(SUM(i.`size`), 0)
+                FROM `illustration` i
+                WHERE i.`user_id` = u.`id`) AS `illustrationStorageBytes`,
+               (SELECT COUNT(*)
+                FROM `manga` m
+                WHERE m.`user_id` = u.`id` AND m.`deleted` = 0) AS `mangaCount`,
+               (SELECT COALESCE(SUM(m.`size`), 0)
+                FROM `manga` m
+                WHERE m.`user_id` = u.`id`) AS `mangaStorageBytes`,
+               (SELECT COUNT(*)
+                FROM `novel` n
+                WHERE n.`user_id` = u.`id` AND n.`deleted` = 0) AS `novelCount`,
+               (SELECT COALESCE(SUM(n.`total_words`), 0)
+                FROM `novel` n
+                WHERE n.`user_id` = u.`id` AND n.`deleted` = 0) AS `novelWords`
+        FROM `user` u
+        INNER JOIN `user_info` ui ON ui.`user_id` = u.`id`
+        WHERE u.`id` = #{userId} AND u.`deleted` = 0
+    </select>
+</mapper>
