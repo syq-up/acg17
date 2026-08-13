@@ -5,6 +5,8 @@ import com.shiyq.entity.VO.ResultVO;
 import com.shiyq.entity.VO.IllustrationVO;
 import com.shiyq.exception.ApiException;
 import com.shiyq.service.IllustrationService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,7 +48,7 @@ public class IllustrationController {
      * 分页获取插画作品
      */
     @GetMapping("/getList")
-    public ResultVO getList(@RequestParam long pageNum) {
+    public ResultVO getList(@RequestParam @Positive(message = "页码必须大于0") long pageNum) {
         return ResultVO.success(illustrationService.getList(pageNum, false));
     }
 
@@ -54,7 +56,7 @@ public class IllustrationController {
      * 分页获取已逻辑删除的插画作品
      */
     @GetMapping("/getRecycleList")
-    public ResultVO getRecycleList(@RequestParam long pageNum) {
+    public ResultVO getRecycleList(@RequestParam @Positive(message = "页码必须大于0") long pageNum) {
         return ResultVO.success(illustrationService.getList(pageNum, true));
     }
 
@@ -74,7 +76,7 @@ public class IllustrationController {
      * 逻辑删除一张插画
      */
     @GetMapping("/deleteById/{id}")
-    public ResultVO deleteById(@PathVariable int id) {
+    public ResultVO deleteById(@PathVariable @Positive(message = "插画ID必须大于0") int id) {
         if (!illustrationService.deleteById(id)) {
             throw ApiException.notFound("插画不存在或已删除");
         }
@@ -85,7 +87,7 @@ public class IllustrationController {
      * 回收一张逻辑删除的插画
      */
     @GetMapping("/restoreById/{id}")
-    public ResultVO restoreById(@PathVariable int id) {
+    public ResultVO restoreById(@PathVariable @Positive(message = "插画ID必须大于0") int id) {
         if (!illustrationService.restoreById(id)) {
             throw ApiException.notFound("插画不存在或不在回收站中");
         }
@@ -96,7 +98,7 @@ public class IllustrationController {
      * 重新排序插画位置
      */
     @PostMapping("/reorder")
-    public ResultVO reorder(@RequestBody ReorderRequest reorderRequest) {
+    public ResultVO reorder(@Valid @RequestBody ReorderRequest reorderRequest) {
         if (!illustrationService.reorder(reorderRequest)) {
             throw ApiException.notFound("待排序的插画不存在");
         }

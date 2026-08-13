@@ -43,6 +43,7 @@ file:
   maxFileSize: 512MB
   maxRequestSize: 1024MB
   maxIllustrationFileSize: 100MB
+  maxGameImageFileSize: 20MB
   mangaZip:
     maxEntries: 5000
     maxEntrySize: 100MB

@@ -7,6 +7,9 @@ import com.shiyq.entity.VO.PageVO;
 import com.shiyq.entity.VO.ResultVO;
 import com.shiyq.exception.ApiException;
 import com.shiyq.service.GameService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,8 +30,8 @@ public class GameController {
 
     @GetMapping("/list")
     public ResultVO getGameList(
-            @RequestParam(defaultValue = "1") long pageNum,
-            @RequestParam(required = false) String title,
+            @RequestParam(defaultValue = "1") @Positive(message = "页码必须大于0") long pageNum,
+            @RequestParam(required = false) @Size(max = 255, message = "游戏标题不能超过255个字符") String title,
             @RequestParam(defaultValue = "false") boolean deleted
     ) {
         PageVO<Game> result = gameService.getGameList(pageNum, title, deleted);
@@ -42,7 +45,7 @@ public class GameController {
      * @return 新增结果
      */
     @PostMapping("/addGame")
-    public ResponseEntity<ResultVO> addGame(@ModelAttribute GameUploadDTO gameUploadDTO) throws Exception {
+    public ResponseEntity<ResultVO> addGame(@Valid @ModelAttribute GameUploadDTO gameUploadDTO) throws Exception {
         String result = gameService.addGame(gameUploadDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResultVO.created("新增成功", result));
@@ -55,7 +58,7 @@ public class GameController {
      * @return 游戏详情
      */
     @GetMapping("/{id}")
-    public ResultVO getGameById(@PathVariable Integer id) {
+    public ResultVO getGameById(@PathVariable @Positive(message = "游戏ID必须大于0") Integer id) {
         Game game = gameService.getGameById(id);
         if (game == null) {
             throw ApiException.notFound("游戏不存在");
@@ -71,7 +74,8 @@ public class GameController {
      * @return 操作结果
      */
     @PutMapping("/{id}")
-    public ResultVO updateGame(@PathVariable Integer id, @RequestBody GameUpdateDTO gameUpdateDTO) {
+    public ResultVO updateGame(@PathVariable @Positive(message = "游戏ID必须大于0") Integer id,
+                               @Valid @RequestBody GameUpdateDTO gameUpdateDTO) {
         if (!gameService.updateGame(id, gameUpdateDTO)) {
             throw ApiException.notFound("游戏不存在或已删除");
         }
@@ -85,7 +89,7 @@ public class GameController {
      * @return 操作结果
      */
     @DeleteMapping("/{id}")
-    public ResultVO deleteGame(@PathVariable Integer id) {
+    public ResultVO deleteGame(@PathVariable @Positive(message = "游戏ID必须大于0") Integer id) {
         if (!gameService.deleteGame(id)) {
             throw ApiException.notFound("游戏不存在或已删除");
         }
@@ -99,7 +103,7 @@ public class GameController {
      * @return 操作结果
      */
     @PutMapping("/{id}/restore")
-    public ResultVO restoreGame(@PathVariable Integer id) {
+    public ResultVO restoreGame(@PathVariable @Positive(message = "游戏ID必须大于0") Integer id) {
         if (!gameService.restoreGame(id)) {
             throw ApiException.notFound("游戏不存在或不在回收站中");
         }
@@ -114,7 +118,7 @@ public class GameController {
      * @return 操作结果
      */
     @PutMapping("/{id}/favorite")
-    public ResultVO updateFavorite(@PathVariable Integer id,
+    public ResultVO updateFavorite(@PathVariable @Positive(message = "游戏ID必须大于0") Integer id,
                                    @RequestParam boolean favorite) {
         if (!gameService.updateFavorite(id, favorite)) {
             throw ApiException.notFound("游戏不存在或已删除");

@@ -57,7 +57,7 @@ public interface MangaTagService {
     /**
      * 更新当前用户拥有的标签。
      */
-    boolean updateOwnedTag(MangaTag mangaTag);
+    boolean updateOwnedTag(Integer tagId, String tagName, Integer category);
 
     /**
      * 仅删除没有被漫画引用的标签。

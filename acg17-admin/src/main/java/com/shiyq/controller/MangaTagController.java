@@ -1,12 +1,18 @@
 package com.shiyq.controller;
 
 import com.shiyq.entity.DO.MangaTag;
+import com.shiyq.entity.DTO.MangaTagCreateDTO;
+import com.shiyq.entity.DTO.MangaTagUpdateDTO;
 import com.shiyq.exception.ApiException;
 import com.shiyq.service.MangaTagService;
 import com.shiyq.entity.VO.ResultVO;
 import com.shiyq.constant.MangaConstant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 import com.shiyq.entity.VO.MangaTagListVO;
@@ -44,7 +50,7 @@ public class MangaTagController {
      * @return 标签信息
      */
     @GetMapping("/{id}")
-    public ResultVO getTagById(@PathVariable Integer id) {
+    public ResultVO getTagById(@PathVariable @Positive(message = "标签ID必须大于0") Integer id) {
         MangaTag tag = mangaTagService.getOwnedTagById(id);
         if (tag == null) {
             throw ApiException.notFound("标签不存在");
@@ -54,24 +60,25 @@ public class MangaTagController {
 
     /**
      * 新增标签
-     * @param mangaTag 标签对象
+     * @param request 标签请求
      * @return 新增结果
      */
     @PostMapping
-    public ResultVO addTag(@RequestBody MangaTag mangaTag) {
+    public ResultVO addTag(@Valid @RequestBody MangaTagCreateDTO request) {
         MangaTag savedTag = mangaTagService.getOrCreateTagByNameAndCategory(
-                mangaTag.getTagName(), mangaTag.getCategory());
+                request.getTagName(), request.getCategory());
         return ResultVO.success(savedTag);
     }
 
     /**
      * 更新标签
-     * @param mangaTag 标签对象
+     * @param request 标签请求
      * @return 更新结果
      */
     @PutMapping
-    public ResultVO updateTag(@RequestBody MangaTag mangaTag) {
-        boolean success = mangaTagService.updateOwnedTag(mangaTag);
+    public ResultVO updateTag(@Valid @RequestBody MangaTagUpdateDTO request) {
+        boolean success = mangaTagService.updateOwnedTag(
+                request.getId(), request.getTagName(), request.getCategory());
         if (success) {
             return ResultVO.success("更新成功");
         }
@@ -84,7 +91,7 @@ public class MangaTagController {
      * @return 删除结果
      */
     @DeleteMapping("/{id}")
-    public ResultVO deleteTag(@PathVariable Integer id) {
+    public ResultVO deleteTag(@PathVariable @Positive(message = "标签ID必须大于0") Integer id) {
         MangaTagService.DeleteResult result = mangaTagService.deleteUnusedTag(id);
         if (result == MangaTagService.DeleteResult.DELETED) {
             return ResultVO.success("删除成功");
@@ -101,7 +108,8 @@ public class MangaTagController {
      * @return 标签列表
      */
     @GetMapping("/category/{category}")
-    public ResultVO getTagsByCategory(@PathVariable String category) {
+    public ResultVO getTagsByCategory(
+            @PathVariable @Size(max = 16, message = "标签分类参数过长") String category) {
         // 将英文分类名称转换为数字分类
         Integer numericCategory = MangaConstant.parseCategory(category);
         if (numericCategory == null) {
@@ -119,8 +127,10 @@ public class MangaTagController {
      * @return 标签信息
      */
     @PostMapping("/get-or-create-by-category")
-    public ResultVO getOrCreateTagByNameAndCategory(@RequestParam String tagName, 
-                                                               @RequestParam String category) {
+    public ResultVO getOrCreateTagByNameAndCategory(
+            @RequestParam @NotBlank(message = "标签名称不能为空")
+            @Size(max = 50, message = "标签名称不能超过50个字符") String tagName,
+            @RequestParam @Size(max = 16, message = "标签分类参数过长") String category) {
         // 将英文分类名称转换为数字分类
         Integer numericCategory = MangaConstant.parseCategory(category);
         if (numericCategory == null) {

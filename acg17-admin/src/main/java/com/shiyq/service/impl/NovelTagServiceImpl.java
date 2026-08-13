@@ -39,17 +39,21 @@ public class NovelTagServiceImpl extends ServiceImpl<NovelTagMapper, NovelTag> i
         int userId = UserContext.requireCurrentUserId();
         Set<String> normalizedNames = new LinkedHashSet<>();
         if (tagNames != null) {
+            if (tagNames.size() > 30) {
+                throw new IllegalArgumentException("小说标签不能超过30个");
+            }
             for (String tagName : tagNames) {
                 if (tagName == null) {
-                    continue;
+                    throw new IllegalArgumentException("标签名不能为空");
                 }
                 String normalized = tagName.trim();
-                if (!normalized.isEmpty()) {
-                    if (normalized.length() > 32) {
-                        throw new IllegalArgumentException("标签名不能超过32个字符");
-                    }
-                    normalizedNames.add(normalized);
+                if (normalized.isEmpty()) {
+                    throw new IllegalArgumentException("标签名不能为空");
                 }
+                if (normalized.length() > 32) {
+                    throw new IllegalArgumentException("标签名不能超过32个字符");
+                }
+                normalizedNames.add(normalized);
             }
         }
 

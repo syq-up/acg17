@@ -122,6 +122,24 @@ class FileOperationConsistencyServiceTest {
     }
 
     @Test
+    void illustrationUploadRejectsInvalidImageContentAsBadRequest() throws Exception {
+        IllustrationMapper illustrationMapper = mock(IllustrationMapper.class);
+        IllustrationServiceImpl service = new IllustrationServiceImpl();
+        service.setIllustrationMapper(illustrationMapper);
+        service.setFileStorageService(fileStorageService);
+        ReflectionTestUtils.setField(service, "illustrationFolder", "illustrations/upload");
+        ReflectionTestUtils.setField(service, "illustrationThumbFolder", "illustrations/thumb");
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.upload(new MockMultipartFile(
+                        "file", "fake.png", "image/png", "not an image".getBytes("UTF-8"))));
+
+        assertTrue(exception.getMessage().contains("有效图片"));
+        assertEquals(0L, childCount(uploadFolder.resolve(".staging")));
+        verifyNoInteractions(illustrationMapper);
+    }
+
+    @Test
     void gameDatabaseFailureLeavesNeitherFinalNorStagingDirectory() throws Exception {
         GameMapper gameMapper = mock(GameMapper.class);
         when(gameMapper.insert(any(Game.class))).thenAnswer(invocation -> {
@@ -136,6 +154,8 @@ class FileOperationConsistencyServiceTest {
         ReflectionTestUtils.setField(service, "gameFolder", "games");
         GameUploadDTO request = new GameUploadDTO();
         request.setTitle("test game");
+        request.setCover(new MockMultipartFile(
+                "cover", "cover.png", "image/png", pngBytes()));
 
         assertThrows(RuntimeException.class, () -> service.addGame(request));
 

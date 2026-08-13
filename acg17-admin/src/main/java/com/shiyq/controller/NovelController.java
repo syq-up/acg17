@@ -5,6 +5,9 @@ import com.shiyq.entity.VO.*;
 import com.shiyq.exception.ApiException;
 import com.shiyq.service.NovelChapterService;
 import com.shiyq.service.NovelService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,10 +44,10 @@ public class NovelController {
      * 分页获取小说作品
      */
     @GetMapping("/getList")
-    public ResultVO getList(@RequestParam long pageNum,
+    public ResultVO getList(@RequestParam @Positive(message = "页码必须大于0") long pageNum,
                             @RequestParam(defaultValue = "false") boolean deleted,
-                            @RequestParam(required = false) Integer tagId,
-                            @RequestParam(required = false) String keyword) {
+                            @RequestParam(required = false) @Positive(message = "标签ID必须大于0") Integer tagId,
+                            @RequestParam(required = false) @Size(max = 100, message = "搜索关键词不能超过100个字符") String keyword) {
         return ResultVO.success(novelService.getList(pageNum, deleted, tagId, keyword));
     }
 
@@ -52,7 +55,7 @@ public class NovelController {
      * 获取小说作品
      */
     @GetMapping("/getNovelById/{id}")
-    public ResultVO getNovelById(@PathVariable int id) {
+    public ResultVO getNovelById(@PathVariable @Positive(message = "小说ID必须大于0") int id) {
         NovelVO vo = novelService.getNovelById(id);
         if (vo == null) {
             throw ApiException.notFound("小说作品不存在");
@@ -64,7 +67,7 @@ public class NovelController {
      * 获取小说内容（章节列表，第一章内容）
      */
     @GetMapping("/getContentById/{id}")
-    public ResultVO getContentById(@PathVariable int id) {
+    public ResultVO getContentById(@PathVariable @Positive(message = "小说ID必须大于0") int id) {
         // 查小说
         NovelVO novelVO = novelService.getNovelById(id);
         if (novelVO == null) {
@@ -85,7 +88,7 @@ public class NovelController {
     }
 
     @PostMapping("/addNovel")
-    public ResponseEntity<ResultVO> addNovel(@RequestBody NovelCreateDTO request) {
+    public ResponseEntity<ResultVO> addNovel(@Valid @RequestBody NovelCreateDTO request) {
         NovelVO novel = novelService.addNovel(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResultVO.created("新增小说成功", novel));
@@ -95,7 +98,7 @@ public class NovelController {
      * 删除小说
      */
     @GetMapping("/deleteById/{id}")
-    public ResultVO deleteById(@PathVariable int id) {
+    public ResultVO deleteById(@PathVariable @Positive(message = "小说ID必须大于0") int id) {
         if (!novelService.deleteNovelById(id)) {
             throw ApiException.notFound("小说作品不存在或已删除");
         }
@@ -106,7 +109,7 @@ public class NovelController {
      * 恢复小说
      */
     @PutMapping("/{id}/restore")
-    public ResultVO restoreNovel(@PathVariable int id) {
+    public ResultVO restoreNovel(@PathVariable @Positive(message = "小说ID必须大于0") int id) {
         if (!novelService.restoreNovelById(id)) {
             throw ApiException.notFound("小说不存在或不在回收站中");
         }

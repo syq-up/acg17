@@ -10,6 +10,9 @@ import com.shiyq.entity.VO.PageVO;
 import com.shiyq.entity.VO.ResultVO;
 import com.shiyq.exception.ApiException;
 import com.shiyq.service.MangaService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,11 +43,11 @@ public class MangaController {
      * @return 分页结果
      */
     @GetMapping("/list")
-    public ResultVO getList(@RequestParam(defaultValue = "1") long pageNum,
+    public ResultVO getList(@RequestParam(defaultValue = "1") @Positive(message = "页码必须大于0") long pageNum,
                            @RequestParam(defaultValue = "false") boolean deleted,
-                           @RequestParam(required = false) String author,
-                           @RequestParam(required = false) String title,
-                           @RequestParam(required = false) Integer tagId) {
+                           @RequestParam(required = false) @Size(max = 100, message = "作者不能超过100个字符") String author,
+                           @RequestParam(required = false) @Size(max = 255, message = "标题不能超过255个字符") String title,
+                           @RequestParam(required = false) @Positive(message = "标签ID必须大于0") Integer tagId) {
         PageVO<MangaVO> pageVO = mangaService.getList(pageNum, deleted, author, title, tagId);
         return ResultVO.success(pageVO);
     }
@@ -55,7 +58,7 @@ public class MangaController {
      * @return 漫画详情
      */
     @GetMapping("/{id}")
-    public ResultVO getMangaById(@PathVariable long id) {
+    public ResultVO getMangaById(@PathVariable @Positive(message = "漫画ID必须大于0") long id) {
         MangaDetailVO mangaDetailVO = mangaService.getMangaById(id);
         if (mangaDetailVO == null) {
             throw ApiException.notFound("漫画不存在");
@@ -69,7 +72,7 @@ public class MangaController {
      * @return 漫画详情
      */
     @PostMapping("/addManga")
-    public ResponseEntity<ResultVO> addManga(@ModelAttribute MangaUploadDTO mangaUploadDTO) throws Exception {
+    public ResponseEntity<ResultVO> addManga(@Valid @ModelAttribute MangaUploadDTO mangaUploadDTO) throws Exception {
         String result = mangaService.addManga(mangaUploadDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResultVO.created("新增成功", result));
@@ -83,8 +86,8 @@ public class MangaController {
      */
     @PostMapping("/{id}/chapters")
     public ResponseEntity<ResultVO> addMangaChapter(
-            @PathVariable long id,
-            @ModelAttribute MangaChapterUploadDTO mangaChapterUploadDTO) {
+            @PathVariable @Positive(message = "漫画ID必须大于0") long id,
+            @Valid @ModelAttribute MangaChapterUploadDTO mangaChapterUploadDTO) {
         MangaChapterVO chapter = mangaService.addMangaChapter(id, mangaChapterUploadDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResultVO.created("新增章节成功", chapter));
@@ -97,7 +100,8 @@ public class MangaController {
      * @return 更新结果
      */
     @PutMapping("/{id}")
-    public ResultVO updateManga(@PathVariable long id, @RequestBody MangaUpdateDTO mangaUpdateDTO) {
+    public ResultVO updateManga(@PathVariable @Positive(message = "漫画ID必须大于0") long id,
+                                @Valid @RequestBody MangaUpdateDTO mangaUpdateDTO) {
         if (!mangaService.updateManga(id, mangaUpdateDTO)) {
             throw ApiException.notFound("漫画不存在或已删除");
         }
@@ -110,7 +114,7 @@ public class MangaController {
      * @return 删除结果
      */
     @DeleteMapping("/{id}")
-    public ResultVO deleteManga(@PathVariable long id) {
+    public ResultVO deleteManga(@PathVariable @Positive(message = "漫画ID必须大于0") long id) {
         if (!mangaService.deleteMangaById(id)) {
             throw ApiException.notFound("漫画不存在或已删除");
         }
@@ -123,7 +127,7 @@ public class MangaController {
      * @return 恢复结果
      */
     @PutMapping("/{id}/restore")
-    public ResultVO restoreManga(@PathVariable long id) {
+    public ResultVO restoreManga(@PathVariable @Positive(message = "漫画ID必须大于0") long id) {
         if (!mangaService.restoreMangaById(id)) {
             throw ApiException.notFound("漫画不存在或不在回收站中");
         }
@@ -137,7 +141,7 @@ public class MangaController {
      * @return 更新结果
      */
     @PutMapping("/{id}/favorite")
-    public ResultVO updateFavoriteStatus(@PathVariable long id, 
+    public ResultVO updateFavoriteStatus(@PathVariable @Positive(message = "漫画ID必须大于0") long id,
                                          @RequestParam boolean favorite) {
         if (!mangaService.updateFavoriteStatus(id, favorite)) {
             throw ApiException.notFound("漫画不存在或已删除");
@@ -152,8 +156,8 @@ public class MangaController {
      * @return 添加结果
      */
     @PostMapping("/{id}/tags")
-    public ResultVO addTagToManga(@PathVariable long id,
-                                 @RequestParam Integer tagId) {
+    public ResultVO addTagToManga(@PathVariable @Positive(message = "漫画ID必须大于0") long id,
+                                 @RequestParam @Positive(message = "标签ID必须大于0") Integer tagId) {
         if (!mangaService.addTagToManga(id, tagId)) {
             throw ApiException.notFound("漫画或标签不存在");
         }
@@ -167,8 +171,8 @@ public class MangaController {
      * @return 删除结果
      */
     @DeleteMapping("/{id}/tags")
-    public ResultVO removeTagFromManga(@PathVariable long id,
-                                      @RequestParam Integer tagId) {
+    public ResultVO removeTagFromManga(@PathVariable @Positive(message = "漫画ID必须大于0") long id,
+                                      @RequestParam @Positive(message = "标签ID必须大于0") Integer tagId) {
         if (!mangaService.removeTagFromManga(id, tagId)) {
             throw ApiException.notFound("漫画或标签不存在");
         }
@@ -183,9 +187,9 @@ public class MangaController {
      * @return 删除结果
      */
     @DeleteMapping("/delete/page")
-    public ResultVO deleteMangaPage(@RequestParam int mangaId,
-                                    @RequestParam int chapterId,
-                                    @RequestParam int pageNum) {
+    public ResultVO deleteMangaPage(@RequestParam @Positive(message = "漫画ID必须大于0") int mangaId,
+                                    @RequestParam @Positive(message = "章节ID必须大于0") int chapterId,
+                                    @RequestParam @Positive(message = "页码必须大于0") int pageNum) {
         if (!mangaService.realDeleteMangaPage(mangaId, chapterId, pageNum)) {
             throw ApiException.notFound("漫画页面不存在");
         }

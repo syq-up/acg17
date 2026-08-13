@@ -3,15 +3,18 @@ package com.shiyq.service.impl;
 import com.shiyq.entity.DO.Manga;
 import com.shiyq.entity.DO.MangaTag;
 import com.shiyq.entity.DTO.UserContext;
+import com.shiyq.entity.DTO.MangaUploadDTO;
 import com.shiyq.entity.VO.MangaDetailVO;
 import com.shiyq.mapper.MangaMapper;
 import com.shiyq.mapper.MangaTagRelationMapper;
 import com.shiyq.service.MangaTagService;
 import com.shiyq.service.MediaUrlSigner;
+import com.shiyq.service.FileStorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -19,8 +22,10 @@ import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class MangaServiceImplTest {
@@ -90,5 +95,22 @@ class MangaServiceImplTest {
 
         verify(relationMapper).insertRelation(9, 7, USER_ID);
         verify(relationMapper).deleteRelation(9, 7, USER_ID);
+    }
+
+    @Test
+    void mangaUploadRejectsMalformedTagJsonBeforeDatabaseWrite() {
+        MangaMapper mangaMapper = mock(MangaMapper.class);
+        MangaServiceImpl service = new MangaServiceImpl();
+        service.setMangaMapper(mangaMapper);
+        service.setFileStorageService(mock(FileStorageService.class));
+        MangaUploadDTO request = new MangaUploadDTO();
+        request.setTitle("manga");
+        request.setTags("{");
+        request.setFile(new MockMultipartFile(
+                "file", "manga.zip", "application/zip", new byte[] {1}));
+
+        assertThrows(IllegalArgumentException.class, () -> service.addManga(request));
+
+        verifyNoInteractions(mangaMapper);
     }
 }

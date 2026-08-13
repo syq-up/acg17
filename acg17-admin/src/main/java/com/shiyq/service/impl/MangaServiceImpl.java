@@ -70,6 +70,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
     private static final int MAX_ARCHIVE_PATH_DEPTH = 4;
     private static final int MAX_ARCHIVE_PATH_LENGTH = 1024;
     private static final int MAX_ARCHIVE_NAME_LENGTH = 255;
+    private static final int MAX_TAGS = 100;
 
     private MangaMapper mangaMapper;
     private MangaTagRelationMapper mangaTagRelationMapper;
@@ -117,6 +118,14 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
     @Override
     public PageVO<MangaVO> getList(long pageNum, boolean deleted, String author, String title,
                                   Integer tagId) {
+        if (pageNum <= 0) {
+            throw new IllegalArgumentException("页码必须大于0");
+        }
+        if (tagId != null && tagId <= 0) {
+            throw new IllegalArgumentException("标签ID必须大于0");
+        }
+        author = normalizeOptionalText(author, "作者", 100);
+        title = normalizeOptionalText(title, "标题", 255);
         int userId = UserContext.requireCurrentUserId();
         // 默认页大小为 30
         PageVO<MangaVO> pageVO = new PageVO<>(30L, pageNum);
@@ -239,10 +248,28 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
     @Override
     @Transactional(rollbackFor = Exception.class)
     public String addManga(MangaUploadDTO mangaUploadDTO) throws Exception {
+        if (mangaUploadDTO == null) {
+            throw new IllegalArgumentException("漫画信息不能为空");
+        }
+        String title = normalizeRequiredText(mangaUploadDTO.getTitle(), "漫画标题", 255);
+        String chineseTitle = normalizeOptionalText(
+                mangaUploadDTO.getChineseTitle(), "漫画中文标题", 255);
+        String description = normalizeOptionalText(
+                mangaUploadDTO.getDescription(), "漫画简介", 10000);
+        String author = normalizeOptionalText(mangaUploadDTO.getAuthor(), "漫画作者", 100);
+        String tagsJson = mangaUploadDTO.getTags();
+        if (tagsJson != null && tagsJson.length() > 16384) {
+            throw new IllegalArgumentException("漫画标签数据过长");
+        }
         int userId = UserContext.requireCurrentUserId();
         MultipartFile uploadFile = mangaUploadDTO.getFile();
         if (uploadFile == null || uploadFile.isEmpty()) {
             throw new IllegalArgumentException("漫画压缩包不能为空");
+        }
+        String originalFilename = uploadFile.getOriginalFilename();
+        if (originalFilename == null
+                || !originalFilename.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            throw new IllegalArgumentException("文件格式错误，必须为ZIP文件");
         }
         Path stagingDirectory = null;
         Path finalMangaDirectory = null;
@@ -252,12 +279,12 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
             // 创建Manga对象
             Manga manga = new Manga();
             manga.setUserId(userId);
-            manga.setTitle(mangaUploadDTO.getTitle());
-            manga.setChineseTitle(mangaUploadDTO.getChineseTitle());
-            manga.setDescription(mangaUploadDTO.getDescription());
-            manga.setAuthor(mangaUploadDTO.getAuthor());
+            manga.setTitle(title);
+            manga.setChineseTitle(chineseTitle);
+            manga.setDescription(description);
+            manga.setAuthor(author);
             ObjectMapper objectMapper = new ObjectMapper();
-            Set<Integer> tagIds = resolveTagIds(mangaUploadDTO.getTags(), objectMapper);
+            Set<Integer> tagIds = resolveTagIds(tagsJson, objectMapper);
             
             // 先保存到数据库获取ID
             int insertResult = mangaMapper.insert(manga);
@@ -274,10 +301,6 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
             MultipartFile file = mangaUploadDTO.getFile();
             if (file != null && !file.isEmpty()) {
                 // 检查文件是否是zip文件
-                String originalFilename = file.getOriginalFilename();
-                if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".zip")) {
-                    throw new Exception("文件格式错误，必须为zip文件");
-                }
                 stagingDirectory = fileStorageService.createStagingDirectory("manga-");
                 File tempZipFile = stagingDirectory.resolve("upload.zip").toFile();
                 file.transferTo(tempZipFile);
@@ -310,6 +333,8 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
 
             return manga.getTitle(); // 成功
             
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (IOException e) {
             throw new RuntimeException("文件上传失败: " + e.getMessage(), e);
         } catch (Exception e) {
@@ -413,11 +438,19 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
 
     @Override
     public boolean updateManga(long id, MangaUpdateDTO mangaUpdateDTO) {
+        if (id <= 0) {
+            throw new IllegalArgumentException("漫画ID必须大于0");
+        }
+        if (mangaUpdateDTO == null) {
+            throw new IllegalArgumentException("漫画信息不能为空");
+        }
         Manga manga = new Manga();
-        manga.setTitle(mangaUpdateDTO.getTitle());
-        manga.setChineseTitle(mangaUpdateDTO.getChineseTitle());
-        manga.setDescription(mangaUpdateDTO.getDescription());
-        manga.setAuthor(mangaUpdateDTO.getAuthor());
+        manga.setTitle(normalizeRequiredText(mangaUpdateDTO.getTitle(), "漫画标题", 255));
+        manga.setChineseTitle(normalizeOptionalText(
+                mangaUpdateDTO.getChineseTitle(), "漫画中文标题", 255));
+        manga.setDescription(normalizeOptionalText(
+                mangaUpdateDTO.getDescription(), "漫画简介", 10000));
+        manga.setAuthor(normalizeOptionalText(mangaUpdateDTO.getAuthor(), "漫画作者", 100));
 
         LambdaUpdateWrapper<Manga> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(Manga::getId, id)
@@ -426,18 +459,35 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         return mangaMapper.update(manga, updateWrapper) > 0;
     }
     
-    private Set<Integer> resolveTagIds(String tagsJson, ObjectMapper objectMapper) throws IOException {
+    private Set<Integer> resolveTagIds(String tagsJson, ObjectMapper objectMapper) {
         Set<Integer> tagIds = new LinkedHashSet<>();
         if (tagsJson == null || tagsJson.trim().isEmpty()) {
             return tagIds;
         }
-        MangaTagVO[] tags = objectMapper.readValue(tagsJson, MangaTagVO[].class);
+        MangaTagVO[] tags;
+        try {
+            tags = objectMapper.readValue(tagsJson, MangaTagVO[].class);
+        } catch (JacksonException exception) {
+            throw new IllegalArgumentException("漫画标签数据格式错误", exception);
+        }
+        if (tags == null) {
+            throw new IllegalArgumentException("漫画标签数据格式错误");
+        }
+        if (tags.length > MAX_TAGS) {
+            throw new IllegalArgumentException("漫画标签不能超过100个");
+        }
         for (MangaTagVO tagVO : tags) {
+            if (tagVO == null) {
+                throw new IllegalArgumentException("漫画标签不能为空");
+            }
             if (!MangaConstant.isValidCategory(tagVO.getCategory())) {
                 throw new IllegalArgumentException("标签分类无效");
             }
             MangaTag tag;
-            if (tagVO.getTagId() != null && tagVO.getTagId() > 0) {
+            if (tagVO.getTagId() != null) {
+                if (tagVO.getTagId() <= 0) {
+                    throw new IllegalArgumentException("标签ID必须大于0");
+                }
                 tag = mangaTagService.getOwnedTagById(tagVO.getTagId());
                 if (tag == null || !tagVO.getCategory().equals(tag.getCategory())) {
                     throw new IllegalArgumentException("标签不存在或分类不匹配");
@@ -449,6 +499,31 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
             tagIds.add(tag.getId());
         }
         return tagIds;
+    }
+
+    private String normalizeRequiredText(String value, String label, int maxLength) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(label + "不能为空");
+        }
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(label + "不能超过" + maxLength + "个字符");
+        }
+        return normalized;
+    }
+
+    private String normalizeOptionalText(String value, String label, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(label + "不能超过" + maxLength + "个字符");
+        }
+        return normalized;
     }
     
     /**

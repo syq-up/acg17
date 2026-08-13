@@ -57,7 +57,7 @@ class NovelStatisticsServiceTest {
     void contentNormalizationUsesTheSharedWordCountingRule() {
         NovelChapterServiceImpl service = new NovelChapterServiceImpl();
         NovelChapter chapter = new NovelChapter();
-        chapter.setContent(Arrays.asList(" 你 好 ", null, "😀！"));
+        chapter.setContent(Arrays.asList(" 你 好 ", "😀！"));
 
         service.normalizeContent(chapter);
 

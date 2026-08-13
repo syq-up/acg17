@@ -1822,7 +1822,9 @@ export default {
         // 添加封面文件
         formData.append('cover', game.coverFile)  // 前端coverFile -> 后端cover
         // 添加游戏图标
-        formData.append('icon', game.iconFile)  // 前端iconFile -> 后端icon
+        if (game.iconFile) {
+          formData.append('icon', game.iconFile)  // 前端iconFile -> 后端icon
+        }
         // 添加预览文件
         game.previewFiles.forEach((file) => {
           formData.append('previewImages', file)  // 前端previewFiles -> 后端previewImages

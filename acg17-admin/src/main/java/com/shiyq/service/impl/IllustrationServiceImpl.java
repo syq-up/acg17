@@ -95,7 +95,12 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
         boolean readyForCommit = false;
         try {
             file.transferTo(uploadedFile.toFile());
-            String formatName = ImageThumbnailUtil.detectImageExtension(uploadedFile.toFile());
+            String formatName;
+            try {
+                formatName = ImageThumbnailUtil.detectImageExtension(uploadedFile.toFile());
+            } catch (IOException exception) {
+                throw new IllegalArgumentException("插画文件不是受支持的有效图片", exception);
+            }
             String filename = NanoIdUtil.randomNanoId() + "." + formatName;
             Path stagedOriginal = stagingDirectory.resolve(filename);
             Path stagedThumb = stagingDirectory.resolve("thumb-" + filename);
@@ -205,6 +210,9 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
     public boolean reorder(ReorderRequest reorderRequest) {
         if (reorderRequest == null || reorderRequest.getId() == null || reorderRequest.getTargetId() == null) {
             throw new IllegalArgumentException("插画ID和目标插画ID不能为空");
+        }
+        if (reorderRequest.getId() <= 0 || reorderRequest.getTargetId() <= 0) {
+            throw new IllegalArgumentException("插画ID和目标插画ID必须大于0");
         }
         if (reorderRequest.getId().equals(reorderRequest.getTargetId())) {
             return true;

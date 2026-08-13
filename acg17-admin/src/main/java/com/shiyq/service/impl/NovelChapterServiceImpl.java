@@ -25,6 +25,10 @@ import java.util.Objects;
 public class NovelChapterServiceImpl extends ServiceImpl<NovelChapterMapper, NovelChapter>
         implements NovelChapterService {
 
+    private static final int MAX_PARAGRAPHS = 10000;
+    private static final int MAX_PARAGRAPH_LENGTH = 100000;
+    private static final long MAX_CONTENT_LENGTH = 2_000_000L;
+
     private NovelMapper novelMapper;
     private NovelChapterMapper chapterMapper;
 
@@ -53,6 +57,12 @@ public class NovelChapterServiceImpl extends ServiceImpl<NovelChapterMapper, Nov
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean addChapter(NovelChapterCreateDTO request) {
+        if (request == null) {
+            throw new IllegalArgumentException("章节信息不能为空");
+        }
+        if (request.getNovelId() == null || request.getNovelId() <= 0) {
+            throw new IllegalArgumentException("小说ID必须大于0");
+        }
         int userId = UserContext.requireCurrentUserId();
         int novelId = request.getNovelId();
         Novel novel = novelMapper.selectOwnedByIdForUpdate(novelId, userId);
@@ -76,6 +86,12 @@ public class NovelChapterServiceImpl extends ServiceImpl<NovelChapterMapper, Nov
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateChapter(NovelChapterUpdateDTO request) {
+        if (request == null) {
+            throw new IllegalArgumentException("章节信息不能为空");
+        }
+        if (request.getId() == null || request.getId() <= 0) {
+            throw new IllegalArgumentException("章节ID必须大于0");
+        }
         int userId = UserContext.requireCurrentUserId();
         int chapterId = request.getId();
         NovelChapter oldChapter = chapterMapper.selectOwnedById(chapterId, userId);
@@ -113,6 +129,22 @@ public class NovelChapterServiceImpl extends ServiceImpl<NovelChapterMapper, Nov
             chapter.setTotalWords(0);
             return chapter;
         }
+        if (contentList.size() > MAX_PARAGRAPHS) {
+            throw new IllegalArgumentException("章节段落不能超过10000段");
+        }
+        long totalLength = 0L;
+        for (String paragraph : contentList) {
+            if (paragraph == null) {
+                throw new IllegalArgumentException("章节段落不能为空");
+            }
+            if (paragraph.length() > MAX_PARAGRAPH_LENGTH) {
+                throw new IllegalArgumentException("单个章节段落不能超过100000个字符");
+            }
+            totalLength += paragraph.length();
+            if (totalLength > MAX_CONTENT_LENGTH) {
+                throw new IllegalArgumentException("章节内容不能超过2000000个字符");
+            }
+        }
 
         List<String> normalized = new ArrayList<>();
         if (contentList.size() == 1 && contentList.get(0) != null && contentList.get(0).contains("\n")) {
@@ -136,6 +168,9 @@ public class NovelChapterServiceImpl extends ServiceImpl<NovelChapterMapper, Nov
                     .replaceAll("[\\s　]+$", "");
             if (!normalized.isEmpty()) {
                 target.add(normalized);
+                if (target.size() > MAX_PARAGRAPHS) {
+                    throw new IllegalArgumentException("章节段落不能超过10000段");
+                }
             }
         }
     }

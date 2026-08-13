@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
@@ -40,8 +41,12 @@ import java.util.List;
 @Service
 public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements GameService {
 
+    private static final int MAX_PREVIEW_IMAGES = 20;
+
     @Value("${file.gameFolder}")
     private String gameFolder;
+    @Value("${file.maxGameImageFileSize:20MB}")
+    private String maxGameImageFileSize = "20MB";
     private GameMapper gameMapper;
     private FileStorageService fileStorageService;
     private MediaUrlSigner mediaUrlSigner;
@@ -105,16 +110,38 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
     @Override
     @Transactional(rollbackFor = Exception.class)
     public String addGame(GameUploadDTO gameUploadDTO) throws Exception {
+        if (gameUploadDTO == null) {
+            throw new IllegalArgumentException("游戏信息不能为空");
+        }
+        String title = normalizeRequiredText(gameUploadDTO.getTitle(), "游戏名称", 255);
+        String chineseTitle = normalizeOptionalText(
+                gameUploadDTO.getChineseTitle(), "游戏中文名称", 255);
+        String version = normalizeOptionalText(gameUploadDTO.getVersion(), "游戏版本", 50);
+        String description = normalizeOptionalText(gameUploadDTO.getDescription(), "游戏简介", 10000);
+        MultipartFile coverFile = gameUploadDTO.getCover();
+        validateImageFile(coverFile, "游戏封面", true);
+        MultipartFile iconFile = gameUploadDTO.getIcon();
+        validateImageFile(iconFile, "游戏图标", false);
+        MultipartFile[] previewFiles = gameUploadDTO.getPreviewImages();
+        if (previewFiles != null && previewFiles.length > MAX_PREVIEW_IMAGES) {
+            throw new IllegalArgumentException("游戏预览图不能超过20张");
+        }
+        if (previewFiles != null) {
+            for (MultipartFile previewFile : previewFiles) {
+                validateImageFile(previewFile, "游戏预览图", true);
+            }
+        }
+
         Path stagingDirectory = fileStorageService.createStagingDirectory("game-");
         Path finalGameDirectory = null;
         boolean gameDirectoryMoved = false;
         boolean readyForCommit = false;
         try {
             Game game = new Game();
-            game.setTitle(gameUploadDTO.getTitle());
-            game.setChineseTitle(gameUploadDTO.getChineseTitle());
-            game.setVersion(gameUploadDTO.getVersion());
-            game.setDescription(gameUploadDTO.getDescription());
+            game.setTitle(title);
+            game.setChineseTitle(chineseTitle);
+            game.setVersion(version);
+            game.setDescription(description);
             game.setUserId(UserContext.requireCurrentUserId());
             game.setCreateTime(LocalDateTime.now());
             game.setUpdateTime(LocalDateTime.now());
@@ -135,15 +162,10 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
             Files.createDirectories(gameFileDir.toPath());
             
             // 处理游戏封面
-            MultipartFile coverFile = gameUploadDTO.getCover();
-            String coverPath = null;
-            if (coverFile != null && !coverFile.isEmpty()) {
-                String coverFileName = storeImage(coverFile, stagedGameDirectory, "cover");
-                coverPath = gameSubPath + "/" + coverFileName;
-            }
+            String coverFileName = storeImage(coverFile, stagedGameDirectory, "cover", "游戏封面");
+            String coverPath = gameSubPath + "/" + coverFileName;
             
             // 处理游戏图标
-            MultipartFile iconFile = gameUploadDTO.getIcon();
             String iconPath = null;
             String iconFileName = null;
             if (iconFile != null && !iconFile.isEmpty()) {
@@ -158,7 +180,7 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
                     if (ImageConverterUtil.isIcoFile(tempIcon.toFile())) {
                         Files.move(tempIcon, iconDestFile.toPath());
                     } else {
-                        ImageThumbnailUtil.detectImageExtension(tempIcon.toFile());
+                        detectImageExtension(tempIcon.toFile(), "游戏图标");
                         ImageConverterUtil.convertToIco(tempIcon.toFile(), iconDestFile, 32);
                         log.info("成功将图标转换为ICO格式: {}", originalFilename);
                     }
@@ -170,9 +192,9 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
             // 处理文件夹自定义名称和图标（使用windows的desktop.ini文件）
             if (iconFileName != null) {
                 // 确定显示名称（优先使用中文名称，否则使用title）
-                String displayName = gameUploadDTO.getChineseTitle();
-                if (displayName == null || displayName.trim().isEmpty()) {
-                    displayName = gameUploadDTO.getTitle();
+                String displayName = chineseTitle;
+                if (displayName == null) {
+                    displayName = title;
                 }
                 // 为“game文件夹”、“game文件文件夹”夹创建desktop.ini
                 DesktopIniUtil.createDesktopIni(gameDir.getAbsolutePath(), iconFileName, displayName);
@@ -181,15 +203,12 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
             
             // 处理游戏预览图片
             List<String> previewImagePaths = new ArrayList<>();
-            MultipartFile[] previewFiles = gameUploadDTO.getPreviewImages();
             if (previewFiles != null && previewFiles.length > 0) {
                 for (int i = 0; i < previewFiles.length; i++) {
                     MultipartFile previewFile = previewFiles[i];
-                    if (previewFile != null && !previewFile.isEmpty()) {
-                        String previewFileName = storeImage(
-                                previewFile, stagedGameDirectory, "preview_" + (i + 1));
-                        previewImagePaths.add(gameSubPath + "/" + previewFileName);
-                    }
+                    String previewFileName = storeImage(
+                            previewFile, stagedGameDirectory, "preview_" + (i + 1), "游戏预览图");
+                    previewImagePaths.add(gameSubPath + "/" + previewFileName);
                 }
             }
 
@@ -206,6 +225,8 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
             fileStorageService.deleteOnRollback(Collections.singletonList(finalGameDirectory));
             readyForCommit = true;
             return game.getTitle();
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (IOException e) {
             log.error("文件上传失败: {}", e.getMessage(), e);
             throw new RuntimeException("文件上传失败: " + e.getMessage(), e);
@@ -229,11 +250,12 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
         return game;
     }
 
-    private String storeImage(MultipartFile image, Path directory, String baseName) throws IOException {
+    private String storeImage(MultipartFile image, Path directory, String baseName,
+                              String label) throws IOException {
         Path uploadedFile = Files.createTempFile(directory, "image-", ".tmp");
         try {
             image.transferTo(uploadedFile.toFile());
-            String extension = ImageThumbnailUtil.detectImageExtension(uploadedFile.toFile());
+            String extension = detectImageExtension(uploadedFile.toFile(), label);
             String filename = baseName + "." + extension;
             Files.move(uploadedFile, directory.resolve(filename));
             return filename;
@@ -244,22 +266,25 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
 
     @Override
     public boolean updateGame(Integer id, GameUpdateDTO gameUpdateDTO) {
-        try {
-            Game game = new Game();
-            game.setTitle(gameUpdateDTO.getTitle());
-            game.setChineseTitle(gameUpdateDTO.getChineseTitle());
-            game.setVersion(gameUpdateDTO.getVersion());
-            game.setDescription(gameUpdateDTO.getDescription());
-            game.setUpdateTime(LocalDateTime.now());
-            LambdaUpdateWrapper<Game> updateWrapper = new LambdaUpdateWrapper<>();
-            updateWrapper.eq(Game::getId, id)
-                         .eq(Game::getUserId, UserContext.requireCurrentUserId())
-                         .eq(Game::getDeleted, false);
-            return gameMapper.update(game, updateWrapper) > 0;
-        } catch (Exception e) {
-            log.error("更新游戏失败：{}", e.getMessage(), e);
-            return false;
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("游戏ID必须大于0");
         }
+        if (gameUpdateDTO == null) {
+            throw new IllegalArgumentException("游戏信息不能为空");
+        }
+        Game game = new Game();
+        game.setTitle(normalizeRequiredText(gameUpdateDTO.getTitle(), "游戏名称", 255));
+        game.setChineseTitle(normalizeOptionalText(
+                gameUpdateDTO.getChineseTitle(), "游戏中文名称", 255));
+        game.setVersion(normalizeOptionalText(gameUpdateDTO.getVersion(), "游戏版本", 50));
+        game.setDescription(normalizeOptionalText(
+                gameUpdateDTO.getDescription(), "游戏简介", 10000));
+        game.setUpdateTime(LocalDateTime.now());
+        LambdaUpdateWrapper<Game> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Game::getId, id)
+                     .eq(Game::getUserId, UserContext.requireCurrentUserId())
+                     .eq(Game::getDeleted, false);
+        return gameMapper.update(game, updateWrapper) > 0;
     }
 
     @Override
@@ -315,6 +340,52 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
             }
             game.setPreviewImages(processedPreviewImages);
         }
+    }
+
+    private void validateImageFile(MultipartFile file, String label, boolean required) {
+        if (file == null || file.isEmpty()) {
+            if (required || file != null) {
+                throw new IllegalArgumentException(label + "不能为空");
+            }
+            return;
+        }
+        long maxBytes = DataSize.parse(maxGameImageFileSize).toBytes();
+        if (file.getSize() > maxBytes) {
+            throw new IllegalArgumentException(label + "大小不能超过 " + maxGameImageFileSize);
+        }
+    }
+
+    private String detectImageExtension(File imageFile, String label) {
+        try {
+            return ImageThumbnailUtil.detectImageExtension(imageFile);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException(label + "不是受支持的有效图片", exception);
+        }
+    }
+
+    private String normalizeRequiredText(String value, String label, int maxLength) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(label + "不能为空");
+        }
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(label + "不能超过" + maxLength + "个字符");
+        }
+        return normalized;
+    }
+
+    private String normalizeOptionalText(String value, String label, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(label + "不能超过" + maxLength + "个字符");
+        }
+        return normalized;
     }
 
 }

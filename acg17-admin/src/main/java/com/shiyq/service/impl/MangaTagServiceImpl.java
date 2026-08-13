@@ -94,6 +94,9 @@ public class MangaTagServiceImpl extends ServiceImpl<MangaTagMapper, MangaTag> i
         if (normalizedName.isEmpty()) {
             throw new IllegalArgumentException("标签名称不能为空");
         }
+        if (normalizedName.length() > 50) {
+            throw new IllegalArgumentException("标签名称不能超过50个字符");
+        }
         if (!MangaConstant.isValidCategory(category)) {
             throw new IllegalArgumentException("标签分类无效");
         }
@@ -119,24 +122,26 @@ public class MangaTagServiceImpl extends ServiceImpl<MangaTagMapper, MangaTag> i
     }
 
     @Override
-    public boolean updateOwnedTag(MangaTag mangaTag) {
-        if (mangaTag == null || mangaTag.getId() == null) {
+    public boolean updateOwnedTag(Integer tagId, String tagName, Integer category) {
+        if (tagId == null || tagId <= 0) {
             return false;
         }
-        String normalizedName = mangaTag.getTagName() == null
-                ? "" : mangaTag.getTagName().trim();
+        String normalizedName = tagName == null ? "" : tagName.trim();
         if (normalizedName.isEmpty()) {
             throw new IllegalArgumentException("标签名称不能为空");
         }
-        if (!MangaConstant.isValidCategory(mangaTag.getCategory())) {
+        if (normalizedName.length() > 50) {
+            throw new IllegalArgumentException("标签名称不能超过50个字符");
+        }
+        if (!MangaConstant.isValidCategory(category)) {
             throw new IllegalArgumentException("标签分类无效");
         }
 
         MangaTag update = new MangaTag();
         update.setTagName(normalizedName);
-        update.setCategory(mangaTag.getCategory());
+        update.setCategory(category);
         LambdaUpdateWrapper<MangaTag> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.eq(MangaTag::getId, mangaTag.getId())
+        wrapper.eq(MangaTag::getId, tagId)
                 .eq(MangaTag::getUserId, UserContext.requireCurrentUserId());
         try {
             return mangaTagMapper.update(update, wrapper) == 1;

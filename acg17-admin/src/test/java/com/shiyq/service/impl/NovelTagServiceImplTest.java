@@ -11,9 +11,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Collections;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -87,5 +89,18 @@ class NovelTagServiceImplTest {
         verify(tagMapper).insert(tagCaptor.capture());
         assertEquals(USER_ID, tagCaptor.getValue().getUserId());
         verify(relationMapper).insertRelation(9, 8, USER_ID);
+    }
+
+    @Test
+    void rejectsBlankTagsAndMoreThanThirtyTags() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.assignTags(9, Collections.singletonList("  ")));
+
+        ArrayList<String> tooManyTags = new ArrayList<>();
+        for (int i = 0; i < 31; i++) {
+            tooManyTags.add("tag-" + i);
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> service.assignTags(9, tooManyTags));
     }
 }
