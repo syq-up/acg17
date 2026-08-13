@@ -1,0 +1,63 @@
+server:
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    default-encoding: UTF-8
+    properties:
+      "[mail.smtp.auth]": true
+      "[mail.smtp.starttls.enable]": true
+      "[mail.smtp.starttls.required]": true
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 5000
+      "[mail.smtp.writetimeout]": 5000
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      insert-strategy: NOT_EMPTY
+      update-strategy: NOT_EMPTY
+
+file:
+  illustrationFolder: illustrations/upload/
+  illustrationThumbFolder: illustrations/upload-t/
+  mangaFolder: manga/
+  novelFolder: novels/
+  gameFolder: games/
+  publicAssetFolder: illustrations/web-img/
+  publicAssetAccessPath: /public-assets/**
+  maxFileSize: 512MB
+  maxRequestSize: 1024MB
+  maxIllustrationFileSize: 100MB
+  mangaZip:
+    maxEntries: 5000
+    maxEntrySize: 100MB
+    maxExtractedSize: 1GB
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-hours: ${JWT_EXPIRATION_HOURS:24}
+  media:
+    secret: ${MEDIA_URL_SECRET}
+    expiration-minutes: ${MEDIA_URL_EXPIRATION_MINUTES:60}
+  login:
+    max-attempts: ${LOGIN_MAX_ATTEMPTS:10}
+    window-minutes: ${LOGIN_WINDOW_MINUTES:5}
+
+media:
+  access-path: /api/media

@@ -2,3 +2,5 @@
 .codex/
 .agents/
 .env
+.env.*
+!.env.example

@@ -1,0 +1,5 @@
+server:
+  port: 18003
+
+file:
+  uploadFolder: ${FILE_UPLOAD_FOLDER:/home/shiyq/work-data/acg17/}

@@ -43,7 +43,7 @@ ACG17 是一个面向个人媒体库的 ACG 资源管理与浏览项目，支持
 ├── database/acg17.sql                    # MySQL 表结构和初始化账号
 ├── compose.yaml                          # 本地 MySQL Compose 配置
 ├── pom.xml                               # Maven 聚合工程配置
-├── .env.example                          # Compose 环境变量示例
+├── .env.example                          # 后端与 Compose 环境变量示例
 ├── .nvmrc                                # Node.js 版本
 └── .sdkmanrc                             # Java 版本
 ```
@@ -57,19 +57,22 @@ ACG17 是一个面向个人媒体库的 ACG 资源管理与浏览项目，支持
 
 ## 本地运行
 
-### 1. 配置 MySQL
+### 1. 配置环境变量和 MySQL
 
-复制环境变量文件并填写数据库密码：
+首次运行时复制环境变量文件，并填写数据库、SMTP 和签名密钥：
 
 ```bash
 cp .env.example .env
+chmod 600 .env
 ```
 
-`.env` 至少需要包含：
+数据库相关变量如下：
 
 ```dotenv
 MYSQL_ROOT_PASSWORD=替换为 root 密码
-MYSQL_PASSWORD=替换为 acg17 用户密码
+DB_URL=jdbc:mysql://127.0.0.1:3306/acg17
+DB_USERNAME=acg17
+DB_PASSWORD=替换为 acg17 用户密码
 ```
 
 启动 MySQL：
@@ -81,34 +84,19 @@ docker compose ps
 
 Compose 会创建 `acg17` 数据库，并在 MySQL 数据卷首次初始化时导入 [`database/acg17.sql`](database/acg17.sql)。数据库端口只绑定到本机 `127.0.0.1:3306`。
 
-### 2. 配置后端
+### 2. 启动后端
 
-复制开发环境配置：
+公共配置位于 `application.yml`，`application-dev.yml` 和 `application-prod.yml` 只保存端口、上传根目录等环境差异。三个文件都不包含真实凭据，并应正常提交到 Git。
 
-```bash
-cp acg17-admin/src/main/resources/application-dev.yml.example \
-   acg17-admin/src/main/resources/application-dev.yml
-```
+Spring Boot 不会自动读取根目录的 `.env`，启动前需要将其导入当前 shell。JWT 密钥和媒体 URL 签名密钥必须彼此独立，并且都至少包含 32 字节随机数据。
 
-然后编辑 `application-dev.yml`：
-
-- 将 `spring.datasource.password` 改为 `.env` 中的 `MYSQL_PASSWORD`；
-- 将 `file.uploadFolder` 改为一个存在且可写的绝对路径；
-- 如果启用邮件发送，将 `spring.mail` 下的示例账号和授权码替换为真实配置。
-
-后端必须通过环境变量分别提供 JWT 密钥和媒体 URL 签名密钥，两者都至少包含 32 字节。生产环境应使用彼此独立的随机值。例如：
+启动开发环境：
 
 ```bash
-export JWT_SECRET='请替换为至少 32 字节的随机字符串'
-export MEDIA_URL_SECRET='请替换为另一个至少 32 字节的随机字符串'
-```
-
-`.env` 只会被 Docker Compose 自动读取；如果把这两个密钥写入 `.env`，启动 Spring Boot 前仍需将它们导出到当前 shell 环境中。媒体签名默认有效 60 分钟，可通过 `MEDIA_URL_EXPIRATION_MINUTES` 调整。
-
-启动后端：
-
-```bash
-./mvnw -pl acg17-admin spring-boot:run
+set -a
+source .env
+set +a
+SPRING_PROFILES_ACTIVE=dev ./mvnw -pl acg17-admin spring-boot:run
 ```
 
 后端默认地址为 `http://127.0.0.1:18003`，接口上下文路径为 `/api`。
@@ -185,11 +173,11 @@ npm run preview
 
 ### 文件存储
 
-默认配置位于 `acg17-admin/src/main/resources/application-dev.yml.example`，主要目录如下：
+公共文件配置位于 `acg17-admin/src/main/resources/application.yml`，开发环境上传根目录位于 `application-dev.yml`。主要目录如下：
 
 | 配置项 | 默认值 | 用途 |
 | --- | --- | --- |
-| `file.uploadFolder` | `/data/acg17/` | 上传根目录 |
+| `file.uploadFolder` | `/home/shiyq/work-data/acg17/` | 开发环境上传根目录，可由 `FILE_UPLOAD_FOLDER` 覆盖 |
 | `file.illustrationFolder` | `illustrations/upload/` | 原图目录 |
 | `file.illustrationThumbFolder` | `illustrations/upload-t/` | 插画缩略图目录 |
 | `file.mangaFolder` | `manga/` | 漫画目录 |
@@ -198,7 +186,7 @@ npm run preview
 | `file.publicAssetFolder` | `illustrations/web-img/` | 允许公开访问的站点装饰素材目录 |
 | `file.publicAssetAccessPath` | `/public-assets/**` | 公开装饰素材的访问路径 |
 
-上传限制和 ZIP 解压保护也在该文件中配置：单文件默认 512 MB、单次请求默认 1 GB、单张插画默认 100 MB；漫画 ZIP 默认最多 5,000 个条目、单个条目 100 MB、解压后总大小 1 GB。前端上传提示可能比后端限制更严格，以后端配置为准。
+上传限制和 ZIP 解压保护在公共 `application.yml` 中配置：单文件默认 512 MB、单次请求默认 1 GB、单张插画默认 100 MB；漫画 ZIP 默认最多 5,000 个条目、单个条目 100 MB、解压后总大小 1 GB。前端上传提示可能比后端限制更严格，以后端配置为准。
 
 用户上传的插画、漫画、游戏文件和头像不再直接映射为静态资源。后端返回的媒体 URL 会绑定规范化后的相对路径和过期时间，并使用 HMAC-SHA256 签名；`/api/media` 只有在签名有效、尚未过期且目标文件位于上传根目录内时才返回文件。签名 URL 在有效期内等同于临时访问凭证，不应写入公开日志或长期保存。
 
@@ -223,7 +211,9 @@ docker compose up -d mysql
 
 ## 安全提示
 
-- 不要提交 `.env`、`application-dev.yml`、JWT 密钥、媒体签名密钥、邮件授权码或生产数据；
+- 不要提交 `.env`、`.env.prod`、JWT 密钥、媒体签名密钥、数据库密码、邮件授权码或生产数据；
+- `application.yml`、`application-dev.yml` 和 `application-prod.yml` 只包含配置结构和环境变量占位符，应正常提交；
+- 生产环境应从部署平台的 Secret、systemd `EnvironmentFile` 或专用密钥管理服务注入变量，不要把本地 `.env.prod` 打包进应用；
 - 生产环境应使用彼此独立的高强度随机 JWT 密钥和媒体签名密钥，并将上传目录放在应用目录之外；
 - 应修改 SQL 中的默认管理员凭据，并限制数据库和上传文件目录的访问权限；
 - 生产部署建议在反向代理层配置 HTTPS、域名和 `/api` 路由转发。

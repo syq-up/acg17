@@ -1,0 +1,5 @@
+server:
+  port: ${SERVER_PORT:18002}
+
+file:
+  uploadFolder: ${FILE_UPLOAD_FOLDER:/data/Acg17/}
