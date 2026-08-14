@@ -5,6 +5,8 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import com.shiyq.entity.DO.Illustration;
 import com.shiyq.entity.DO.Manga;
+import com.shiyq.entity.DTO.MangaChapterData;
+import com.shiyq.entity.DTO.MangaPageData;
 import com.shiyq.mapper.GameMapper;
 import com.shiyq.mapper.IllustrationMapper;
 import com.shiyq.mapper.MangaMapper;
@@ -149,20 +151,16 @@ public class RecycleCleanupService {
                 continue;
             }
             try {
-                List<Map<String, Object>> chapters = objectMapper.readValue(
-                        manga.getPages(), new TypeReference<List<Map<String, Object>>>() { });
+                List<MangaChapterData> chapters = objectMapper.readValue(
+                        manga.getPages(), new TypeReference<List<MangaChapterData>>() { });
                 Set<String> paths = new HashSet<>();
-                for (Map<String, Object> chapter : chapters) {
-                    Object pageListValue = chapter.get("pagelist");
-                    if (!(pageListValue instanceof List)) {
+                for (MangaChapterData chapter : chapters) {
+                    if (chapter == null || chapter.getPagelist() == null) {
                         continue;
                     }
-                    for (Object pageValue : (List<?>) pageListValue) {
-                        if (pageValue instanceof Map) {
-                            Object path = ((Map<?, ?>) pageValue).get("path");
-                            if (path instanceof String) {
-                                paths.add(((String) path).replace('\\', '/'));
-                            }
+                    for (MangaPageData page : chapter.getPagelist()) {
+                        if (page != null && page.getPath() != null) {
+                            paths.add(page.getPath().replace('\\', '/'));
                         }
                     }
                 }

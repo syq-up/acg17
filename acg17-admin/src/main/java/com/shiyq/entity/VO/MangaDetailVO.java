@@ -1,9 +1,9 @@
 package com.shiyq.entity.VO;
 
+import com.shiyq.entity.DTO.MangaChapterData;
 import lombok.Data;
 
 import java.util.List;
-import java.util.Map;
 
 @Data
 public class MangaDetailVO {
@@ -13,7 +13,7 @@ public class MangaDetailVO {
     private String cover;
     private String description;
     private String author;
-    private List<Map<String, Object>> pages;
+    private List<MangaChapterData> pages;
     private List<MangaTagVO> characterTags;
     private List<MangaTagVO> maleTags;
     private List<MangaTagVO> femaleTags;

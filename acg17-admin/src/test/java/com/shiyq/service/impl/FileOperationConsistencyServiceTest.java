@@ -13,6 +13,7 @@ import com.shiyq.mapper.IllustrationMapper;
 import com.shiyq.mapper.MangaMapper;
 import com.shiyq.mapper.UserMapper;
 import com.shiyq.service.FileStorageService;
+import com.shiyq.service.MangaArchiveProcessor;
 import com.shiyq.service.MangaTagService;
 import com.shiyq.service.MediaUrlSigner;
 import com.shiyq.util.ImageConverterUtil;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.databind.ObjectMapper;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -216,6 +218,8 @@ class FileOperationConsistencyServiceTest {
         service.setMangaMapper(mangaMapper);
         service.setMangaTagService(mangaTagService);
         service.setFileStorageService(fileStorageService);
+        service.setMangaArchiveProcessor(new MangaArchiveProcessor());
+        service.setObjectMapper(new ObjectMapper());
         ReflectionTestUtils.setField(service, "mangaFolder", "manga");
         MangaUploadDTO request = new MangaUploadDTO();
         request.setTitle("test manga");
@@ -274,7 +278,7 @@ class FileOperationConsistencyServiceTest {
     @Test
     void mangaUploadRejectsTooManyArchiveEntries() throws Exception {
         MangaServiceImpl service = mangaServiceForUpload(11);
-        ReflectionTestUtils.setField(service, "maxZipEntries", 1);
+        ReflectionTestUtils.setField(archiveProcessor(service), "maxZipEntries", 1);
         MangaUploadDTO request = mangaRequest(zipBytes(
                 "chapter/1.png", pngBytes(), "chapter/2.png", pngBytes()));
 
@@ -287,7 +291,7 @@ class FileOperationConsistencyServiceTest {
     @Test
     void mangaUploadRejectsArchiveWhoseExpandedSizeExceedsLimit() throws Exception {
         MangaServiceImpl service = mangaServiceForUpload(12);
-        ReflectionTestUtils.setField(service, "maxZipExtractedSize", "10B");
+        ReflectionTestUtils.setField(archiveProcessor(service), "maxZipExtractedSize", "10B");
         MangaUploadDTO request = mangaRequest(zipBytes("chapter/page.png", pngBytes()));
 
         assertThrows(RuntimeException.class, () -> service.addManga(request));
@@ -299,7 +303,7 @@ class FileOperationConsistencyServiceTest {
     @Test
     void mangaUploadRejectsArchiveEntryWhoseExpandedSizeExceedsLimit() throws Exception {
         MangaServiceImpl service = mangaServiceForUpload(18);
-        ReflectionTestUtils.setField(service, "maxZipEntrySize", "10B");
+        ReflectionTestUtils.setField(archiveProcessor(service), "maxZipEntrySize", "10B");
         MangaUploadDTO request = mangaRequest(zipBytes("chapter/page.png", pngBytes()));
 
         assertThrows(RuntimeException.class, () -> service.addManga(request));
@@ -525,6 +529,8 @@ class FileOperationConsistencyServiceTest {
         service.setMangaMapper(mangaMapper);
         service.setMangaTagService(mangaTagService);
         service.setFileStorageService(fileStorageService);
+        service.setMangaArchiveProcessor(new MangaArchiveProcessor());
+        service.setObjectMapper(new ObjectMapper());
         ReflectionTestUtils.setField(service, "mangaFolder", "manga");
         return service;
     }
@@ -533,8 +539,15 @@ class FileOperationConsistencyServiceTest {
         MangaServiceImpl service = new MangaServiceImpl();
         service.setMangaMapper(mangaMapper);
         service.setFileStorageService(fileStorageService);
+        service.setMangaArchiveProcessor(new MangaArchiveProcessor());
+        service.setObjectMapper(new ObjectMapper());
         ReflectionTestUtils.setField(service, "mangaFolder", "manga");
         return service;
+    }
+
+    private MangaArchiveProcessor archiveProcessor(MangaServiceImpl service) {
+        return (MangaArchiveProcessor) ReflectionTestUtils.getField(
+                service, "mangaArchiveProcessor");
     }
 
     private MangaUploadDTO mangaRequest(byte[] archive) {

@@ -2,7 +2,9 @@ package com.shiyq.service.impl;
 
 import com.shiyq.entity.DO.Manga;
 import com.shiyq.entity.DO.MangaTag;
+import com.shiyq.entity.DTO.MangaChapterData;
 import com.shiyq.entity.DTO.MangaChapterUploadDTO;
+import com.shiyq.entity.DTO.MangaPageData;
 import com.shiyq.entity.DTO.MangaUpdateDTO;
 import com.shiyq.entity.DTO.MangaUploadDTO;
 import com.shiyq.entity.DTO.UserContext;
@@ -12,6 +14,7 @@ import com.shiyq.entity.VO.MangaDetailVO;
 import com.shiyq.mapper.MangaMapper;
 import com.shiyq.mapper.MangaTagRelationMapper;
 import com.shiyq.service.FileStorageService;
+import com.shiyq.service.MangaArchiveProcessor;
 import com.shiyq.service.MediaUrlSigner;
 import com.shiyq.service.MangaService;
 import com.shiyq.service.MangaTagService;
@@ -25,36 +28,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.unit.DataSize;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 
-import java.util.List;
-import java.util.Arrays;
 import java.io.File;
 import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import org.apache.commons.io.FileUtils;
-import com.shiyq.util.ImageThumbnailUtil;
-
-import java.lang.SuppressWarnings;
 
 /**
  * <p>
@@ -67,29 +58,19 @@ import java.lang.SuppressWarnings;
 @Service
 public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements MangaService {
 
-    private static final int MAX_ARCHIVE_PATH_DEPTH = 4;
-    private static final int MAX_ARCHIVE_PATH_LENGTH = 1024;
-    private static final int MAX_ARCHIVE_NAME_LENGTH = 255;
     private static final int MAX_TAGS = 100;
 
     private MangaMapper mangaMapper;
     private MangaTagRelationMapper mangaTagRelationMapper;
     private MangaTagService mangaTagService;
     private FileStorageService fileStorageService;
+    private MangaArchiveProcessor mangaArchiveProcessor;
     private MediaUrlSigner mediaUrlSigner;
+    private ObjectMapper objectMapper;
     
     @Value("${file.mangaFolder}")
     private String mangaFolder;
     
-    @Value("${file.mangaZip.maxEntries:5000}")
-    private int maxZipEntries = 5000;
-
-    @Value("${file.mangaZip.maxEntrySize:100MB}")
-    private String maxZipEntrySize = "100MB";
-
-    @Value("${file.mangaZip.maxExtractedSize:1GB}")
-    private String maxZipExtractedSize = "1GB";
-
     @Autowired
     public void setMangaMapper(MangaMapper mangaMapper) {
         this.mangaMapper = mangaMapper;
@@ -111,8 +92,18 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
     }
 
     @Autowired
+    public void setMangaArchiveProcessor(MangaArchiveProcessor mangaArchiveProcessor) {
+        this.mangaArchiveProcessor = mangaArchiveProcessor;
+    }
+
+    @Autowired
     public void setMediaUrlSigner(MediaUrlSigner mediaUrlSigner) {
         this.mediaUrlSigner = mediaUrlSigner;
+    }
+
+    @Autowired
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -174,49 +165,19 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         // 封面URL、喜欢字段处理
         mangaDetailVO.setCover(generateAccessUrl(manga.getCover()));
         
-        // pages字段处理
-        if (manga.getPages() != null) {
-            try {
-                ObjectMapper objectMapper = new ObjectMapper();
-                List<Map<String, Object>> pages = objectMapper.readValue(
-                        manga.getPages(), new TypeReference<List<Map<String, Object>>>() { });
-                addPageAccessUrls(pages);
-
-                mangaDetailVO.setPages(pages);
-            } catch (JacksonException e) {
-                e.printStackTrace();
-            }
-        } else {
-            mangaDetailVO.setPages(new ArrayList<>());
-        }
+        List<MangaChapterData> chapters = parseChapterData(manga.getPages());
+        addPageAccessUrls(chapters);
+        mangaDetailVO.setPages(chapters);
         
         populateTagGroups(mangaDetailVO, mangaTagService.getTagsByMangaId(manga.getId()));
         
         return mangaDetailVO;
     }
 
-    private void addPageAccessUrls(List<Map<String, Object>> chapters) {
-        if (chapters == null) {
-            return;
-        }
-        for (Map<String, Object> chapter : chapters) {
-            if (chapter == null) {
-                continue;
-            }
-            Object pageListValue = chapter.get("pagelist");
-            if (!(pageListValue instanceof List)) {
-                continue;
-            }
-            for (Object pageValue : (List<?>) pageListValue) {
-                if (!(pageValue instanceof Map)) {
-                    continue;
-                }
-                @SuppressWarnings("unchecked")
-                Map<String, Object> page = (Map<String, Object>) pageValue;
-                Object pathValue = page.get("path");
-                if (pathValue instanceof String) {
-                    page.put("path", generateAccessUrl((String) pathValue));
-                }
+    private void addPageAccessUrls(List<MangaChapterData> chapters) {
+        for (MangaChapterData chapter : chapters) {
+            for (MangaPageData page : chapter.getPagelist()) {
+                page.setPath(generateAccessUrl(page.getPath()));
             }
         }
     }
@@ -283,8 +244,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
             manga.setChineseTitle(chineseTitle);
             manga.setDescription(description);
             manga.setAuthor(author);
-            ObjectMapper objectMapper = new ObjectMapper();
-            Set<Integer> tagIds = resolveTagIds(tagsJson, objectMapper);
+            Set<Integer> tagIds = resolveTagIds(tagsJson);
             
             // 先保存到数据库获取ID
             int insertResult = mangaMapper.insert(manga);
@@ -305,15 +265,15 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                 File tempZipFile = stagingDirectory.resolve("upload.zip").toFile();
                 file.transferTo(tempZipFile);
                 try {
-                    processZipFile(tempZipFile, String.valueOf(manga.getId()), stagingDirectory.toString());
                     Path stagedMangaDirectory = stagingDirectory.resolve(String.valueOf(manga.getId()));
+                    mangaArchiveProcessor.extractManga(tempZipFile, stagedMangaDirectory.toFile());
                     // 设置漫画封面路径和大小
                     manga.setCover(manga.getId() + "/cover.jpg");
                     long storedSize = FileUtils.sizeOfDirectory(stagedMangaDirectory.toFile());
                     manga.setSize(storedSize);
                     
                     // 生成pages参数
-                    String pages = generatePagesJson(stagedMangaDirectory.toFile(), String.valueOf(manga.getId()));
+                    String pages = generatePagesJson(stagedMangaDirectory.toFile(), manga.getId());
                     manga.setPages(pages);
                     
                     // 更新数据库中的封面路径、大小和pages
@@ -384,7 +344,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
             File tempZipFile = stagingDirectory.resolve("upload.zip").toFile();
             uploadFile.transferTo(tempZipFile);
             Path stagedChapterDirectory = stagingDirectory.resolve("chapter");
-            processChapterZipFile(tempZipFile, stagedChapterDirectory.toFile());
+            mangaArchiveProcessor.extractChapter(tempZipFile, stagedChapterDirectory.toFile());
 
             int userId = UserContext.requireCurrentUserId();
             Manga manga = mangaMapper.selectOwnedMangaByIdForUpdate(mangaId, userId);
@@ -392,17 +352,12 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                 throw new IllegalArgumentException("漫画不存在或已删除");
             }
 
-            ObjectMapper objectMapper = new ObjectMapper();
-            List<Map<String, Object>> chapters = parseChapterData(manga.getPages(), objectMapper);
+            List<MangaChapterData> chapters = parseChapterData(manga.getPages());
             int chapterNumber = nextChapterNumber(chapters);
-            List<Map<String, Object>> pageList = buildChapterPageList(
+            List<MangaPageData> pageList = buildChapterPageList(
                     stagedChapterDirectory.toFile(), manga.getId(), chapterNumber);
 
-            Map<String, Object> chapter = new LinkedHashMap<>();
-            chapter.put("chapter", chapterNumber);
-            chapter.put("title", chapterTitle);
-            chapter.put("pagelist", pageList);
-            chapters.add(chapter);
+            chapters.add(new MangaChapterData(chapterNumber, chapterTitle, pageList));
 
             String pages = objectMapper.writeValueAsString(chapters);
 
@@ -459,7 +414,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         return mangaMapper.update(manga, updateWrapper) > 0;
     }
     
-    private Set<Integer> resolveTagIds(String tagsJson, ObjectMapper objectMapper) {
+    private Set<Integer> resolveTagIds(String tagsJson) {
         Set<Integer> tagIds = new LinkedHashSet<>();
         if (tagsJson == null || tagsJson.trim().isEmpty()) {
             return tagIds;
@@ -525,119 +480,35 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         }
         return normalized;
     }
-    
-    /**
-     * 处理ZIP文件解压和文件结构
-     * @param zipFile ZIP文件
-     * @param dirName 漫画文件夹名
-     * @param targetBasePath 目标基础路径
-     */
-    private void processZipFile(File zipFile, String dirName, String targetBasePath) throws Exception {
-        try {
-            validateZipSignature(zipFile);
-            // 创建临时解压目录
-            File targetBaseDirectory = new File(targetBasePath);
-            Files.createDirectories(targetBaseDirectory.toPath());
-            File tempExtractDir = Files.createTempDirectory(targetBaseDirectory.toPath(), "extract-").toFile();
-            try {
-                // 解压ZIP文件到临时目录
-                extractZipFile(zipFile, tempExtractDir);
-                removeIgnoredArchiveMetadata(tempExtractDir);
-                // 分析文件结构并调整
-                File processedDir = analyzeAndAdjustStructure(tempExtractDir);
-                // 检查目标文件夹是否已存在
-                File targetDir = new File(targetBasePath, dirName);
-                if (targetDir.exists()) {
-                    throw new IOException("漫画文件夹已存在");
-                }
-                // 写入磁盘
-                try {
-                    // 确保目标目录存在
-                    Files.createDirectories(targetDir.getParentFile().toPath());
-                    // 复制文件到目标位置，并重新编号第二层文件夹
-                    copyDirectoryWithRenumbering(processedDir, targetDir);
-                    // 生成封面缩略图
-                    generateCoverThumbnail(targetDir);
-                } catch (Exception e) {
-                    if (targetDir.exists()) {
-                        FileUtils.deleteDirectory(targetDir);
-                    }
-                    throw new IOException("文件写入失败："+e.getMessage(), e);
-                }
-            } finally {
-                // 清理临时解压目录
-                if (tempExtractDir.exists()) {
-                    FileUtils.deleteDirectory(tempExtractDir);
-                }
-            }
-            
-        } catch (IOException e) {
-            throw new IOException("文件处理失败："+e.getMessage(), e);
-        }
-    }
 
-    /**
-     * 解压并规范化单个章节。压缩包可以直接放图片，也可以包含最多两层外包目录，
-     * 但最终只能解析出一个章节。
-     */
-    private void processChapterZipFile(File zipFile, File targetChapterDirectory) throws IOException {
-        validateZipSignature(zipFile);
-        File stagingDirectory = targetChapterDirectory.getParentFile();
-        Files.createDirectories(stagingDirectory.toPath());
-        File tempExtractDirectory = Files.createTempDirectory(
-                stagingDirectory.toPath(), "extract-chapter-").toFile();
-        try {
-            extractZipFile(zipFile, tempExtractDirectory);
-            removeIgnoredArchiveMetadata(tempExtractDirectory);
-            File processedDirectory;
-            try {
-                processedDirectory = analyzeAndAdjustStructure(tempExtractDirectory);
-            } catch (Exception e) {
-                if (e instanceof IOException) {
-                    throw (IOException) e;
-                }
-                throw new IOException(e.getMessage(), e);
-            }
-            File[] chapterDirectories = requireDirectoryItems(processedDirectory);
-            if (!containsOnlyChapterDirectories(chapterDirectories)
-                    || chapterDirectories.length != 1) {
-                throw new IOException("一个章节压缩包只能包含一个章节");
-            }
-            copyChapterImages(chapterDirectories[0], targetChapterDirectory);
-        } finally {
-            if (tempExtractDirectory.exists()) {
-                FileUtils.deleteDirectory(tempExtractDirectory);
-            }
-        }
-    }
-
-    private List<Map<String, Object>> parseChapterData(String pages,
-                                                        ObjectMapper objectMapper) throws IOException {
+    private List<MangaChapterData> parseChapterData(String pages) {
         if (pages == null || pages.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        List<Map<String, Object>> chapters = objectMapper.readValue(
-                pages, new TypeReference<List<Map<String, Object>>>() { });
+        List<MangaChapterData> chapters = objectMapper.readValue(
+                pages, new TypeReference<List<MangaChapterData>>() { });
         if (chapters == null) {
             return new ArrayList<>();
+        }
+        for (MangaChapterData chapter : chapters) {
+            if (chapter == null) {
+                throw new IllegalStateException("漫画章节数据不能为空");
+            }
+            if (chapter.getPagelist() == null) {
+                chapter.setPagelist(new ArrayList<>());
+            }
         }
         return new ArrayList<>(chapters);
     }
 
-    private int nextChapterNumber(List<Map<String, Object>> chapters) throws IOException {
+    private int nextChapterNumber(List<MangaChapterData> chapters) throws IOException {
         int maximum = 0;
         Set<Integer> chapterNumbers = new HashSet<>();
-        for (Map<String, Object> chapter : chapters) {
-            if (chapter == null || !(chapter.get("chapter") instanceof Number)) {
-                throw new IOException("现有漫画章节数据格式错误");
-            }
-            Number rawValue = (Number) chapter.get("chapter");
-            long value = rawValue.longValue();
-            if (rawValue.doubleValue() != (double) value
-                    || value <= 0L || value > Integer.MAX_VALUE) {
+        for (MangaChapterData chapter : chapters) {
+            int chapterNumber = chapter.getChapter();
+            if (chapterNumber <= 0) {
                 throw new IOException("现有漫画章节编号无效");
             }
-            int chapterNumber = (int) value;
             if (!chapterNumbers.add(chapterNumber)) {
                 throw new IOException("现有漫画章节编号重复");
             }
@@ -649,502 +520,69 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         return maximum + 1;
     }
 
-    private List<Map<String, Object>> buildChapterPageList(File chapterDirectory,
-                                                            Integer mangaId,
-                                                            int chapterNumber) throws IOException {
-        File[] imageFiles = requireDirectoryItems(chapterDirectory);
-        if (!containsOnlyImages(imageFiles)) {
-            throw new IOException("章节目录只能包含图片");
-        }
-        Arrays.sort(imageFiles, (a, b) -> Integer.compare(
-                pageNumberFromFilename(a), pageNumberFromFilename(b)));
+    private List<MangaPageData> buildChapterPageList(File chapterDirectory,
+                                                     Integer mangaId,
+                                                     int chapterNumber) throws IOException {
+        File[] imageFiles = requireFiles(chapterDirectory);
+        Arrays.sort(imageFiles, (left, right) -> Integer.compare(
+                pageNumberFromFilename(left), pageNumberFromFilename(right)));
 
-        List<Map<String, Object>> pageList = new ArrayList<>();
+        List<MangaPageData> pages = new ArrayList<>();
         int pageNumber = 1;
         for (File imageFile : imageFiles) {
-            Map<String, Object> page = new LinkedHashMap<>();
-            page.put("page", pageNumber);
-            page.put("path", mangaId + "/" + chapterNumber + "/" + imageFile.getName());
-            pageList.add(page);
+            pages.add(new MangaPageData(pageNumber,
+                    mangaId + "/" + chapterNumber + "/" + imageFile.getName()));
             pageNumber++;
         }
-        return pageList;
-    }
-    
-    /**
-     * 解压ZIP文件
-     */
-    private void extractZipFile(File zipFile, File destDir) throws IOException {
-        if (maxZipEntries <= 0) {
-            throw new IOException("ZIP最大条目数配置必须大于0");
-        }
-        long maxEntryBytes = parsePositiveDataSize(maxZipEntrySize, "ZIP单文件解压上限");
-        long maxExtractedBytes = parsePositiveDataSize(maxZipExtractedSize, "ZIP累计解压上限");
-        Path destinationRoot = destDir.toPath().toAbsolutePath().normalize();
-        Set<Path> extractedPaths = new HashSet<>();
-        int entryCount = 0;
-        int fileCount = 0;
-        long totalExtractedBytes = 0L;
-
-        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                entryCount++;
-                if (entryCount > maxZipEntries) {
-                    throw new IOException("压缩包文件条目过多，最多允许" + maxZipEntries + "个");
-                }
-
-                Path entryPath = resolveArchiveEntry(destinationRoot, entry.getName());
-                if (!extractedPaths.add(entryPath)) {
-                    throw new IOException("压缩包包含重复路径: " + entry.getName());
-                }
-
-                if (entry.isDirectory()) {
-                    Files.createDirectories(entryPath);
-                } else {
-                    long declaredSize = entry.getSize();
-                    if (declaredSize > maxEntryBytes) {
-                        throw new IOException("压缩包内单个文件过大: " + entry.getName());
-                    }
-                    Files.createDirectories(entryPath.getParent());
-                    long entryExtractedBytes = 0L;
-                    try (OutputStream output = Files.newOutputStream(entryPath,
-                            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                        byte[] buffer = new byte[8192];
-                        int len;
-                        while ((len = zis.read(buffer)) != -1) {
-                            if (len == 0) {
-                                continue;
-                            }
-                            if (entryExtractedBytes > maxEntryBytes - len) {
-                                throw new IOException("压缩包内单个文件解压后过大: " + entry.getName());
-                            }
-                            if (totalExtractedBytes > maxExtractedBytes - len) {
-                                throw new IOException("压缩包累计解压大小超过限制");
-                            }
-                            output.write(buffer, 0, len);
-                            entryExtractedBytes += len;
-                            totalExtractedBytes += len;
-                        }
-                    }
-                    fileCount++;
-                }
-                zis.closeEntry();
-            }
-        } catch (IOException e) {
-            throw new IOException("解压文件失败: " + e.getMessage(), e);
-        }
-
-        if (fileCount == 0) {
-            throw new IOException("压缩包中没有文件");
-        }
-    }
-
-    private void validateZipSignature(File zipFile) throws IOException {
-        byte[] signature = new byte[4];
-        try (FileInputStream input = new FileInputStream(zipFile)) {
-            if (input.read(signature) != signature.length
-                    || signature[0] != 0x50 || signature[1] != 0x4B
-                    || signature[2] != 0x03 || signature[3] != 0x04) {
-                throw new IOException("文件内容不是有效的ZIP压缩包");
-            }
-        }
-    }
-
-    private long parsePositiveDataSize(String value, String propertyName) throws IOException {
-        try {
-            long bytes = DataSize.parse(value).toBytes();
-            if (bytes <= 0L) {
-                throw new IllegalArgumentException("必须大于0");
-            }
-            return bytes;
-        } catch (IllegalArgumentException e) {
-            throw new IOException(propertyName + "配置无效: " + value, e);
-        }
-    }
-
-    private Path resolveArchiveEntry(Path destinationRoot, String entryName) throws IOException {
-        if (entryName == null || entryName.trim().isEmpty()) {
-            throw new IOException("压缩包包含空路径条目");
-        }
-        String normalizedName = entryName.replace('\\', '/');
-        if (normalizedName.length() > MAX_ARCHIVE_PATH_LENGTH
-                || normalizedName.startsWith("/")
-                || normalizedName.matches("^[A-Za-z]:.*")) {
-            throw new IOException("压缩包路径无效: " + entryName);
-        }
-
-        int depth = 0;
-        for (String segment : normalizedName.split("/")) {
-            if (segment.isEmpty()) {
-                continue;
-            }
-            if (".".equals(segment) || "..".equals(segment)
-                    || segment.length() > MAX_ARCHIVE_NAME_LENGTH) {
-                throw new IOException("压缩包路径无效: " + entryName);
-            }
-            depth++;
-        }
-        if (depth == 0 || depth > MAX_ARCHIVE_PATH_DEPTH) {
-            throw new IOException("压缩包目录层级过深: " + entryName);
-        }
-
-        Path target = destinationRoot.resolve(normalizedName).normalize();
-        if (!target.startsWith(destinationRoot)) {
-            throw new IOException("压缩包条目超出目标目录: " + entryName);
-        }
-        String destinationPrefix = destinationRoot.toFile().getCanonicalPath() + File.separator;
-        if (!target.toFile().getCanonicalPath().startsWith(destinationPrefix)) {
-            throw new IOException("压缩包条目超出目标目录: " + entryName);
-        }
-        return target;
-    }
-
-    private void removeIgnoredArchiveMetadata(File directory) throws IOException {
-        File[] children = directory.listFiles();
-        if (children == null) {
-            throw new IOException("无法读取解压目录: " + directory.getName());
-        }
-        for (File child : children) {
-            if (isIgnoredArchiveItem(child.getName())) {
-                FileUtils.forceDelete(child);
-            } else if (child.isDirectory()) {
-                removeIgnoredArchiveMetadata(child);
-            }
-        }
-    }
-
-    private boolean isIgnoredArchiveItem(String name) {
-        String lowerName = name.toLowerCase(Locale.ROOT);
-        return ".ds_store".equals(lowerName)
-                || "thumbs.db".equals(lowerName)
-                || "__macosx".equals(lowerName)
-                || lowerName.startsWith("._")
-                || lowerName.endsWith(".torrent");
-    }
-    
-    /**
-     * 分析并调整文件结构
-     * - 二层：章节文件夹（层1）→ （多个）图片（层2）
-     * - 三层：漫画文件夹（层1）→ （一个或多个）章节文件夹（层2）→ （多个）图片（层3）
-     * - 四层：外包一层（层1）→ 漫画文件夹（层2）→ （一个或多个）章节文件夹（层3）→ （多个）图片（层4）
-     * 返回漫画文件夹
-     */
-    private File analyzeAndAdjustStructure(File extractDir) throws Exception {
-        File candidate = extractDir;
-        for (int wrapperDepth = 0; wrapperDepth <= 2; wrapperDepth++) {
-            File[] items = requireDirectoryItems(candidate);
-            if (containsOnlyImages(items)) {
-                File chapterDirectory = new File(candidate, "1");
-                Files.createDirectory(chapterDirectory.toPath());
-                for (File image : items) {
-                    Files.move(image.toPath(), new File(chapterDirectory, image.getName()).toPath());
-                }
-                return candidate;
-            }
-            if (containsOnlyChapterDirectories(items)) {
-                return candidate;
-            }
-            if (wrapperDepth < 2 && items.length == 1 && items[0].isDirectory()) {
-                candidate = items[0];
-                continue;
-            }
-            break;
-        }
-        throw new IOException("压缩包结构异常，只允许图片、章节目录及最多两层外包目录");
-    }
-
-    private File[] requireDirectoryItems(File directory) throws IOException {
-        File[] items = directory.listFiles();
-        if (items == null || items.length == 0) {
-            throw new IOException("压缩包目录为空: " + directory.getName());
-        }
-        return items;
-    }
-
-    private boolean containsOnlyImages(File[] items) {
-        if (items.length == 0) {
-            return false;
-        }
-        for (File item : items) {
-            if (!item.isFile() || !isImageFile(item)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean containsOnlyChapterDirectories(File[] items) throws IOException {
-        if (items.length == 0) {
-            return false;
-        }
-        for (File item : items) {
-            if (!item.isDirectory() || !containsOnlyImages(requireDirectoryItems(item))) {
-                return false;
-            }
-        }
-        return true;
+        return pages;
     }
 
     /**
      * 生成pages参数的JSON字符串
      * @param mangaDir 漫画目录
-     * @param dirName 第一层文件夹名称（漫画ID）
+     * @param mangaId 漫画ID
      * @return pages的JSON字符串
      */
-    private String generatePagesJson(File mangaDir, String dirName) throws IOException {
+    private String generatePagesJson(File mangaDir, Integer mangaId) throws IOException {
         try {
-            List<Map<String, Object>> chapters = new ArrayList<>();
-            
-            // 获取第二层文件夹（章节文件夹）
-            File[] chapterDirs = mangaDir.listFiles(File::isDirectory);
-            if (chapterDirs != null) {
-                // 按文件夹名称排序（现在文件夹名称是数字编号）
-                Arrays.sort(chapterDirs, (a, b) -> {
-                    try {
-                        int numA = Integer.parseInt(a.getName());
-                        int numB = Integer.parseInt(b.getName());
-                        return Integer.compare(numA, numB);
-                    } catch (NumberFormatException e) {
-                        // 如果不是数字，按字符串排序
-                        return a.getName().compareTo(b.getName());
-                    }
-                });
-                
-                for (File chapterDir : chapterDirs) {
-                    Map<String, Object> chapter = new HashMap<>();
-                    // chapter值使用文件夹名称（即编号）
-                    int chapterNum = Integer.parseInt(chapterDir.getName());
-                    chapter.put("chapter", chapterNum);
-                    chapter.put("title", "第" + chapterNum + "话");
-                    
-                    // 获取章节中的图片文件
-                    List<Map<String, Object>> pageList = new ArrayList<>();
-                    File[] imageFiles = chapterDir.listFiles(file -> isImageFile(file));
-                    if (imageFiles != null) {
-                        Arrays.sort(imageFiles, (a, b) -> Integer.compare(
-                                pageNumberFromFilename(a), pageNumberFromFilename(b)));
-                        
-                        int pageNum = 1;
-                        for (File imageFile : imageFiles) {
-                            Map<String, Object> page = new HashMap<>();
-                            page.put("page", pageNum);
-                            page.put("path", dirName + "/" + chapterDir.getName() + "/" + imageFile.getName());
-                            pageList.add(page);
-                            pageNum++;
-                        }
-                    }
-                    
-                    chapter.put("pagelist", pageList);
-                    chapters.add(chapter);
-                }
+            File[] chapterDirectories = requireDirectories(mangaDir);
+            Arrays.sort(chapterDirectories, (left, right) -> Integer.compare(
+                    Integer.parseInt(left.getName()), Integer.parseInt(right.getName())));
+
+            List<MangaChapterData> chapters = new ArrayList<>();
+            for (File chapterDirectory : chapterDirectories) {
+                int chapterNumber = Integer.parseInt(chapterDirectory.getName());
+                List<MangaPageData> pages = buildChapterPageList(
+                        chapterDirectory, mangaId, chapterNumber);
+                chapters.add(new MangaChapterData(
+                        chapterNumber, "第" + chapterNumber + "话", pages));
             }
-            
-            // 转换为JSON字符串
-            ObjectMapper objectMapper = new ObjectMapper();
             return objectMapper.writeValueAsString(chapters);
         } catch (Exception e) {
             throw new IOException("生成漫画页面数据失败", e);
         }
     }
-    
-    /**
-      * 复制目录并重新编号第二层文件夹
-      * @param sourceDir 源目录
-      * @param targetDir 目标目录
-      */
-    private void copyDirectoryWithRenumbering(File sourceDir, File targetDir) throws IOException {
-        Files.createDirectories(targetDir.toPath());
 
-        File[] chapterDirectories = requireDirectoryItems(sourceDir);
-        if (!containsOnlyChapterDirectories(chapterDirectories)) {
-            throw new IOException("漫画目录只能包含章节文件夹和图片");
+    private File[] requireDirectories(File directory) throws IOException {
+        File[] directories = directory.listFiles(File::isDirectory);
+        if (directories == null || directories.length == 0) {
+            throw new IOException("漫画目录中没有章节: " + directory.getName());
         }
-        Arrays.sort(chapterDirectories, this::compareNaturalNames);
-
-        int chapterNumber = 1;
-        for (File chapterDirectory : chapterDirectories) {
-            File targetChapterDirectory = new File(targetDir, String.valueOf(chapterNumber));
-            copyChapterImages(chapterDirectory, targetChapterDirectory);
-            chapterNumber++;
-        }
+        return directories;
     }
 
-    private void copyChapterImages(File sourceChapterDirectory,
-                                   File targetChapterDirectory) throws IOException {
-        File[] imageFiles = requireDirectoryItems(sourceChapterDirectory);
-        if (!containsOnlyImages(imageFiles)) {
-            throw new IOException("章节目录只能包含图片");
+    private File[] requireFiles(File directory) throws IOException {
+        File[] files = directory.listFiles(File::isFile);
+        if (files == null || files.length == 0) {
+            throw new IOException("章节目录中没有页面: " + directory.getName());
         }
-        Arrays.sort(imageFiles, this::compareNaturalNames);
-        Files.createDirectory(targetChapterDirectory.toPath());
-        int pageNumber = 1;
-        for (File imageFile : imageFiles) {
-            String extension = ImageThumbnailUtil.detectImageExtension(imageFile);
-            File targetFile = new File(targetChapterDirectory, pageNumber + "." + extension);
-            FileUtils.copyFile(imageFile, targetFile);
-            pageNumber++;
-        }
-    }
-
-    /**
-     * 生成封面缩略图
-    * @param mangaDir 漫画目录
-    */
-    private void generateCoverThumbnail(File mangaDir) {
-        try {
-            // 查找封面图片文件
-            File coverImage = findCoverFile(mangaDir);
-            if (coverImage != null) {
-                File thumbnailFile = new File(mangaDir, "cover.jpg");
-                ImageThumbnailUtil.generateThumbnail(coverImage, thumbnailFile, 440, "jpg");
-            } else {
-                throw new Exception("未找到封面图片文件");
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("生成封面缩略图失败");
-        }
-    }
-    
-    /**
-     * 查找封面图片文件
-     * @param dir 漫画目录
-     * @return 封面图片文件
-     */
-    private File findCoverFile(File dir) {
-        if (dir == null) {
-            return null;
-        }
-        File[] files = dir.listFiles();
-        if (files == null) {
-            return null;
-        }
-        // 查找所有章节目录→按名称排序
-        List<File> chapterDirs = new ArrayList<>();
-        for (File file : files) {
-            if (file.isDirectory()) {
-                chapterDirs.add(file);
-            }
-        }
-        if (chapterDirs.isEmpty()) {
-            return null;
-        }
-        chapterDirs.sort((a, b) -> Integer.compare(
-                Integer.parseInt(a.getName()), Integer.parseInt(b.getName())));
-
-        // 查找第一个章节目录下的所有图片文件→按名称排序
-        File firstChapterDir = chapterDirs.get(0);
-        File[] subFiles = firstChapterDir.listFiles();
-        if (subFiles == null) {
-            return null;
-        }
-        Arrays.sort(subFiles, (a, b) -> Integer.compare(
-                pageNumberFromFilename(a), pageNumberFromFilename(b)));
-
-        // 查找第一个图片文件
-        for (File subFile : subFiles) {
-            if (subFile.isFile() && isImageFile(subFile)) {
-                return subFile;
-            }
-        }
-        return null;
-    }
-    
-    /**
-     * 判断是否为图片文件
-     * @param file 文件
-     * @return 是否为图片文件
-     */
-    private boolean isImageFile(File file) {
-        try {
-            ImageThumbnailUtil.detectImageExtension(file);
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
+        return files;
     }
 
     private int pageNumberFromFilename(File file) {
         String name = file.getName();
         int dotIndex = name.lastIndexOf('.');
         return Integer.parseInt(dotIndex < 0 ? name : name.substring(0, dotIndex));
-    }
-
-    private int compareNaturalNames(File left, File right) {
-        String leftName = left.getName();
-        String rightName = right.getName();
-        int leftIndex = 0;
-        int rightIndex = 0;
-        int zeroPaddingComparison = 0;
-
-        while (leftIndex < leftName.length() && rightIndex < rightName.length()) {
-            char leftChar = leftName.charAt(leftIndex);
-            char rightChar = rightName.charAt(rightIndex);
-            if (isAsciiDigit(leftChar) && isAsciiDigit(rightChar)) {
-                int leftEnd = digitRunEnd(leftName, leftIndex);
-                int rightEnd = digitRunEnd(rightName, rightIndex);
-                int leftSignificant = skipLeadingZeros(leftName, leftIndex, leftEnd);
-                int rightSignificant = skipLeadingZeros(rightName, rightIndex, rightEnd);
-                int significantLengthComparison = Integer.compare(
-                        leftEnd - leftSignificant, rightEnd - rightSignificant);
-                if (significantLengthComparison != 0) {
-                    return significantLengthComparison;
-                }
-                for (int offset = 0; offset < leftEnd - leftSignificant; offset++) {
-                    int digitComparison = Character.compare(
-                            leftName.charAt(leftSignificant + offset),
-                            rightName.charAt(rightSignificant + offset));
-                    if (digitComparison != 0) {
-                        return digitComparison;
-                    }
-                }
-                if (zeroPaddingComparison == 0) {
-                    zeroPaddingComparison = Integer.compare(
-                            leftEnd - leftIndex, rightEnd - rightIndex);
-                }
-                leftIndex = leftEnd;
-                rightIndex = rightEnd;
-                continue;
-            }
-
-            int characterComparison = Character.compare(
-                    Character.toLowerCase(leftChar), Character.toLowerCase(rightChar));
-            if (characterComparison != 0) {
-                return characterComparison;
-            }
-            leftIndex++;
-            rightIndex++;
-        }
-
-        int remainingLengthComparison = Integer.compare(
-                leftName.length() - leftIndex, rightName.length() - rightIndex);
-        if (remainingLengthComparison != 0) {
-            return remainingLengthComparison;
-        }
-        if (zeroPaddingComparison != 0) {
-            return zeroPaddingComparison;
-        }
-        return leftName.compareTo(rightName);
-    }
-
-    private int digitRunEnd(String value, int start) {
-        int end = start;
-        while (end < value.length() && isAsciiDigit(value.charAt(end))) {
-            end++;
-        }
-        return end;
-    }
-
-    private int skipLeadingZeros(String value, int start, int end) {
-        int significant = start;
-        while (significant < end && value.charAt(significant) == '0') {
-            significant++;
-        }
-        return significant;
-    }
-
-    private boolean isAsciiDigit(char value) {
-        return value >= '0' && value <= '9';
     }
 
     @Override
@@ -1202,35 +640,25 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
             return false;
         }
 
-        // pages字段处理
-        ObjectMapper objectMapper = new ObjectMapper();
         try {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> mangaPages = objectMapper.readValue(pagesJsonString, List.class);
+            List<MangaChapterData> chapters = parseChapterData(pagesJsonString);
             String pagePath = null;
-            // 检查章节是否存在
-            for (Map<String, Object> chapter : mangaPages) {
-                if (chapter.get("chapter").equals(chapterId)) {
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> pageList = (List<Map<String, Object>>) chapter.get("pagelist");
-                    // 获取指定页面的路径（文件名）
-                    for (Map<String, Object> page : pageList) {
-                        if (page.get("page").equals(pageNum)) {
-                            pagePath = (String) page.get("path");
+            for (MangaChapterData chapter : chapters) {
+                if (chapter.getChapter() == chapterId) {
+                    for (MangaPageData page : chapter.getPagelist()) {
+                        if (page.getPage() == pageNum) {
+                            pagePath = page.getPath();
                             break;
                         }
                     }
-                    pageList.removeIf(page -> page.get("page").equals(pageNum));
-                    // 更新章节的页面列表
-                    chapter.put("pagelist", pageList);
+                    chapter.getPagelist().removeIf(page -> page.getPage() == pageNum);
                     break;
                 }
             }
             if (pagePath == null) {
                 return false;
             }
-            // 更新漫画的页面JSON字符串
-            manga.setPages(objectMapper.writeValueAsString(mangaPages));
+            manga.setPages(objectMapper.writeValueAsString(chapters));
             boolean updateResult = updateOwnedManga(manga, userId);
             if (!updateResult) {
                 throw new IllegalStateException("更新漫画页面信息失败");

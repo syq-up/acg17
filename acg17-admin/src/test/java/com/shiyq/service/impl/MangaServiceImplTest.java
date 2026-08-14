@@ -15,9 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.mock.web.MockMultipartFile;
+import tools.jackson.databind.ObjectMapper;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,13 +60,12 @@ class MangaServiceImplTest {
         service.setMangaMapper(mangaMapper);
         service.setMangaTagService(mangaTagService);
         service.setMediaUrlSigner(mediaUrlSigner);
+        service.setObjectMapper(new ObjectMapper());
         ReflectionTestUtils.setField(service, "mangaFolder", "manga/");
 
         MangaDetailVO result = service.getMangaById(9L);
 
-        List<?> pageList = (List<?>) result.getPages().get(0).get("pagelist");
-        Map<?, ?> page = (Map<?, ?>) pageList.get(0);
-        String path = (String) page.get("path");
+        String path = result.getPages().get(0).getPagelist().get(0).getPath();
         assertEquals("/api/media?signed=page", path);
     }
 
@@ -89,6 +87,7 @@ class MangaServiceImplTest {
         service.setMangaMapper(mangaMapper);
         service.setMangaTagService(mangaTagService);
         service.setMangaTagRelationMapper(relationMapper);
+        service.setObjectMapper(new ObjectMapper());
 
         assertTrue(service.addTagToManga(9L, 7));
         assertTrue(service.removeTagFromManga(9L, 7));
@@ -103,6 +102,7 @@ class MangaServiceImplTest {
         MangaServiceImpl service = new MangaServiceImpl();
         service.setMangaMapper(mangaMapper);
         service.setFileStorageService(mock(FileStorageService.class));
+        service.setObjectMapper(new ObjectMapper());
         MangaUploadDTO request = new MangaUploadDTO();
         request.setTitle("manga");
         request.setTags("{");
