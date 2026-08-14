@@ -2369,6 +2369,23 @@ export default {
   width: 100%;
 }
 
+.manga-select :deep(.el-select__wrapper) {
+  min-height: 42px;
+  padding: 4px 16px;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  transition: all 0.3s ease;
+}
+
+.manga-select :deep(.el-select__wrapper:hover) {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.manga-select :deep(.el-select__wrapper.is-focused) {
+  box-shadow: 0 0 0 1px #667eea inset, 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
 .form-textarea {
   padding: 12px 16px;
   border: 1px solid #d1d5db;
