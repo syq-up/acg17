@@ -326,13 +326,13 @@ async function addChapter() {
 }
 
 .tag-item:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: var(--upload-primary);
+  color: var(--upload-primary);
 }
 
 .tag-item.active {
-  border-color: #667eea;
-  background: #667eea;
+  border-color: var(--upload-primary);
+  background: var(--upload-primary);
   color: white;
 }
 
@@ -349,16 +349,16 @@ async function addChapter() {
 
 .tag-item.add-tag-btn:hover {
   background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-  border-color: #667eea;
-  color: #667eea;
-  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
+  border-color: var(--upload-primary);
+  color: var(--upload-primary);
+  box-shadow: 0 2px 4px rgba(var(--upload-primary-rgb), 0.1);
 }
 
 .tag-item.add-tag-input {
   padding: 6px 8px;
   gap: 6px;
   background: white;
-  border: 1px solid #667eea;
+  border: 1px solid var(--upload-primary);
 }
 
 .tag-item.add-tag-input input {

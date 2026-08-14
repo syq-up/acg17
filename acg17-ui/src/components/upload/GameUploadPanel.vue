@@ -367,6 +367,7 @@ function revokeUrl(url) {
 }
 
 .cover-upload-card {
+  box-sizing: border-box;
   width: 100%;
   height: 130px;
   border: 2px dashed #dcdfe6;
@@ -383,13 +384,13 @@ function revokeUrl(url) {
 }
 
 .cover-upload-card:hover {
-  border-color: #409eff;
-  background-color: #ecf5ff;
+  border-color: var(--upload-primary);
+  background-color: var(--upload-primary-soft);
 }
 
 .cover-upload-card.dragover {
-  border-color: #409eff;
-  background-color: #d9ecff;
+  border-color: var(--upload-primary);
+  background-color: var(--upload-primary-soft-strong);
 }
 
 .cover-upload-card * {
@@ -427,6 +428,7 @@ function revokeUrl(url) {
 }
 
 .cover-avatar {
+  box-sizing: border-box;
   position: relative;
   width: 100%;
   height: 130px;
@@ -499,14 +501,15 @@ function revokeUrl(url) {
 /* 游戏预览照片墙 - Element Plus Upload 照片墙风格 */
 .game-preview-wall {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 8px;
 }
 
 .preview-upload-card {
   box-sizing: border-box;
-  width: 220px;
-  height: 150px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 22 / 15;
   border: 2px dashed #dcdfe6;
   border-radius: 6px;
   display: flex;
@@ -523,13 +526,13 @@ function revokeUrl(url) {
 }
 
 .preview-upload-card:hover {
-  border-color: #409eff;
-  background-color: #ecf5ff;
+  border-color: var(--upload-primary);
+  background-color: var(--upload-primary-soft);
 }
 
 .preview-upload-card.dragover {
-  border-color: #409eff;
-  background-color: #d9ecff;
+  border-color: var(--upload-primary);
+  background-color: var(--upload-primary-soft-strong);
 }
 
 .preview-upload-card .upload-placeholder {
@@ -555,8 +558,9 @@ function revokeUrl(url) {
 .preview-card {
   box-sizing: border-box;
   position: relative;
-  width: 220px;
-  height: 150px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 22 / 15;
   border: 1px solid #c0c4cc;
   border-radius: 6px;
   overflow: hidden;
@@ -599,7 +603,7 @@ function revokeUrl(url) {
 }
 
 .preview-btn:hover {
-  color: #409eff;
+  color: var(--upload-primary);
 }
 
 /* 图片预览对话框 */
@@ -650,7 +654,7 @@ function revokeUrl(url) {
 
 .close-preview-btn:hover {
   background: #fff;
-  color: #409eff;
+  color: var(--upload-primary);
 }
 
 .close-preview-btn .icon {
@@ -663,6 +667,10 @@ function revokeUrl(url) {
   .game-details-row,
   .game-images-row {
     grid-template-columns: 1fr;
+  }
+
+  .game-preview-wall {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   }
 }
 </style>

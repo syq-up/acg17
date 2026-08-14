@@ -96,8 +96,10 @@ function removeImage(id) {
 }
 
 .upload-area ::v-deep(.el-upload-dragger) {
+  box-sizing: border-box;
   width: 100%;
   height: 200px;
+  padding: 0;
   border: 2px dashed #d1d5db;
   border-radius: 16px;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -107,26 +109,27 @@ function removeImage(id) {
 }
 
 .upload-area ::v-deep(.el-upload-dragger:hover) {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  border-color: var(--upload-primary);
+  background: linear-gradient(135deg, #f5faff 0%, var(--upload-primary-soft) 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 8px 25px rgba(var(--upload-primary-rgb), 0.15);
 }
 
 .upload-area ::v-deep(.el-upload-dragger.is-dragover) {
-  border-color: #4f46e5;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border-color: var(--upload-primary);
+  background: linear-gradient(135deg, var(--upload-primary-soft) 0%, var(--upload-primary-soft-strong) 100%);
   transform: scale(1.02);
-  box-shadow: 0 12px 35px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 12px 35px rgba(var(--upload-primary-rgb), 0.25);
 }
 
 .upload-content {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: 24px;
+  padding: 12px 24px;
   text-align: center;
   position: relative;
   z-index: 2;
@@ -139,21 +142,23 @@ function removeImage(id) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at center, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(var(--upload-primary-rgb), 0.05) 0%, transparent 70%);
   z-index: -1;
 }
 
 .upload-icon {
+  box-sizing: border-box;
+  flex: 0 0 auto;
   width: 48px;
   height: 48px;
   margin-bottom: 16px;
   padding: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--upload-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--upload-primary-rgb), 0.3);
   transition: all 0.3s ease;
 }
 
@@ -165,7 +170,7 @@ function removeImage(id) {
 
 .upload-area:hover .upload-icon {
   transform: scale(1.1) rotate(5deg);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 6px 20px rgba(var(--upload-primary-rgb), 0.4);
 }
 
 .upload-text {
@@ -190,11 +195,11 @@ function removeImage(id) {
 }
 
 .upload-text .secondary-text em {
-  color: #667eea;
+  color: var(--upload-primary);
   font-style: normal;
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: rgba(102, 126, 234, 0.3);
+  text-decoration-color: rgba(var(--upload-primary-rgb), 0.3);
   text-underline-offset: 2px;
 }
 
@@ -231,7 +236,7 @@ function removeImage(id) {
   content: '';
   width: 4px;
   height: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--upload-primary);
   border-radius: 2px;
 }
 
@@ -255,7 +260,7 @@ function removeImage(id) {
 .image-item:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: rgba(102, 126, 234, 0.3);
+  border-color: rgba(var(--upload-primary-rgb), 0.3);
 }
 
 .image-item img {
@@ -332,5 +337,15 @@ function removeImage(id) {
   height: 18px;
   fill: currentColor;
   z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .upload-area .upload-content {
+    padding: 4px 16px;
+  }
+
+  .upload-area .upload-icon {
+    padding: 10px;
+  }
 }
 </style>

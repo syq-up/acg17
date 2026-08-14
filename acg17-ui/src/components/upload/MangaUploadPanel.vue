@@ -490,14 +490,14 @@ async function addChapter() {
 
 .tag-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--upload-primary);
+  box-shadow: 0 0 0 3px rgba(var(--upload-primary-rgb), 0.1);
 }
 
 .add-tag-btn {
   border: none;
   border-radius: 6px;
-  background: #667eea;
+  background: var(--upload-primary);
   color: white;
   font-size: 14px;
   cursor: pointer;
@@ -505,7 +505,7 @@ async function addChapter() {
 }
 
 .add-tag-btn:hover {
-  background: #5a67d8;
+  background: var(--upload-primary-hover);
 }
 
 /* 已选标签区域 */
@@ -523,7 +523,7 @@ async function addChapter() {
 
 .selected-tag {
   padding: 3px 6px;
-  background: #667eea;
+  background: var(--upload-primary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -575,14 +575,14 @@ async function addChapter() {
 }
 
 .available-tag:hover {
-  border-color: #667eea;
-  background: #f0f4ff;
-  color: #667eea;
+  border-color: var(--upload-primary);
+  background: var(--upload-primary-soft);
+  color: var(--upload-primary);
 }
 
 .available-tag.selected {
-  border-color: #667eea;
-  background: #667eea;
+  border-color: var(--upload-primary);
+  background: var(--upload-primary);
   color: white;
 }
 
@@ -617,7 +617,7 @@ async function addChapter() {
 .upload-icon {
   width: 32px;
   height: 32px;
-  fill: #667eea;
+  fill: var(--upload-primary);
   margin-bottom: 8px;
   transition: all 0.3s ease;
 }
@@ -649,11 +649,11 @@ async function addChapter() {
 }
 
 .secondary-text em {
-  color: #667eea;
+  color: var(--upload-primary);
   font-style: normal;
   font-weight: 500;
   text-decoration: underline;
-  text-decoration-color: rgba(102, 126, 234, 0.3);
+  text-decoration-color: rgba(var(--upload-primary-rgb), 0.3);
 }
 
 .hint-text {
@@ -698,7 +698,7 @@ async function addChapter() {
 
 .toggle-btn.active {
   background: white;
-  color: #667eea;
+  color: var(--upload-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -727,6 +727,7 @@ async function addChapter() {
 
 /* 漫画自定义上传组件样式 */
 .custom-upload {
+  box-sizing: border-box;
   border: 2px dashed #d1d5db;
   border-radius: 16px;
   padding: 32px 24px;
@@ -750,16 +751,16 @@ async function addChapter() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at center, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(var(--upload-primary-rgb), 0.05) 0%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .custom-upload:hover {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  border-color: var(--upload-primary);
+  background: linear-gradient(135deg, #f5faff 0%, var(--upload-primary-soft) 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 8px 25px rgba(var(--upload-primary-rgb), 0.15);
 }
 
 .custom-upload:hover::before {
@@ -768,14 +769,14 @@ async function addChapter() {
 
 .custom-upload:active {
   transform: translateY(-1px) scale(0.98);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 4px 15px rgba(var(--upload-primary-rgb), 0.2);
 }
 
 .custom-upload.dragover {
-  border-color: #4f46e5;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border-color: var(--upload-primary);
+  background: linear-gradient(135deg, var(--upload-primary-soft) 0%, var(--upload-primary-soft-strong) 100%);
   transform: scale(1.02);
-  box-shadow: 0 12px 35px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 12px 35px rgba(var(--upload-primary-rgb), 0.25);
 }
 
 .custom-upload.dragover::before {
@@ -841,5 +842,15 @@ async function addChapter() {
 .selected-tag,
 .available-tag {
   font: inherit;
+}
+
+@media (max-width: 768px) {
+  .manga-file-row {
+    grid-template-columns: 1fr;
+  }
+
+  .selected-file-list {
+    width: 100%;
+  }
 }
 </style>

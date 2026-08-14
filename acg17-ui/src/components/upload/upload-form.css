@@ -1,34 +1,66 @@
 /* 对话框样式 */
 .upload-dialog {
-  border-radius: 8px;
+  --upload-primary: #409eff;
+  --upload-primary-hover: #337ecc;
+  --upload-primary-soft: #ecf5ff;
+  --upload-primary-soft-strong: #d9ecff;
+  --upload-primary-rgb: 64, 158, 255;
+  --el-dialog-padding-primary: 0;
+  width: min(1000px, calc(100vw - 32px)) !important;
+  max-height: 90vh;
+  margin: 5vh auto;
+  padding: 0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .upload-dialog .el-dialog__header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 20px 24px;
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 60px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 18px 64px 18px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
   margin: 0;
 }
 
 .upload-dialog .el-dialog__title {
   font-size: 18px;
   font-weight: 600;
-  color: white;
+  line-height: 24px;
+  color: #1e293b;
+}
+
+.upload-dialog .el-dialog__headerbtn {
+  top: 0;
+  right: 8px;
+  width: 48px;
+  height: 100%;
 }
 
 .upload-dialog .el-dialog__close {
-  color: white;
+  color: #64748b;
   font-size: 20px;
 }
 
+.upload-dialog .el-dialog__headerbtn:hover .el-dialog__close,
+.upload-dialog .el-dialog__headerbtn:focus .el-dialog__close {
+  color: var(--upload-primary);
+}
+
 .upload-dialog .el-dialog__body {
+  min-height: 0;
   padding: 0;
+  overflow-y: auto;
 }
 
 .upload-dialog .dialog-content {
-  padding: 0 24px 24px;
-  min-height: 400px;
+  padding: 24px;
 }
 
 
@@ -64,7 +96,7 @@
 
 .upload-dialog .tab-btn.active {
   background: white;
-  color: #1e293b;
+  color: var(--upload-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -127,8 +159,8 @@
 
 .upload-dialog .form-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--upload-primary);
+  box-shadow: 0 0 0 3px rgba(var(--upload-primary-rgb), 0.1);
 }
 
 .upload-dialog .form-input:disabled {
@@ -155,7 +187,7 @@
 }
 
 .upload-dialog .manga-select .el-select__wrapper.is-focused {
-  box-shadow: 0 0 0 1px #667eea inset, 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 1px var(--upload-primary) inset, 0 0 0 3px rgba(var(--upload-primary-rgb), 0.1);
 }
 
 .upload-dialog .form-textarea {
@@ -174,8 +206,8 @@
 
 .upload-dialog .form-textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--upload-primary);
+  box-shadow: 0 0 0 3px rgba(var(--upload-primary-rgb), 0.1);
 }
 
 .upload-dialog .form-actions {
@@ -197,18 +229,19 @@
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--upload-primary);
   color: white;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 2px 4px rgba(var(--upload-primary-rgb), 0.2);
 }
 
 .upload-dialog .submit-btn:hover {
+  background: var(--upload-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 8px rgba(var(--upload-primary-rgb), 0.3);
 }
 
 .upload-dialog .submit-btn:active {
@@ -231,8 +264,18 @@
 /* 响应式设计 */
 @media (max-width: 768px) {
   .upload-dialog {
-    width: 95vw !important;
-    margin: 20px auto;
+    width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 32px);
+    margin: 16px auto;
+  }
+
+  .upload-dialog .el-dialog__header {
+    min-height: 56px;
+    padding: 16px 56px 16px 20px;
+  }
+
+  .upload-dialog .dialog-content {
+    padding: 20px;
   }
 
   .upload-dialog .form-row {
@@ -246,7 +289,7 @@
 
   .upload-dialog .upload-area .el-upload-dragger {
     height: 160px;
-    padding: 16px;
+    padding: 0;
   }
 
   .upload-dialog .upload-content {
