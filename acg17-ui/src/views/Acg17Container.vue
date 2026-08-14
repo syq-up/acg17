@@ -1,6 +1,10 @@
 <template>
   <acg17-header></acg17-header>
-  <router-view />
+  <router-view v-slot="{ Component }">
+    <keep-alive include="Manga">
+      <component :is="Component" />
+    </keep-alive>
+  </router-view>
 </template>
 
 <script>

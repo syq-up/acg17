@@ -122,6 +122,24 @@ function removeImage(id) {
   box-shadow: 0 12px 35px rgba(var(--upload-primary-rgb), 0.25);
 }
 
+.upload-area ::v-deep(.el-upload-dragger)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 36%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-18deg) translateX(-180%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.upload-area ::v-deep(.el-upload-dragger:hover)::after {
+  transform: skewX(-18deg) translateX(520%);
+}
+
 .upload-content {
   box-sizing: border-box;
   display: flex;
@@ -346,6 +364,20 @@ function removeImage(id) {
 
   .upload-area .upload-icon {
     padding: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-area ::v-deep(.el-upload-dragger),
+  .upload-area ::v-deep(.el-upload-dragger)::after,
+  .upload-area .upload-icon {
+    transition: none;
+  }
+
+  .upload-area ::v-deep(.el-upload-dragger:hover),
+  .upload-area ::v-deep(.el-upload-dragger.is-dragover),
+  .upload-area:hover .upload-icon {
+    transform: none;
   }
 }
 </style>

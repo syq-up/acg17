@@ -41,10 +41,10 @@
                 @drop.prevent="dropSingleImage('cover', $event)"
               >
                 <div class="upload-placeholder">
-                  <icon icon="#icon-upload" class="upload-icon"></icon>
+                  <div class="upload-icon"><icon icon="#icon-upload"></icon></div>
                   <div class="upload-text">
-                    <p>点击上传游戏封面</p>
-                    <p class="upload-hint">支持 JPG、PNG 格式，不超过 10MB</p>
+                    <p class="primary-text">点击上传游戏封面</p>
+                    <p class="hint-text">支持 JPG、PNG 格式，不超过 10MB</p>
                   </div>
                 </div>
               </div>
@@ -85,10 +85,10 @@
                 @drop.prevent="dropSingleImage('icon', $event)"
               >
                 <div class="upload-placeholder">
-                  <icon icon="#icon-upload" class="upload-icon"></icon>
+                  <div class="upload-icon"><icon icon="#icon-upload"></icon></div>
                   <div class="upload-text">
-                    <p>点击上传游戏图标</p>
-                    <p class="upload-hint">支持 JPG、PNG 格式，不超过 1MB</p>
+                    <p class="primary-text">点击上传游戏图标</p>
+                    <p class="hint-text">支持 JPG、PNG 格式，不超过 1MB</p>
                   </div>
                 </div>
               </div>
@@ -142,10 +142,10 @@
             @drop.prevent="dropPreviewImages"
           >
             <span class="upload-placeholder">
-              <icon icon="#icon-upload" class="upload-icon"></icon>
+              <span class="upload-icon"><icon icon="#icon-upload"></icon></span>
               <span class="upload-text">
-                <span>点击添加预览图片</span>
-                <span class="upload-hint">支持 JPG、PNG 格式</span>
+                <span class="primary-text">点击添加预览图片</span>
+                <span class="hint-text">支持 JPG、PNG 格式</span>
               </span>
             </span>
           </button>
@@ -370,27 +370,62 @@ function revokeUrl(url) {
   box-sizing: border-box;
   width: 100%;
   height: 130px;
-  border: 2px dashed #dcdfe6;
-  border-radius: 8px;
+  border: 2px dashed #d1d5db;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s;
-  background-color: #fafcff;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   position: relative;
   overflow: hidden;
   pointer-events: auto;
 }
 
-.cover-upload-card:hover {
-  border-color: var(--upload-primary);
-  background-color: var(--upload-primary-soft);
+.cover-upload-card::before,
+.preview-upload-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(var(--upload-primary-rgb), 0.05) 0%, transparent 70%);
+  z-index: 0;
 }
 
-.cover-upload-card.dragover {
+.cover-upload-card::after,
+.preview-upload-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 36%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-18deg) translateX(-180%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cover-upload-card:hover,
+.preview-upload-card:hover {
   border-color: var(--upload-primary);
-  background-color: var(--upload-primary-soft-strong);
+  background: linear-gradient(135deg, #f5faff 0%, var(--upload-primary-soft) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(var(--upload-primary-rgb), 0.15);
+}
+
+.cover-upload-card:hover::after,
+.preview-upload-card:hover::after {
+  transform: skewX(-18deg) translateX(520%);
+}
+
+.cover-upload-card.dragover,
+.preview-upload-card.dragover {
+  border-color: var(--upload-primary);
+  background: linear-gradient(135deg, var(--upload-primary-soft) 0%, var(--upload-primary-soft-strong) 100%);
+  transform: scale(1.02);
+  box-shadow: 0 12px 35px rgba(var(--upload-primary-rgb), 0.25);
 }
 
 .cover-upload-card * {
@@ -398,32 +433,76 @@ function revokeUrl(url) {
 }
 
 .upload-placeholder {
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  color: #909399;
+  gap: 0;
+  color: #64748b;
 }
 
 .upload-placeholder .upload-icon {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+  padding: 10px;
+  background: var(--upload-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(var(--upload-primary-rgb), 0.3);
+  transition: all 0.3s ease;
+}
+
+.upload-placeholder .upload-icon .icon {
   width: 24px;
   height: 24px;
-  fill: #c0c4cc;
+  fill: white;
 }
 
-.upload-text {
+.cover-upload-card:hover .upload-icon,
+.preview-upload-card:hover .upload-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 6px 20px rgba(var(--upload-primary-rgb), 0.4);
+}
+
+.cover-upload-card.dragover .upload-icon,
+.preview-upload-card.dragover .upload-icon {
+  transform: scale(1.08) rotate(-4deg);
+}
+
+.upload-placeholder .upload-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   text-align: center;
-  font-size: 12px;
-  color: #909399;
+  color: #64748b;
 }
 
-.upload-text p {
+.upload-placeholder .upload-text p,
+.upload-placeholder .upload-text span {
   margin: 0;
   line-height: 1.4;
 }
 
-.upload-hint {
-  color: #c0c4cc;
+.upload-placeholder .primary-text {
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.upload-placeholder .hint-text {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  color: #94a3b8;
   font-size: 11px;
 }
 
@@ -510,14 +589,14 @@ function revokeUrl(url) {
   width: 100%;
   height: auto;
   aspect-ratio: 22 / 15;
-  border: 2px dashed #dcdfe6;
-  border-radius: 6px;
+  border: 2px dashed #d1d5db;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s;
-  background-color: #fafcff;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   position: relative;
   overflow: hidden;
   order: -1;
@@ -525,24 +604,9 @@ function revokeUrl(url) {
   font: inherit;
 }
 
-.preview-upload-card:hover {
-  border-color: var(--upload-primary);
-  background-color: var(--upload-primary-soft);
-}
-
-.preview-upload-card.dragover {
-  border-color: var(--upload-primary);
-  background-color: var(--upload-primary-soft-strong);
-}
-
-.preview-upload-card .upload-placeholder {
-  color: #8c939d;
-}
-
 .preview-upload-card .upload-icon {
-  width: 28px;
-  height: 28px;
-  fill: #c0c4cc;
+  width: 48px;
+  height: 48px;
 }
 
 .preview-upload-card * {
@@ -671,6 +735,27 @@ function revokeUrl(url) {
 
   .game-preview-wall {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover-upload-card,
+  .preview-upload-card,
+  .upload-placeholder .upload-icon,
+  .cover-upload-card::after,
+  .preview-upload-card::after {
+    transition: none;
+  }
+
+  .cover-upload-card:hover,
+  .preview-upload-card:hover,
+  .cover-upload-card.dragover,
+  .preview-upload-card.dragover,
+  .cover-upload-card:hover .upload-icon,
+  .preview-upload-card:hover .upload-icon,
+  .cover-upload-card.dragover .upload-icon,
+  .preview-upload-card.dragover .upload-icon {
+    transform: none;
   }
 }
 </style>

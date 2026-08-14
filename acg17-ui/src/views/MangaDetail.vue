@@ -140,7 +140,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Acg17Footer from '../components/Acg17Footer'
 import MangaTagEditor from '../components/manga-detail/MangaTagEditor.vue'
 import server from '@/util/request';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const TAG_CATEGORIES = [
   { category: 'group', key: 'groupTags', name: '团队' },
@@ -468,6 +468,16 @@ export default {
     // 删除漫画页
     async function removeMangaPage(pageNum) {
       try {
+        await ElMessageBox.confirm(
+          `确定删除第 ${pageNum} 页吗？删除后无法恢复。`,
+          '删除漫画页',
+          {
+            confirmButtonText: '删除',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+
         const res = await server.delete(`/manga/delete/page`, {
           params: {
             mangaId: manga.id,
@@ -482,6 +492,9 @@ export default {
           }
         }
       } catch (error) {
+        if (error === 'cancel' || error === 'close') {
+          return
+        }
         console.error('删除漫画页失败:', error)
       }
     }
@@ -586,7 +599,7 @@ export default {
 
 .manga-info {
   flex: 1;
-  padding: 20px 0 70px;
+  padding-bottom: 70px;
   height: auto;
   position: relative;
 }
@@ -601,7 +614,7 @@ export default {
 
 .info-row {
   display: flex;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .label {
@@ -628,7 +641,7 @@ export default {
   background-color: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   font-size: 13px;
   color: #343a40;
   transition: all 0.2s ease;
@@ -1017,7 +1030,6 @@ export default {
   border: 1px solid #e9ecef;
   border-radius: 4px;
   padding: 4px 6px;
-  margin-left: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;

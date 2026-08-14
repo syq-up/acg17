@@ -113,7 +113,7 @@
 </template>
 
 <script>
-import { reactive, onMounted, onUnmounted, watch, ref, nextTick, computed } from 'vue'
+import { reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, ref, nextTick, computed } from 'vue'
 // import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router';
 import server from '@/util/request';
@@ -152,6 +152,8 @@ export default {
     const containerWidth = ref(1380)
     const showBackToTop = ref(false)
     let resizeObserver = null
+    let pageActive = false
+    let loadedTagId = String(route.query.tagId || '')
 
     const handleScroll = () => {
       showBackToTop.value = window.scrollY > 500
@@ -315,6 +317,14 @@ export default {
       })
     }
 
+    function resetMangaList() {
+      loadedTagId = String(route.query.tagId || '')
+      manga.list = []
+      manga.currentPage = 0
+      manga.disabled = false
+      loadManga()
+    }
+
     // 监听回收站状态变化，重新获取数据
     watch(isRecycle, () => {
       manga.list = []
@@ -325,31 +335,50 @@ export default {
     })
 
     // 监听路由查询参数变化，重新获取数据
-    watch(() => route.query, () => {
-      manga.list = []
-      manga.currentPage = 0
-      manga.disabled = false
-      loadManga()
-    }, { deep: true })
+    watch(() => route.query.tagId, () => {
+      const currentTagId = String(route.query.tagId || '')
+      if (route.name === 'Manga' && currentTagId !== loadedTagId) {
+        resetMangaList()
+      }
+    })
 
-    // 组件挂载时获取数据
-    onMounted(() => {
+    function activatePageListeners() {
+      pageActive = true
       window.addEventListener('scroll', handleScroll)
-      loadManga()
+      handleScroll()
       nextTick(() => {
+        if (!pageActive) return
         updateWidth()
         window.addEventListener('resize', updateWidth)
-        resizeObserver = new ResizeObserver(() => updateWidth())
+        if (!resizeObserver) {
+          resizeObserver = new ResizeObserver(() => updateWidth())
+        }
         const container = document.querySelector('.manga-container')
         if (container) resizeObserver.observe(container)
       })
-    })
+    }
 
-    onUnmounted(() => {
+    function deactivatePageListeners() {
+      pageActive = false
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', updateWidth)
       if (resizeObserver) resizeObserver.disconnect()
+    }
+
+    // 组件挂载时获取数据
+    onMounted(() => {
+      loadManga()
     })
+
+    onActivated(() => {
+      if (String(route.query.tagId || '') !== loadedTagId) {
+        resetMangaList()
+      }
+      activatePageListeners()
+    })
+
+    onDeactivated(deactivatePageListeners)
+    onUnmounted(deactivatePageListeners)
 
     return { manga, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, openTagList, sortedTags, isTagActive, searchByTag, hasActiveTag, clearTagFilter, hasAnyTags, getVisibleTags, hasHiddenTags, toggleExpand }
   }
@@ -467,7 +496,7 @@ section {
   background-color: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 4px 6px;
   font-size: 13px;
   color: #343a40;
   transition: all 0.2s ease;

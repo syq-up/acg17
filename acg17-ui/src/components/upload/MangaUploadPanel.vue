@@ -12,22 +12,95 @@
     </div>
 
     <form v-if="mode === 'manga'" class="modern-form" @submit.prevent="addManga">
-      <div class="form-row">
-        <div class="form-group">
-          <label for="manga-title" class="form-label"><span class="required">*</span>标题</label>
-          <input
-            id="manga-title"
-            ref="mangaTitleInput"
-            v-model="manga.title"
-            class="form-input"
-            placeholder="请输入漫画标题"
-            autocomplete="off"
-            required
-          >
+      <div class="manga-basics-layout">
+        <div class="manga-metadata-grid">
+          <div class="form-group">
+            <label for="manga-title" class="form-label"><span class="required">*</span>标题</label>
+            <input
+              id="manga-title"
+              ref="mangaTitleInput"
+              v-model="manga.title"
+              class="form-input"
+              placeholder="请输入漫画标题"
+              autocomplete="off"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="manga-title-cn" class="form-label">中文标题</label>
+            <input id="manga-title-cn" v-model="manga.chineseTitle" class="form-input" placeholder="请输入中文标题" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="manga-group" class="form-label">团队</label>
+            <el-select
+              id="manga-group"
+              v-model="groupTagGroup.selected"
+              class="manga-select tag-picker"
+              value-key="tagId"
+              multiple
+              filterable
+              clearable
+              placeholder="请选择或搜索团队"
+            >
+              <el-option
+                v-for="tag in groupTagGroup.available"
+                :key="tag.tagId"
+                :label="tag.tagName"
+                :value="tag"
+              />
+            </el-select>
+          </div>
+          <div class="form-group">
+            <label for="manga-artist" class="form-label">艺术家</label>
+            <el-select
+              id="manga-artist"
+              v-model="artistTagGroup.selected"
+              class="manga-select tag-picker"
+              value-key="tagId"
+              multiple
+              filterable
+              clearable
+              placeholder="请选择或搜索艺术家"
+            >
+              <el-option
+                v-for="tag in artistTagGroup.available"
+                :key="tag.tagId"
+                :label="tag.tagName"
+                :value="tag"
+              />
+            </el-select>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="manga-title-cn" class="form-label">中文标题</label>
-          <input id="manga-title-cn" v-model="manga.chineseTitle" class="form-input" placeholder="请输入中文标题" autocomplete="off">
+
+        <div class="form-group manga-file-group">
+          <label class="form-label"><span class="required">*</span>漫画文件</label>
+          <div
+            class="custom-upload"
+            :class="{ dragover: manga.dragCounter > 0 }"
+            @click="mangaFileInput?.click()"
+            @dragenter.prevent="startDrag(manga)"
+            @dragover.prevent
+            @dragleave.prevent="endDrag(manga)"
+            @drop.prevent="dropFile(manga, $event, '漫画文件')"
+          >
+            <input ref="mangaFileInput" type="file" accept=".zip" hidden @click.stop @change="selectFile(manga, $event, '漫画文件')">
+            <div class="upload-content">
+              <div class="upload-icon"><icon icon="#icon-upload"></icon></div>
+              <div class="upload-text">
+                <p class="primary-text">拖拽漫画文件到此处上传</p>
+                <p class="secondary-text">或 <em>点击选择文件</em></p>
+                <p class="hint-text">仅支持 ZIP 格式，单个文件不超过 500MB</p>
+              </div>
+            </div>
+          </div>
+          <div v-if="manga.selectedFile" class="file-list manga-file-list">
+            <div class="file-item">
+              <span class="file-name">{{ manga.selectedFile.name }}</span>
+              <button class="remove-btn" type="button" @click="removeSelectedFile(manga, mangaFileInput)">
+                <icon icon="#icon-delete"></icon>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -45,7 +118,7 @@
         </div>
 
         <div class="tag-categories">
-          <div v-for="group in tagGroups" :key="group.key" class="tag-category">
+          <div v-for="group in regularTagGroups" :key="group.key" class="tag-category">
             <h5>{{ group.label }}</h5>
             <div v-if="manga.tagMode === 'input'" class="tag-input-container">
               <input
@@ -85,47 +158,12 @@
         </div>
       </div>
 
-      <div class="form-row manga-file-row">
-        <div class="form-group">
-          <label class="form-label"><span class="required">*</span>漫画文件</label>
-          <div
-            class="custom-upload"
-            :class="{ dragover: manga.dragCounter > 0 }"
-            @click="mangaFileInput?.click()"
-            @dragenter.prevent="startDrag(manga)"
-            @dragover.prevent
-            @dragleave.prevent="endDrag(manga)"
-            @drop.prevent="dropFile(manga, $event, '漫画文件')"
-          >
-            <input ref="mangaFileInput" type="file" accept=".zip" hidden @click.stop @change="selectFile(manga, $event, '漫画文件')">
-            <div class="upload-content">
-              <div class="upload-icon"><icon icon="#icon-upload"></icon></div>
-              <div class="upload-text">
-                <p class="primary-text">拖拽漫画文件到此处上传</p>
-                <p class="secondary-text">或 <em>点击选择文件</em></p>
-                <p class="hint-text">仅支持 ZIP 格式，单个文件不超过 500MB</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group upload-submit-group">
-          <div v-if="manga.selectedFile" class="file-list selected-file-list">
-            <div class="file-item">
-              <span class="file-name">{{ manga.selectedFile.name }}</span>
-              <button class="remove-btn" type="button" @click="removeSelectedFile(manga, mangaFileInput)">
-                <icon icon="#icon-delete"></icon>
-              </button>
-            </div>
-          </div>
-          <div class="form-actions">
-            <span v-if="manga.error" class="error-message">{{ manga.error }}</span>
-            <button class="submit-btn" type="submit" :disabled="manga.uploading">
-              <icon icon="#icon-upload"></icon>
-              {{ manga.uploading ? '上传中...' : '上传漫画' }}
-            </button>
-          </div>
-        </div>
+      <div class="form-actions manga-submit-actions">
+        <span v-if="manga.error" class="error-message">{{ manga.error }}</span>
+        <button class="submit-btn" type="submit" :disabled="manga.uploading">
+          <icon icon="#icon-upload"></icon>
+          {{ manga.uploading ? '上传中...' : '上传漫画' }}
+        </button>
       </div>
     </form>
 
@@ -174,6 +212,7 @@
         <div
           class="custom-upload"
           :class="{ dragover: chapter.dragCounter > 0 }"
+          style="padding: 12px 24px"
           @click="chapterFileInput?.click()"
           @dragenter.prevent="startDrag(chapter)"
           @dragover.prevent
@@ -220,8 +259,8 @@ import server from '@/util/request'
 const emit = defineEmits(['completed'])
 
 const TAG_CATEGORIES = [
-  { key: 'artist', category: 7, label: '艺术家', placeholder: '输入艺术家名后按回车添加' },
   { key: 'group', category: 8, label: '团队', placeholder: '输入团队名后按回车添加' },
+  { key: 'artist', category: 7, label: '艺术家', placeholder: '输入艺术家名后按回车添加' },
   { key: 'character', category: 1, label: '角色', placeholder: '输入角色名后按回车添加' },
   { key: 'male', category: 2, label: '男性', placeholder: '输入男性标签后按回车添加' },
   { key: 'female', category: 3, label: '女性', placeholder: '输入女性标签后按回车添加' },
@@ -265,6 +304,9 @@ const tagGroups = reactive(TAG_CATEGORIES.map(category => ({
   available: [],
   selected: [],
 })))
+const groupTagGroup = tagGroups.find(group => group.key === 'group')
+const artistTagGroup = tagGroups.find(group => group.key === 'artist')
+const regularTagGroups = tagGroups.filter(group => !['group', 'artist'].includes(group.key))
 
 onMounted(loadMangaTags)
 
@@ -593,74 +635,115 @@ async function addChapter() {
   gap: 24px;
 }
 
-.upload-submit-group {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.manga-basics-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 12px;
+  align-items: stretch;
 }
 
-.upload-submit-group .form-actions {
-  margin: 0;
+.manga-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 12px;
+  align-content: start;
+}
+
+.manga-file-group {
+  min-width: 0;
+}
+
+.manga-file-group .custom-upload {
+  flex: 1;
+  padding: 0;
+}
+
+.manga-file-list {
+  margin-top: 0;
+}
+
+.manga-submit-actions {
+  justify-content: flex-end;
+}
+
+.manga-submit-actions .error-message {
+  margin-right: auto;
 }
 
 /* 上传内容样式 */
 .upload-content {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: 16px;
   text-align: center;
+  position: relative;
+  z-index: 2;
 }
 
 .upload-icon {
-  width: 32px;
-  height: 32px;
-  fill: var(--upload-primary);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
   margin-bottom: 8px;
+  padding: 10px;
+  background: var(--upload-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(var(--upload-primary-rgb), 0.3);
   transition: all 0.3s ease;
 }
 
 .upload-icon .icon {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
+  fill: white;
 }
 
 .upload-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 
 .primary-text {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: #1e293b;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.2;
 }
 
 .secondary-text {
   font-size: 12px;
-  color: #6b7280;
+  color: #64748b;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .secondary-text em {
   color: var(--upload-primary);
   font-style: normal;
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: underline;
   text-decoration-color: rgba(var(--upload-primary-rgb), 0.3);
+  text-underline-offset: 2px;
 }
 
 .hint-text {
-  font-size: 11px;
-  color: #9ca3af;
-  margin: 2px 0 0;
-  line-height: 1.2;
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 3px 0 0;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* 标签分类样式 */
@@ -668,7 +751,6 @@ async function addChapter() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
 }
 
 .tag-mode-toggle {
@@ -706,7 +788,6 @@ async function addChapter() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
-  margin-top: 12px;
 }
 
 .tag-category {
@@ -730,14 +811,13 @@ async function addChapter() {
   box-sizing: border-box;
   border: 2px dashed #d1d5db;
   border-radius: 16px;
-  padding: 32px 24px;
+  padding: 0;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   position: relative;
   overflow: hidden;
-  min-height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -752,8 +832,21 @@ async function addChapter() {
   right: 0;
   bottom: 0;
   background: radial-gradient(circle at center, rgba(var(--upload-primary-rgb), 0.05) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+.custom-upload::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 36%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-18deg) translateX(-180%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .custom-upload:hover {
@@ -763,8 +856,13 @@ async function addChapter() {
   box-shadow: 0 8px 25px rgba(var(--upload-primary-rgb), 0.15);
 }
 
-.custom-upload:hover::before {
-  opacity: 1;
+.custom-upload:hover::after {
+  transform: skewX(-18deg) translateX(520%);
+}
+
+.custom-upload:hover .upload-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 6px 20px rgba(var(--upload-primary-rgb), 0.4);
 }
 
 .custom-upload:active {
@@ -779,8 +877,9 @@ async function addChapter() {
   box-shadow: 0 12px 35px rgba(var(--upload-primary-rgb), 0.25);
 }
 
-.custom-upload.dragover::before {
-  opacity: 1;
+.custom-upload.dragover .upload-icon {
+  transform: scale(1.08) rotate(-4deg);
+  box-shadow: 0 6px 20px rgba(var(--upload-primary-rgb), 0.4);
 }
 
 .custom-upload * {
@@ -805,8 +904,12 @@ async function addChapter() {
 }
 
 .file-name {
+  min-width: 0;
+  overflow: hidden;
   color: #374151;
   font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .remove-btn {
@@ -835,22 +938,34 @@ async function addChapter() {
   grid-template-columns: 1fr 1fr;
 }
 
-.selected-file-list {
-  width: 80%;
-}
-
-.selected-tag,
-.available-tag {
-  font: inherit;
-}
-
 @media (max-width: 768px) {
-  .manga-file-row {
+  .manga-basics-layout,
+  .manga-metadata-grid {
     grid-template-columns: 1fr;
   }
 
-  .selected-file-list {
-    width: 100%;
+  .manga-file-group .custom-upload {
+    min-height: 160px;
+  }
+
+  .manga-file-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-upload,
+  .upload-icon,
+  .custom-upload::after {
+    transition: none;
+  }
+
+  .custom-upload:hover,
+  .custom-upload:active,
+  .custom-upload.dragover,
+  .custom-upload:hover .upload-icon,
+  .custom-upload.dragover .upload-icon {
+    transform: none;
   }
 }
 </style>
