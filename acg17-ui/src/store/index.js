@@ -21,9 +21,9 @@ export default createStore({
     // 上传面板
     uploadDrawer: {
       show: false,
-      active: 0,
-      subActive: 0,
-      data: {},
+      type: '',
+      mode: '',
+      context: {},
     },
     // 顶栏
     acg17Header: {
@@ -75,12 +75,10 @@ export default createStore({
       }
     },
     // 打开上传面板
-    openUploadDrawer(state, newValue) {
-      for (const key in newValue) {
-        if (Object.hasOwnProperty.call(state.uploadDrawer, key))
-          state.uploadDrawer[key] = newValue[key]
-      }
-      // 用于监听，必须写在下面
+    openUploadDrawer(state, { type, mode = '', context = {} }) {
+      state.uploadDrawer.type = type
+      state.uploadDrawer.mode = mode
+      state.uploadDrawer.context = context
       state.uploadDrawer.show = true
     },
     closeUploadDrawer(state) {

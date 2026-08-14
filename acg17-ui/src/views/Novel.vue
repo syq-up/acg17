@@ -264,7 +264,11 @@ export default {
     }
     // 上传章节
     function toUploadChapter(novelId, novelTitle) {
-      store.commit('openUploadDrawer', { active: 4, subActive: 1, data: { novelId, novelTitle } })
+      store.commit('openUploadDrawer', {
+        type: 'novel',
+        mode: 'chapter',
+        context: { novelId, novelTitle },
+      })
     }
     // 删除小说
     function deleteNovel(novelId) {

@@ -444,12 +444,12 @@ export default {
     // 上传章节
     function toUploadChapter() {
       store.commit('openUploadDrawer', {
-        active: 4,
-        subActive: 1,
-        data: {
+        type: 'novel',
+        mode: 'chapter',
+        context: {
           novelId: chapter.novel.id,
           novelTitle: chapter.novel.title
-        }
+        },
       })
     }
 
