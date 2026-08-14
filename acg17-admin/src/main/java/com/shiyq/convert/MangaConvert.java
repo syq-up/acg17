@@ -48,6 +48,7 @@ public interface MangaConvert {
     @Mapping(target = "otherTags", ignore = true)
     @Mapping(target = "originalTags", ignore = true)
     @Mapping(target = "artistTags", ignore = true)
+    @Mapping(target = "groupTags", ignore = true)
     MangaDetailVO toMangaDetailVO(Manga manga);
 
 }

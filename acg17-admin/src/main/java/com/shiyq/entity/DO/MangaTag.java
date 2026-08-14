@@ -42,7 +42,7 @@ public class MangaTag implements Serializable {
     private String tagName;
 
     /**
-     * 分类标记，1-角色，2-男性，3-女性，4-混合，5-其他，6-原作
+     * 分类标记，1-角色，2-男性，3-女性，4-混合，5-其他，6-原作，7-艺术家，8-团队
      */
     @TableField("category")
     private Integer category;

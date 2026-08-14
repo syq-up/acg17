@@ -221,6 +221,7 @@ const emit = defineEmits(['completed'])
 
 const TAG_CATEGORIES = [
   { key: 'artist', category: 7, label: '艺术家', placeholder: '输入艺术家名后按回车添加' },
+  { key: 'group', category: 8, label: '团队', placeholder: '输入团队名后按回车添加' },
   { key: 'character', category: 1, label: '角色', placeholder: '输入角色名后按回车添加' },
   { key: 'male', category: 2, label: '男性', placeholder: '输入男性标签后按回车添加' },
   { key: 'female', category: 3, label: '女性', placeholder: '输入女性标签后按回车添加' },

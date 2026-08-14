@@ -14,4 +14,5 @@ public class MangaTagListVO {
     private List<MangaTagVO> otherTags;
     private List<MangaTagVO> originalTags;
     private List<MangaTagVO> artistTags;
+    private List<MangaTagVO> groupTags;
 }

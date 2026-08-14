@@ -143,6 +143,7 @@ import server from '@/util/request';
 import { ElMessage } from 'element-plus';
 
 const TAG_CATEGORIES = [
+  { category: 'group', key: 'groupTags', name: '团队' },
   { category: 'artist', key: 'artistTags', name: '艺术家' },
   { category: 'character', key: 'characterTags', name: '角色' },
   { category: 'male', key: 'maleTags', name: '男性' },
@@ -176,6 +177,7 @@ export default {
       otherTags: [],
       originalTags: [],
       artistTags: [],
+      groupTags: [],
       favorite: false,
       deleted: false,
       updateTime: '',

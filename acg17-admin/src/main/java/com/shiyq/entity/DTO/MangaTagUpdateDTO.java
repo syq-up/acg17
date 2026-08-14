@@ -23,7 +23,7 @@ public class MangaTagUpdateDTO {
     private String tagName;
 
     @NotNull(message = "标签分类不能为空")
-    @Min(value = 1, message = "标签分类必须在1到7之间")
-    @Max(value = 7, message = "标签分类必须在1到7之间")
+    @Min(value = 1, message = "标签分类必须在1到8之间")
+    @Max(value = 8, message = "标签分类必须在1到8之间")
     private Integer category;
 }

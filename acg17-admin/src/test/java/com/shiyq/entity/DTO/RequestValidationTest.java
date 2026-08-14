@@ -56,8 +56,10 @@ class RequestValidationTest {
         tagRequest.setCategory(7);
         assertTrue(validator.validate(tagRequest).isEmpty());
         tagRequest.setCategory(8);
+        assertTrue(validator.validate(tagRequest).isEmpty());
+        tagRequest.setCategory(9);
         assertTrue(validator.validate(tagRequest).stream()
-                .anyMatch(violation -> "标签分类必须在1到7之间".equals(violation.getMessage())));
+                .anyMatch(violation -> "标签分类必须在1到8之间".equals(violation.getMessage())));
 
         ReorderRequest reorderRequest = new ReorderRequest();
         reorderRequest.setId(-1);

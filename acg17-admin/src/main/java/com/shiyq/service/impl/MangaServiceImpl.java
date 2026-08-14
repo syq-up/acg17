@@ -189,6 +189,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         detail.setOtherTags(new ArrayList<>());
         detail.setOriginalTags(new ArrayList<>());
         detail.setArtistTags(new ArrayList<>());
+        detail.setGroupTags(new ArrayList<>());
         for (MangaTagVO tag : tags) {
             if (MangaConstant.TAG_CATEGORY_CHARACTER.equals(tag.getCategory())) {
                 detail.getCharacterTags().add(tag);
@@ -204,6 +205,8 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                 detail.getOriginalTags().add(tag);
             } else if (MangaConstant.TAG_CATEGORY_ARTIST.equals(tag.getCategory())) {
                 detail.getArtistTags().add(tag);
+            } else if (MangaConstant.TAG_CATEGORY_GROUP.equals(tag.getCategory())) {
+                detail.getGroupTags().add(tag);
             }
         }
     }

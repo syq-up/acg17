@@ -96,13 +96,13 @@ CREATE TABLE `manga_tag`  (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '标签ID，自增主键',
   `user_id` int NOT NULL COMMENT '标签所属用户ID',
   `tag_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '标签名称',
-  `category` tinyint UNSIGNED NOT NULL COMMENT '分类标记，1-角色，2-男性，3-女性，4-混合，5-其他，6-原作，7-艺术家',
+  `category` tinyint UNSIGNED NOT NULL COMMENT '分类标记，1-角色，2-男性，3-女性，4-混合，5-其他，6-原作，7-艺术家，8-团队',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_manga_tag_user_category_name`(`user_id` ASC, `category` ASC, `tag_name` ASC) USING BTREE,
   UNIQUE INDEX `uk_manga_tag_id_user`(`id` ASC, `user_id` ASC) USING BTREE,
   INDEX `idx_manga_tag_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_manga_tag_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT `chk_manga_tag_category` CHECK (`category` between 1 and 7)
+  CONSTRAINT `chk_manga_tag_category` CHECK (`category` between 1 and 8)
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '漫画标签表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
