@@ -32,73 +32,24 @@
           <span class="value">{{ manga.author }}</span>
         </div>
 
-        <div class="info-row unselectable" v-if="manga.characterTags && manga.characterTags.length > 0">
-          <span class="label">角色:</span>
+        <div v-for="group in tagGroups" :key="group.category" class="info-row unselectable">
+          <span class="label">{{ group.name }}:</span>
           <div class="tags-container">
-            <span v-for="character in manga.characterTags.slice().sort((a, b) => b.tagCount - a.tagCount)" :key="character.tagId" class="tag" @click="searchByTag(character.tagId)">
-              {{ character.tagName }} <span class="tag-count">{{ character.tagCount }}</span>
+            <span
+              v-for="tag in group.tags"
+              :key="tag.tagId"
+              class="tag"
+              @click="searchByTag(tag.tagId)"
+            >
+              {{ tag.tagName }} <span class="tag-count">{{ tag.tagCount }}</span>
             </span>
-            <button class="edit-tag-btn" @click="openTagEditor('character')" title="编辑角色标签">
-              <icon icon="#icon-edit" class="edit-icon"></icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="info-row unselectable" v-if="manga.maleTags && manga.maleTags.length > 0">
-          <span class="label">男性:</span>
-          <div class="tags-container">
-            <span v-for="maleTag in manga.maleTags.slice().sort((a, b) => b.tagCount - a.tagCount)" :key="maleTag.tagId" class="tag" @click="searchByTag(maleTag.tagId)">
-              {{ maleTag.tagName }} <span class="tag-count">{{ maleTag.tagCount }}</span>
-            </span>
-            <button class="edit-tag-btn" @click="openTagEditor('male')" title="编辑男性标签">
-              <icon icon="#icon-edit" class="edit-icon"></icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="info-row unselectable" v-if="manga.femaleTags && manga.femaleTags.length > 0">
-          <span class="label">女性:</span>
-          <div class="tags-container">
-            <span v-for="femaleTag in manga.femaleTags.slice().sort((a, b) => b.tagCount - a.tagCount)" :key="femaleTag.tagId" class="tag" @click="searchByTag(femaleTag.tagId)">
-              {{ femaleTag.tagName }} <span class="tag-count">{{ femaleTag.tagCount }}</span>
-            </span>
-            <button class="edit-tag-btn" @click="openTagEditor('female')" title="编辑女性标签">
-              <icon icon="#icon-edit" class="edit-icon"></icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="info-row unselectable" v-if="manga.mixedTags && manga.mixedTags.length > 0">
-          <span class="label">混合:</span>
-          <div class="tags-container">
-            <span v-for="mixedTag in manga.mixedTags.slice().sort((a, b) => b.tagCount - a.tagCount)" :key="mixedTag.tagId" class="tag" @click="searchByTag(mixedTag.tagId)">
-              {{ mixedTag.tagName }} <span class="tag-count">{{ mixedTag.tagCount }}</span>
-            </span>
-            <button class="edit-tag-btn" @click="openTagEditor('mixed')" title="编辑混合标签">
-              <icon icon="#icon-edit" class="edit-icon"></icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="info-row unselectable" v-if="manga.otherTags && manga.otherTags.length > 0">
-          <span class="label">其他:</span>
-          <div class="tags-container">
-            <span v-for="otherTag in manga.otherTags.slice().sort((a, b) => b.tagCount - a.tagCount)" :key="otherTag.tagId" class="tag" @click="searchByTag(otherTag.tagId)">
-              {{ otherTag.tagName }} <span class="tag-count">{{ otherTag.tagCount }}</span>
-            </span>
-            <button class="edit-tag-btn" @click="openTagEditor('other')" title="编辑其他标签">
-              <icon icon="#icon-edit" class="edit-icon"></icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="info-row unselectable" v-if="manga.originalTags && manga.originalTags.length > 0">
-          <span class="label">原作:</span>
-          <div class="tags-container">
-            <span v-for="originalTag in manga.originalTags.slice().sort((a, b) => b.tagCount - a.tagCount)" :key="originalTag.tagId" class="tag" @click="searchByTag(originalTag.tagId)">
-              {{ originalTag.tagName }} <span class="tag-count">{{ originalTag.tagCount }}</span>
-            </span>
-            <button class="edit-tag-btn" @click="openTagEditor('original')" title="编辑原作标签">
+            <button
+              class="edit-tag-btn"
+              type="button"
+              :title="`编辑${group.name}标签`"
+              :disabled="!manga.id"
+              @click="openTagEditor(group.category)"
+            >
               <icon icon="#icon-edit" class="edit-icon"></icon>
             </button>
           </div>
@@ -177,71 +128,40 @@
     </div>
   </section>
 
-  <!-- 标签编辑弹窗 -->
-  <div v-if="tagEditor.visible" class="tag-editor-overlay" @click="closeTagEditor">
-    <div class="tag-editor-modal" @click.stop>
-      <div class="tag-editor-header">
-        <h3>编辑{{ tagEditor.categoryName }}标签</h3>
-        <button class="close-btn" @click="closeTagEditor">&times;</button>
-      </div>
-      
-      <div class="tag-editor-content">
-        <!-- 当前标签 -->
-        <div class="current-tags-section">
-          <h4>当前标签</h4>
-          <div class="tags-list">
-            <span v-for="tag in tagEditor.currentTags" :key="'current-' + tag.tagId" class="tag current-tag">
-              {{ tag.tagName }}
-              <button class="remove-tag-btn" @click="removeTagFromManga(tag.tagId)" title="删除标签">&times;</button>
-            </span>
-            <span v-if="tagEditor.currentTags.length === 0" class="no-tags">暂无标签</span>
-          </div>
-        </div>
-        
-        <!-- 可用标签 -->
-        <div class="available-tags-section">
-          <h4>可用标签</h4>
-          <div class="tags-list">
-            <span v-for="tag in tagEditor.availableTags" :key="'available-' + tag.tagId"
-                  :class="['tag', 'available-tag', { 'added': isTagAdded(tag.tagId) }]"
-                  @click="!isTagAdded(tag.tagId) && addTagToManga(tag.tagId)">
-              {{ tag.tagName }}
-              <span class="tag-count">{{ tag.tagCount || 0 }}</span>
-            </span>
-            <span v-if="tagEditor.availableTags.length === 0" class="no-tags">暂无可用标签</span>
-          </div>
-        </div>
-        
-        <!-- 添加新标签 -->
-        <div class="add-tag-section">
-          <h4>添加新标签</h4>
-          <div class="add-tag-form">
-            <input v-model="tagEditor.newTagName" 
-                  type="text" 
-                  placeholder="输入新标签名称" 
-                  class="tag-input"
-                  @keyup.enter="createAndAddTag">
-            <button @click="createAndAddTag" class="add-btn" :disabled="!tagEditor.newTagName.trim()">添加</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <manga-tag-editor
+    v-if="activeTagCategory"
+    :manga-id="manga.id"
+    :category="activeTagCategory"
+    :current-tags="activeTagEditorTags"
+    @close="closeTagEditor"
+    @updated="loadMangaDetail"
+  />
 
   <acg17-footer></acg17-footer>
 </template>
 
 <script>
-import { reactive, onMounted, onUnmounted, ref, nextTick, watch } from 'vue'
+import { computed, reactive, onMounted, onUnmounted, ref, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Acg17Footer from '../components/Acg17Footer'
+import MangaTagEditor from '../components/manga-detail/MangaTagEditor.vue'
 import server from '@/util/request';
 import { ElMessage } from 'element-plus';
+
+const TAG_CATEGORIES = [
+  { category: 'character', key: 'characterTags', name: '角色' },
+  { category: 'male', key: 'maleTags', name: '男性' },
+  { category: 'female', key: 'femaleTags', name: '女性' },
+  { category: 'mixed', key: 'mixedTags', name: '混合' },
+  { category: 'other', key: 'otherTags', name: '其他' },
+  { category: 'original', key: 'originalTags', name: '原作' },
+]
 
 export default {
   name: 'MangaDetail',
   components: {
     'acg17-footer': Acg17Footer,
+    MangaTagEditor,
   },
   setup() {
     const route = useRoute()
@@ -274,18 +194,17 @@ export default {
     const mangaPages = reactive([])
 
     // 章节列表数据
-    const chapters = reactive([])
     const mangaChapters = reactive([])
 
-    // 标签编辑相关状态
-    const tagEditor = reactive({
-      visible: false,
-      category: '',
-      categoryName: '',
-      availableTags: [],
-      currentTags: [],
-      newTagName: ''
-    })
+    const activeTagCategory = ref('')
+    const tagGroups = computed(() => TAG_CATEGORIES.map(group => ({
+      ...group,
+      tags: [...(manga[group.key] || [])]
+        .sort((a, b) => (b.tagCount || 0) - (a.tagCount || 0)),
+    })))
+    const activeTagEditorTags = computed(() => (
+      tagGroups.value.find(group => group.category === activeTagCategory.value)?.tags || []
+    ))
 
     const containerWidth = ref(1380)
     const showBackToTopLeft = ref(false)
@@ -318,7 +237,7 @@ export default {
           }
           const mangaData = res.data
           Object.assign(manga, mangaData)
-          
+
           // 计数页数
           let pageCount = 0
           if (mangaData.pages && mangaData.pages.length > 0) {
@@ -345,8 +264,6 @@ export default {
             }
           }
 
-          // 加载相关推荐（暂时使用漫画列表的前几项作为相关推荐）
-          loadRelatedManga()
         } else {
           console.error('获取漫画详情失败:', res.message)
         }
@@ -429,6 +346,7 @@ export default {
     onMounted(() => {
       window.addEventListener('scroll', handleScroll)
       loadMangaDetail()
+      loadRelatedManga()
       nextTick(() => {
         updateWidth()
         window.addEventListener('resize', updateWidth)
@@ -439,7 +357,9 @@ export default {
     })
 
     watch(() => route.params.id, () => {
+      closeTagEditor()
       loadMangaDetail()
+      loadRelatedManga()
     })
 
     onUnmounted(() => {
@@ -511,7 +431,7 @@ export default {
     // 跳转到指定章节
     function goToChapter(chapterNum) {
       const chapterItem = mangaChapters.find(c => c.chapter === chapterNum)
-      
+
       if (chapterItem && chapterItem.pagelist && chapterItem.pagelist.length > 0) {
         manga.currentChapter = chapterItem.chapter
         mangaPages.length = 0
@@ -539,122 +459,13 @@ export default {
       })
     }
 
-    // 打开标签编辑器
-    async function openTagEditor(category) {
-      const categoryNames = {
-        'character': '角色',
-        'male': '男性',
-        'female': '女性',
-        'mixed': '混合',
-        'other': '其他',
-        'original': '原作'
-      }
-      
-      tagEditor.category = category
-      tagEditor.categoryName = categoryNames[category]
-      tagEditor.visible = true
-      
-      // 获取当前分类的标签
-      const currentTagsKey = category + 'Tags'
-      tagEditor.currentTags = manga[currentTagsKey] || []
-      
-      // 获取该分类的所有可用标签
-      await loadAvailableTags(category)
+    // 标签编辑器仅保存当前打开的分类，其余状态由编辑器组件管理
+    function openTagEditor(category) {
+      activeTagCategory.value = category
     }
 
-    // 获取可用标签列表
-    async function loadAvailableTags(category) {
-      try {
-        const res = await server.get(`/manga-tag/category/${category}`)
-        if (res.code === 200) {
-          const list = res.data || []
-          tagEditor.availableTags = list.slice().sort((a, b) => (b.tagCount || 0) - (a.tagCount || 0))
-        }
-      } catch (error) {
-        console.error('获取标签列表失败:', error)
-      }
-    }
-
-    // 添加标签到漫画
-    async function addTagToManga(tagId) {
-      try {
-        const res = await server.post(`/manga/${manga.id}/tags`, null, {
-          params: {
-            tagId: tagId
-          }
-        })
-        if (res.code === 200) {
-          // 重新加载漫画详情以更新标签
-          await loadMangaDetail()
-          // 更新编辑器中的当前标签
-          const currentTagsKey = tagEditor.category + 'Tags'
-          tagEditor.currentTags = manga[currentTagsKey] || []
-        }
-      } catch (error) {
-        console.error('添加标签失败:', error)
-      }
-    }
-
-    // 从漫画中删除标签
-    async function removeTagFromManga(tagId) {
-      try {
-        const res = await server.delete(`/manga/${manga.id}/tags`, {
-          params: {
-            tagId: tagId
-          }
-        })
-        if (res.code === 200) {
-          // 重新加载漫画详情以更新标签
-          await loadMangaDetail()
-          // 更新编辑器中的当前标签
-          const currentTagsKey = tagEditor.category + 'Tags'
-          tagEditor.currentTags = manga[currentTagsKey] || []
-        }
-      } catch (error) {
-        console.error('删除标签失败:', error)
-      }
-    }
-
-    // 创建新标签并添加到漫画
-    async function createAndAddTag() {
-      if (!tagEditor.newTagName.trim()) return
-      
-      try {
-        // 先创建标签
-        const createRes = await server.post('/manga-tag/get-or-create-by-category', null, {
-          params: {
-            tagName: tagEditor.newTagName.trim(),
-            category: tagEditor.category
-          }
-        })
-        
-        if (createRes.code === 200) {
-          const newTag = createRes.data
-          // 添加到漫画
-          await addTagToManga(newTag.id)
-          // 重新加载可用标签
-          await loadAvailableTags(tagEditor.category)
-          // 清空输入框
-          tagEditor.newTagName = ''
-        }
-      } catch (error) {
-        console.error('创建标签失败:', error)
-      }
-    }
-
-    // 关闭标签编辑器
     function closeTagEditor() {
-      tagEditor.visible = false
-      tagEditor.category = ''
-      tagEditor.categoryName = ''
-      tagEditor.availableTags = []
-      tagEditor.currentTags = []
-      tagEditor.newTagName = ''
-    }
-
-    // 检查标签是否已添加到当前漫画
-    function isTagAdded(tagId) {
-      return tagEditor.currentTags.some(tag => tag.tagId === tagId)
+      activeTagCategory.value = ''
     }
 
     // 删除漫画页
@@ -683,8 +494,9 @@ export default {
       relatedManga,
       mangaPages,
       mangaChapters,
-      chapters,
-      tagEditor,
+      tagGroups,
+      activeTagCategory,
+      activeTagEditorTags,
       goBack,
       goToManga,
       startReading,
@@ -700,10 +512,7 @@ export default {
       containerWidth,
       openTagEditor,
       closeTagEditor,
-      addTagToManga,
-      removeTagFromManga,
-      createAndAddTag,
-      isTagAdded,
+      loadMangaDetail,
       removeMangaPage
     }
   }
@@ -1224,6 +1033,11 @@ export default {
   background-color: #f0f8ff;
 }
 
+.edit-tag-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .edit-icon {
   width: 14px;
   height: 14px;
@@ -1234,221 +1048,4 @@ export default {
   fill: #409eff;
 }
 
-/* 标签编辑弹窗样式 */
-.tag-editor-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.tag-editor-modal {
-  background: white;
-  border-radius: 8px;
-  width: 1000px;
-  max-width: 90vw;
-  max-height: 80vh;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-.tag-editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e9ecef;
-  background-color: #f8f9fa;
-}
-
-.tag-editor-header h3 {
-  margin: 0;
-  color: #2c3e50;
-  font-size: 18px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #6c757d;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.close-btn:hover {
-  background-color: #e9ecef;
-  color: #495057;
-}
-
-.tag-editor-content {
-  padding: 20px;
-  max-height: calc(80vh - 80px);
-  overflow-y: auto;
-}
-
-.current-tags-section,
-.available-tags-section,
-.add-tag-section {
-  margin-bottom: 24px;
-}
-
-.tag-editor-content h4 {
-  margin: 0 0 12px 0;
-  color: #495057;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 40px;
-  max-height: 400px;
-  overflow-y: auto;
-  align-items: flex-start;
-  padding: 4px;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
-  background-color: #fafafa;
-}
-
-.current-tag {
-  background-color: #e3f2fd;
-  border-color: #2196f3;
-  color: #1976d2;
-  position: relative;
-  padding-right: 24px;
-}
-
-.available-tag {
-  cursor: pointer;
-  background-color: #f8f9fa;
-  border-color: #e9ecef;
-}
-
-.available-tag:hover:not(.added) {
-  background-color: #e9ecef;
-  border-color: #409eff;
-  transform: translateY(-1px);
-}
-
-.available-tag.added {
-  background-color: #d4edda;
-  border-color: #c3e6cb;
-  color: #155724;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.remove-tag-btn {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: #dc3545;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: bold;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2px;
-}
-
-.remove-tag-btn:hover {
-  background-color: #dc3545;
-  color: white;
-}
-
-.no-tags {
-  color: #6c757d;
-  font-style: italic;
-  padding: 8px 0;
-}
-
-.add-tag-form {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.tag-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.tag-input:focus {
-  border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
-}
-
-.add-btn {
-  background-color: #409eff;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
-}
-
-.add-btn:hover:not(:disabled) {
-  background-color: #337ab7;
-}
-
-.add-btn:disabled {
-  background-color: #e9ecef;
-  color: #6c757d;
-  cursor: not-allowed;
-}
-
-/* 响应式设计 */
-@media screen and (max-width: 768px) {
-  .tag-editor-modal {
-    width: 95%;
-    max-height: 90vh;
-  }
-  
-  .tag-editor-header {
-    padding: 15px;
-  }
-  
-  .tag-editor-content {
-    padding: 15px;
-  }
-  
-  .add-tag-form {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .add-btn {
-    width: 100%;
-  }
-}
 </style>
