@@ -19,6 +19,4 @@ public class MangaUpdateDTO {
     @Size(max = 10000, message = "漫画简介不能超过10000个字符")
     private String description;
 
-    @Size(max = 100, message = "漫画作者不能超过100个字符")
-    private String author;
 }

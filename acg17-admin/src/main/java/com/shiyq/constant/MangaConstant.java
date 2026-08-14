@@ -8,12 +8,13 @@ public final class MangaConstant {
     public static final Integer TAG_CATEGORY_MIXED = 4;
     public static final Integer TAG_CATEGORY_OTHER = 5;
     public static final Integer TAG_CATEGORY_ORIGINAL = 6;
+    public static final Integer TAG_CATEGORY_ARTIST = 7;
 
     private MangaConstant() {
     }
 
     public static boolean isValidCategory(Integer category) {
-        return category != null && category >= TAG_CATEGORY_CHARACTER && category <= TAG_CATEGORY_ORIGINAL;
+        return category != null && category >= TAG_CATEGORY_CHARACTER && category <= TAG_CATEGORY_ARTIST;
     }
 
     public static Integer parseCategory(String category) {
@@ -39,6 +40,9 @@ public final class MangaConstant {
             case "6":
             case "original":
                 return TAG_CATEGORY_ORIGINAL;
+            case "7":
+            case "artist":
+                return TAG_CATEGORY_ARTIST;
             default:
                 return null;
         }

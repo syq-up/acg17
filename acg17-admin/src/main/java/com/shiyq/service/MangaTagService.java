@@ -31,7 +31,7 @@ public interface MangaTagService {
 
     /**
      * 根据分类获取标签列表
-     * @param category 分类标记（1-角色，2-男性，3-女性，4-混合，5-其他，6-原作）
+     * @param category 分类标记（1-角色，2-男性，3-女性，4-混合，5-其他，6-原作，7-艺术家）
      * @return 标签列表
      */
     List<MangaTagVO> getTagsByCategory(Integer category);

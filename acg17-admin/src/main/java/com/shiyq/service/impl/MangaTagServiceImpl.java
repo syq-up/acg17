@@ -60,7 +60,9 @@ public class MangaTagServiceImpl extends ServiceImpl<MangaTagMapper, MangaTag> i
                 .setOtherTags(
             allTags.stream().filter(tag -> MangaConstant.TAG_CATEGORY_OTHER.equals(tag.getCategory())).collect(Collectors.toList()))
                 .setOriginalTags(
-            allTags.stream().filter(tag -> MangaConstant.TAG_CATEGORY_ORIGINAL.equals(tag.getCategory())).collect(Collectors.toList()));
+            allTags.stream().filter(tag -> MangaConstant.TAG_CATEGORY_ORIGINAL.equals(tag.getCategory())).collect(Collectors.toList()))
+                .setArtistTags(
+            allTags.stream().filter(tag -> MangaConstant.TAG_CATEGORY_ARTIST.equals(tag.getCategory())).collect(Collectors.toList()));
         return mangaTagListVO;
     }
 

@@ -107,7 +107,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
     }
 
     @Override
-    public PageVO<MangaVO> getList(long pageNum, boolean deleted, String author, String title,
+    public PageVO<MangaVO> getList(long pageNum, boolean deleted, String title,
                                   Integer tagId) {
         if (pageNum <= 0) {
             throw new IllegalArgumentException("页码必须大于0");
@@ -115,14 +115,13 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         if (tagId != null && tagId <= 0) {
             throw new IllegalArgumentException("标签ID必须大于0");
         }
-        author = normalizeOptionalText(author, "作者", 100);
         title = normalizeOptionalText(title, "标题", 255);
         int userId = UserContext.requireCurrentUserId();
         // 默认页大小为 30
         PageVO<MangaVO> pageVO = new PageVO<>(30L, pageNum);
         // 查询漫画作品列表
         List<Manga> list = mangaMapper.getListByCondition(userId, pageNum, 30L, deleted,
-                author, title, tagId);
+                title, tagId);
         
         // 转换为VO并处理cover路径和favorite字段
         List<MangaVO> mangaVOList = MangaConvert.INSTANCE.toMangaVOList(list);
@@ -137,7 +136,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         pageVO.setRecords(mangaVOList);
         // 查询总记录数
         pageVO.setTotal(mangaMapper.getTotalByCondition(userId, deleted,
-                author, title, tagId));
+                title, tagId));
         return pageVO;
     }
 
@@ -189,6 +188,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         detail.setMixedTags(new ArrayList<>());
         detail.setOtherTags(new ArrayList<>());
         detail.setOriginalTags(new ArrayList<>());
+        detail.setArtistTags(new ArrayList<>());
         for (MangaTagVO tag : tags) {
             if (MangaConstant.TAG_CATEGORY_CHARACTER.equals(tag.getCategory())) {
                 detail.getCharacterTags().add(tag);
@@ -202,6 +202,8 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                 detail.getOtherTags().add(tag);
             } else if (MangaConstant.TAG_CATEGORY_ORIGINAL.equals(tag.getCategory())) {
                 detail.getOriginalTags().add(tag);
+            } else if (MangaConstant.TAG_CATEGORY_ARTIST.equals(tag.getCategory())) {
+                detail.getArtistTags().add(tag);
             }
         }
     }
@@ -217,7 +219,6 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                 mangaUploadDTO.getChineseTitle(), "漫画中文标题", 255);
         String description = normalizeOptionalText(
                 mangaUploadDTO.getDescription(), "漫画简介", 10000);
-        String author = normalizeOptionalText(mangaUploadDTO.getAuthor(), "漫画作者", 100);
         String tagsJson = mangaUploadDTO.getTags();
         if (tagsJson != null && tagsJson.length() > 16384) {
             throw new IllegalArgumentException("漫画标签数据过长");
@@ -243,7 +244,6 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
             manga.setTitle(title);
             manga.setChineseTitle(chineseTitle);
             manga.setDescription(description);
-            manga.setAuthor(author);
             Set<Integer> tagIds = resolveTagIds(tagsJson);
             
             // 先保存到数据库获取ID
@@ -405,7 +405,6 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                 mangaUpdateDTO.getChineseTitle(), "漫画中文标题", 255));
         manga.setDescription(normalizeOptionalText(
                 mangaUpdateDTO.getDescription(), "漫画简介", 10000));
-        manga.setAuthor(normalizeOptionalText(mangaUpdateDTO.getAuthor(), "漫画作者", 100));
 
         LambdaUpdateWrapper<Manga> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(Manga::getId, id)

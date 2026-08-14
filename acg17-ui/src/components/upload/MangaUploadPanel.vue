@@ -29,10 +29,6 @@
           <label for="manga-title-cn" class="form-label">中文标题</label>
           <input id="manga-title-cn" v-model="manga.chineseTitle" class="form-input" placeholder="请输入中文标题" autocomplete="off">
         </div>
-        <div class="form-group">
-          <label for="manga-author" class="form-label">作者</label>
-          <input id="manga-author" v-model="manga.author" class="form-input" placeholder="请输入作者名" autocomplete="off">
-        </div>
       </div>
 
       <div class="form-group">
@@ -224,6 +220,7 @@ import server from '@/util/request'
 const emit = defineEmits(['completed'])
 
 const TAG_CATEGORIES = [
+  { key: 'artist', category: 7, label: '艺术家', placeholder: '输入艺术家名后按回车添加' },
   { key: 'character', category: 1, label: '角色', placeholder: '输入角色名后按回车添加' },
   { key: 'male', category: 2, label: '男性', placeholder: '输入男性标签后按回车添加' },
   { key: 'female', category: 3, label: '女性', placeholder: '输入女性标签后按回车添加' },
@@ -243,7 +240,6 @@ let mangaSearchSequence = 0
 const manga = reactive({
   title: '',
   chineseTitle: '',
-  author: '',
   selectedFile: null,
   dragCounter: 0,
   tagMode: 'input',
@@ -371,9 +367,12 @@ async function addManga() {
   const formData = new FormData()
   formData.append('title', title)
   formData.append('chineseTitle', manga.chineseTitle.trim())
-  formData.append('author', manga.author.trim())
   formData.append('tags', JSON.stringify(tagGroups.flatMap(group => (
-    group.selected.map(tag => ({ ...tag, category: group.category }))
+    group.selected.map(tag => ({
+      ...(tag.tagId > 0 ? { tagId: tag.tagId } : {}),
+      tagName: tag.tagName,
+      category: group.category,
+    }))
   ))))
   formData.append('file', manga.selectedFile)
 

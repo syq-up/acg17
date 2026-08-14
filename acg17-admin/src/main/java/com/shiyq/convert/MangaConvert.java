@@ -47,6 +47,7 @@ public interface MangaConvert {
     @Mapping(target = "mixedTags", ignore = true)
     @Mapping(target = "otherTags", ignore = true)
     @Mapping(target = "originalTags", ignore = true)
+    @Mapping(target = "artistTags", ignore = true)
     MangaDetailVO toMangaDetailVO(Manga manga);
 
 }

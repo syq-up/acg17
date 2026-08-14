@@ -26,12 +26,6 @@
       <div class="manga-info">
         <h1 class="manga-title">{{ manga.title }} ✨ {{ manga.chineseTitle }}</h1>
 
-        <!-- TODO 将艺术家也作为标签 -->
-        <div class="info-row">
-          <span class="label">艺术家:</span>
-          <span class="value">{{ manga.author }}</span>
-        </div>
-
         <div v-for="group in tagGroups" :key="group.category" class="info-row unselectable">
           <span class="label">{{ group.name }}:</span>
           <div class="tags-container">
@@ -149,6 +143,7 @@ import server from '@/util/request';
 import { ElMessage } from 'element-plus';
 
 const TAG_CATEGORIES = [
+  { category: 'artist', key: 'artistTags', name: '艺术家' },
   { category: 'character', key: 'characterTags', name: '角色' },
   { category: 'male', key: 'maleTags', name: '男性' },
   { category: 'female', key: 'femaleTags', name: '女性' },
@@ -171,7 +166,6 @@ export default {
       id: null,
       title: '',
       chineseTitle: '',
-      author: '',
       cover: '',
       description: '',
       pages: [],
@@ -181,6 +175,7 @@ export default {
       mixedTags: [],
       otherTags: [],
       originalTags: [],
+      artistTags: [],
       favorite: false,
       deleted: false,
       updateTime: '',

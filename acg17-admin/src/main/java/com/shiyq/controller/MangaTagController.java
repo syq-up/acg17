@@ -104,7 +104,7 @@ public class MangaTagController {
 
     /**
      * 根据分类获取标签列表
-     * @param category 分类标记（支持英文名称：character, male, female, mixed, other, original 或数字：1-6）
+     * @param category 分类标记（支持英文名称：character, male, female, mixed, other, original, artist 或数字：1-7）
      * @return 标签列表
      */
     @GetMapping("/category/{category}")
@@ -123,7 +123,7 @@ public class MangaTagController {
     /**
      * 根据标签名和分类获取或创建标签
      * @param tagName 标签名
-     * @param category 分类标记（支持英文名称：character, male, female, mixed, other, original 或数字：1-6）
+     * @param category 分类标记（支持英文名称：character, male, female, mixed, other, original, artist 或数字：1-7）
      * @return 标签信息
      */
     @PostMapping("/get-or-create-by-category")

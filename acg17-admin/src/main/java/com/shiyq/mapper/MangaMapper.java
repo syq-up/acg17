@@ -25,7 +25,6 @@ public interface MangaMapper extends BaseMapper<Manga> {
      * @param pageNum 页码
      * @param pageSize 页大小
      * @param deleted 是否已删除
-     * @param author 作者（模糊查询）
      * @param title 标题（模糊查询）
      * @param tagId 标签ID
      * @return 漫画列表
@@ -34,7 +33,6 @@ public interface MangaMapper extends BaseMapper<Manga> {
                                    @Param("pageNum") Long pageNum, 
                                    @Param("pageSize") Long pageSize, 
                                    @Param("deleted") Boolean deleted,
-                                   @Param("author") String author,
                                    @Param("title") String title,
                                    @Param("tagId") Integer tagId);
 
@@ -42,14 +40,12 @@ public interface MangaMapper extends BaseMapper<Manga> {
      * 根据条件查询总记录数
      * @param userId 用户ID
      * @param deleted 是否已删除
-     * @param author 作者（模糊查询）
      * @param title 标题（模糊查询）
      * @param tagId 标签ID
      * @return 总记录数
      */
     Long getTotalByCondition(@Param("userId") Integer userId, 
                             @Param("deleted") Boolean deleted,
-                            @Param("author") String author,
                             @Param("title") String title,
                             @Param("tagId") Integer tagId);
 

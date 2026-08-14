@@ -37,7 +37,6 @@ public class MangaController {
      * 分页获取漫画列表
      * @param pageNum 页码
      * @param deleted 是否查询已删除的记录
-     * @param author 作者（模糊查询）
      * @param title 标题（模糊查询，同时查询title和chinese_title）
      * @param tagId 标签ID
      * @return 分页结果
@@ -45,10 +44,9 @@ public class MangaController {
     @GetMapping("/list")
     public ResultVO getList(@RequestParam(defaultValue = "1") @Positive(message = "页码必须大于0") long pageNum,
                            @RequestParam(defaultValue = "false") boolean deleted,
-                           @RequestParam(required = false) @Size(max = 100, message = "作者不能超过100个字符") String author,
                            @RequestParam(required = false) @Size(max = 255, message = "标题不能超过255个字符") String title,
                            @RequestParam(required = false) @Positive(message = "标签ID必须大于0") Integer tagId) {
-        PageVO<MangaVO> pageVO = mangaService.getList(pageNum, deleted, author, title, tagId);
+        PageVO<MangaVO> pageVO = mangaService.getList(pageNum, deleted, title, tagId);
         return ResultVO.success(pageVO);
     }
 

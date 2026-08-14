@@ -12,7 +12,6 @@ public class MangaDetailVO {
     private String chineseTitle;
     private String cover;
     private String description;
-    private String author;
     private List<MangaChapterData> pages;
     private List<MangaTagVO> characterTags;
     private List<MangaTagVO> maleTags;
@@ -20,6 +19,7 @@ public class MangaDetailVO {
     private List<MangaTagVO> mixedTags;
     private List<MangaTagVO> otherTags;
     private List<MangaTagVO> originalTags;
+    private List<MangaTagVO> artistTags;
     private boolean favorite;
     private boolean deleted;
     private String updateTime;

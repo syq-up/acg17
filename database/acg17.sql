@@ -73,7 +73,6 @@ CREATE TABLE `manga`  (
   `chinese_title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '中文标题',
   `cover` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '封面图片路径',
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '简介',
-  `author` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '作者（艺术家）',
   `pages` json NULL COMMENT '页数据，存储所有话(集)和对应的页集合，格式：[{\"chapter\":1,\"title\":\"第1话\",\"pagelist\":[{\"page\":1,\"path\":\"/path/to/page1.jpg\"},{\"page\":2,\"path\":\"/path/to/page2.jpg\"}]}]',
   `size` bigint NOT NULL DEFAULT 0 COMMENT '大小，单位为字节',
   `favorite` tinyint UNSIGNED NOT NULL DEFAULT 0 COMMENT '收藏状态，0-未收藏，1-已收藏',
@@ -97,13 +96,13 @@ CREATE TABLE `manga_tag`  (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '标签ID，自增主键',
   `user_id` int NOT NULL COMMENT '标签所属用户ID',
   `tag_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '标签名称',
-  `category` tinyint UNSIGNED NOT NULL COMMENT '分类标记，1-角色，2-男性，3-女性，4-混合，5-其他，6-原作',
+  `category` tinyint UNSIGNED NOT NULL COMMENT '分类标记，1-角色，2-男性，3-女性，4-混合，5-其他，6-原作，7-艺术家',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_manga_tag_user_category_name`(`user_id` ASC, `category` ASC, `tag_name` ASC) USING BTREE,
   UNIQUE INDEX `uk_manga_tag_id_user`(`id` ASC, `user_id` ASC) USING BTREE,
   INDEX `idx_manga_tag_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_manga_tag_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT `chk_manga_tag_category` CHECK (`category` between 1 and 6)
+  CONSTRAINT `chk_manga_tag_category` CHECK (`category` between 1 and 7)
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '漫画标签表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------

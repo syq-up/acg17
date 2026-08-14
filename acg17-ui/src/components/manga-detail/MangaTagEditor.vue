@@ -74,6 +74,7 @@ import { computed, ref, watch } from 'vue'
 import server from '@/util/request'
 
 const CATEGORY_NAMES = {
+  artist: '艺术家',
   character: '角色',
   male: '男性',
   female: '女性',

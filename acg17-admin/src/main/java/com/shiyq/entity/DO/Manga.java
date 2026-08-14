@@ -63,12 +63,6 @@ public class Manga implements Serializable {
     private String description;
 
     /**
-     * 作者（艺术家）
-     */
-    @TableField("author")
-    private String author;
-
-    /**
      * 页数据，存储所有话(集)和对应的页集合
      */
     // @TableField(value = "pages", typeHandler = JacksonTypeHandler.class)

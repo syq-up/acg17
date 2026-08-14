@@ -22,6 +22,15 @@
           <button class="clear-tags-btn" v-if="hasActiveTag" @click="clearTagFilter">清除筛选</button>
         </div>
         <div class="tag-body">
+          <div class="info-row" v-if="tag.artistTags.length">
+            <span class="label">艺术家:</span>
+            <div class="tags-container">
+              <span v-for="item in getVisibleTags(tag.artistTags, 'artist')" :key="'artist-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
+                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
+              </span>
+              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.artistTags, 'artist')" @click="toggleExpand('artist')">{{ tag.expand.artist ? '收起' : '展开' }}</button>
+            </div>
+          </div>
           <div class="info-row" v-if="tag.characterTags.length">
             <span class="label">角色:</span>
             <div class="tags-container">
@@ -196,6 +205,7 @@ export default {
 
     const tag = reactive({
       showTagList: false, // 是否显示标签列表
+      artistTags: [], // 艺术家标签
       characterTags: [], // 角色标签
       maleTags: [], // 男性标签
       femaleTags: [], // 女性标签
@@ -203,6 +213,7 @@ export default {
       otherTags: [], // 其他标签
       originalTags: [], // 原作标签
       expand: {
+        artist: false,
         character: true,
         male: true,
         female: false,
@@ -227,6 +238,7 @@ export default {
         params: { deleted: isRecycle.value }
       })
         .then(res => {
+          tag.artistTags = res.data.artistTags || []
           tag.characterTags = res.data.characterTags || []
           tag.maleTags = res.data.maleTags || []
           tag.femaleTags = res.data.femaleTags || []
@@ -244,7 +256,7 @@ export default {
     })
 
     const hasAnyTags = computed(() => {
-      return tag.characterTags.length || tag.maleTags.length || tag.femaleTags.length || tag.mixedTags.length || tag.otherTags.length || tag.originalTags.length
+      return tag.artistTags.length || tag.characterTags.length || tag.maleTags.length || tag.femaleTags.length || tag.mixedTags.length || tag.otherTags.length || tag.originalTags.length
     })
 
     function sortedTags(tags) {

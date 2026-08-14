@@ -24,12 +24,11 @@ public interface MangaService extends IService<Manga> {
      * 分页获取漫画列表
      * @param pageNum 页码
      * @param deleted 是否查询已删除的记录
-     * @param author 作者（模糊查询）
      * @param title 标题（模糊查询，同时查询title和chinese_title）
      * @param tagId 标签ID
      * @return 分页结果
      */
-    PageVO<MangaVO> getList(long pageNum, boolean deleted, String author, String title, Integer tagId);
+    PageVO<MangaVO> getList(long pageNum, boolean deleted, String title, Integer tagId);
 
     /**
      * 根据ID获取漫画详情

@@ -9,7 +9,6 @@
         <result column="chinese_title" property="chineseTitle"/>
         <result column="cover" property="cover"/>
         <result column="description" property="description"/>
-        <result column="author" property="author"/>
         <result column="pages" property="pages"/>
         <result column="size" property="size"/>
         <result column="favorite" property="favorite"/>
@@ -25,7 +24,6 @@
         <where>
             <if test="userId != null">m.`user_id`=#{userId}</if>
             <if test="deleted != null">AND m.`deleted`=#{deleted}</if>
-            <if test="author != null and author != ''">AND m.`author` LIKE CONCAT('%', #{author}, '%')</if>
             <if test="title != null and title != ''">AND (m.`title` LIKE CONCAT('%', #{title}, '%') OR m.`chinese_title` LIKE CONCAT('%', #{title}, '%'))</if>
             <if test="tagId != null">
                 AND EXISTS (
@@ -46,7 +44,6 @@
         <where>
             <if test="userId != null">m.`user_id`=#{userId}</if>
             <if test="deleted != null">AND m.`deleted`=#{deleted}</if>
-            <if test="author != null and author != ''">AND m.`author` LIKE CONCAT('%', #{author}, '%')</if>
             <if test="title != null and title != ''">AND (m.`title` LIKE CONCAT('%', #{title}, '%') OR m.`chinese_title` LIKE CONCAT('%', #{title}, '%'))</if>
             <if test="tagId != null">
                 AND EXISTS (
@@ -61,7 +58,7 @@
 
     <!-- 根据ID查询漫画详情 -->
     <select id="getMangaDetailById" resultMap="MangaResultMap">
-        SELECT `id`, `title`, `chinese_title`, `cover`, `description`, `author`, `size`,
+        SELECT `id`, `title`, `chinese_title`, `cover`, `description`, `size`,
                `pages`, `favorite`, `update_time`, `deleted`, `user_id`
         FROM `manga`
         WHERE `id` = #{id} AND `user_id` = #{userId}
