@@ -2,7 +2,6 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import store from '../store'
 import server from '@/util/request'
 
-const isMobile = /Android|iPhone/i.test(navigator.userAgent)
 const routes = [
   {
     path: '/',
@@ -25,7 +24,7 @@ const routes = [
       {
         path: 'illustration',
         name: 'Illustration',
-        component: () => isMobile ? import('../views/IllustrationMobile') : import('../views/Illustration'),
+        component: () => import('../views/Illustration'),
         meta: { title: '插画', },
       },
       {
@@ -61,7 +60,7 @@ const routes = [
       {
         path: 'novel/:novelId',
         name: 'NovelReader',
-        component: () => isMobile ? import('../views/NovelReaderMobile') : import('../views/NovelReader'),
+        component: () => import('../views/NovelReader'),
         meta: { title: '小说', },
       },
       {
