@@ -10,6 +10,8 @@ import com.shiyq.entity.VO.PageVO;
 import com.shiyq.entity.VO.MangaVO;
 import com.shiyq.entity.VO.MangaDetailVO;
 
+import java.util.List;
+
 /**
  * <p>
  * 漫画 服务类
@@ -25,10 +27,10 @@ public interface MangaService extends IService<Manga> {
      * @param pageNum 页码
      * @param deleted 是否查询已删除的记录
      * @param title 标题（模糊查询，同时查询title和chinese_title）
-     * @param tagId 标签ID
+     * @param tagIds 标签ID列表，漫画需要同时包含全部标签
      * @return 分页结果
      */
-    PageVO<MangaVO> getList(long pageNum, boolean deleted, String title, Integer tagId);
+    PageVO<MangaVO> getList(long pageNum, boolean deleted, String title, List<Integer> tagIds);
 
     /**
      * 根据ID获取漫画详情

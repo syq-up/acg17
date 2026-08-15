@@ -108,20 +108,23 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
 
     @Override
     public PageVO<MangaVO> getList(long pageNum, boolean deleted, String title,
-                                  Integer tagId) {
+                                  List<Integer> tagIds) {
         if (pageNum <= 0) {
             throw new IllegalArgumentException("页码必须大于0");
         }
-        if (tagId != null && tagId <= 0) {
+        if (tagIds != null && tagIds.stream().anyMatch(tagId -> tagId == null || tagId <= 0)) {
             throw new IllegalArgumentException("标签ID必须大于0");
         }
+        List<Integer> normalizedTagIds = tagIds == null
+                ? Collections.emptyList()
+                : new ArrayList<>(new LinkedHashSet<>(tagIds));
         title = normalizeOptionalText(title, "标题", 255);
         int userId = UserContext.requireCurrentUserId();
         // 默认页大小为 30
         PageVO<MangaVO> pageVO = new PageVO<>(30L, pageNum);
         // 查询漫画作品列表
         List<Manga> list = mangaMapper.getListByCondition(userId, pageNum, 30L, deleted,
-                title, tagId);
+                title, normalizedTagIds);
         
         // 转换为VO并处理cover路径和favorite字段
         List<MangaVO> mangaVOList = MangaConvert.INSTANCE.toMangaVOList(list);
@@ -136,7 +139,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         pageVO.setRecords(mangaVOList);
         // 查询总记录数
         pageVO.setTotal(mangaMapper.getTotalByCondition(userId, deleted,
-                title, tagId));
+                title, normalizedTagIds));
         return pageVO;
     }
 

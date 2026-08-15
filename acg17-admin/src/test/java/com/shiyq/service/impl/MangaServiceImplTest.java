@@ -1,5 +1,6 @@
 package com.shiyq.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.shiyq.entity.DO.Manga;
 import com.shiyq.entity.DO.MangaTag;
 import com.shiyq.entity.DTO.UserContext;
@@ -13,11 +14,19 @@ import com.shiyq.service.FileStorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.apache.ibatis.builder.xml.XMLMapperBuilder;
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.mapping.BoundSql;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.mock.web.MockMultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -94,6 +103,71 @@ class MangaServiceImplTest {
 
         verify(relationMapper).insertRelation(9, 7, USER_ID);
         verify(relationMapper).deleteRelation(9, 7, USER_ID);
+    }
+
+    @Test
+    void mangaListNormalizesDuplicateTagIdsBeforeQuerying() {
+        MangaMapper mangaMapper = mock(MangaMapper.class);
+        when(mangaMapper.getListByCondition(
+                USER_ID, 1L, 30L, false, null, List.of(7, 8)))
+                .thenReturn(Collections.emptyList());
+        when(mangaMapper.getTotalByCondition(
+                USER_ID, false, null, List.of(7, 8)))
+                .thenReturn(0L);
+
+        MangaServiceImpl service = new MangaServiceImpl();
+        service.setMangaMapper(mangaMapper);
+
+        service.getList(1, false, null, List.of(7, 7, 8));
+
+        verify(mangaMapper).getListByCondition(
+                USER_ID, 1L, 30L, false, null, List.of(7, 8));
+        verify(mangaMapper).getTotalByCondition(
+                USER_ID, false, null, List.of(7, 8));
+    }
+
+    @Test
+    void mangaListRejectsInvalidTagIdsBeforeQuerying() {
+        MangaMapper mangaMapper = mock(MangaMapper.class);
+        MangaServiceImpl service = new MangaServiceImpl();
+        service.setMangaMapper(mangaMapper);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.getList(1, false, null, Arrays.asList(7, null)));
+
+        verifyNoInteractions(mangaMapper);
+    }
+
+    @Test
+    void mangaListMapperBuildsAnAndFilterForAllSelectedTags() throws Exception {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        String resource = "mapper/MangaMapper.xml";
+        try (InputStream inputStream = Resources.getResourceAsStream(resource)) {
+            new XMLMapperBuilder(
+                    inputStream, configuration, resource, configuration.getSqlFragments())
+                    .parse();
+        }
+
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("userId", USER_ID);
+        parameters.put("pageNum", 1L);
+        parameters.put("pageSize", 30L);
+        parameters.put("deleted", false);
+        parameters.put("title", null);
+        parameters.put("tagIds", List.of(7, 8));
+
+        BoundSql boundSql = configuration
+                .getMappedStatement("com.shiyq.mapper.MangaMapper.getListByCondition")
+                .getBoundSql(parameters);
+        String sql = boundSql.getSql().replaceAll("\\s+", " ");
+        List<String> parameterNames = boundSql.getParameterMappings().stream()
+                .map(mapping -> mapping.getProperty())
+                .toList();
+
+        assertTrue(sql.contains("r.`tag_id` IN"));
+        assertTrue(sql.contains("HAVING COUNT(DISTINCT r.`tag_id`) = ?"));
+        assertTrue(parameterNames.contains("__frch_tagId_0"));
+        assertTrue(parameterNames.contains("__frch_tagId_1"));
     }
 
     @Test

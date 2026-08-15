@@ -20,17 +20,25 @@
     <!-- 根据条件分页查询漫画列表 -->
     <select id="getListByCondition" resultType="com.shiyq.entity.DO.Manga">
         <bind name="offset" value="(pageNum-1)*pageSize"/>
+        <bind name="tagCount" value="tagIds == null ? 0 : tagIds.size()"/>
         SELECT m.`id`, m.`title`, m.`chinese_title`, m.`cover`, m.`favorite` FROM `manga` m
         <where>
             <if test="userId != null">m.`user_id`=#{userId}</if>
             <if test="deleted != null">AND m.`deleted`=#{deleted}</if>
             <if test="title != null and title != ''">AND (m.`title` LIKE CONCAT('%', #{title}, '%') OR m.`chinese_title` LIKE CONCAT('%', #{title}, '%'))</if>
-            <if test="tagId != null">
+            <if test="tagCount > 0">
                 AND EXISTS (
                     SELECT 1 FROM `manga_tag_relation` r
                     INNER JOIN `manga_tag` t
                             ON t.`id` = r.`tag_id` AND t.`user_id` = #{userId}
-                    WHERE r.`manga_id` = m.`id` AND r.`tag_id` = #{tagId}
+                    WHERE r.`manga_id` = m.`id`
+                      AND r.`user_id` = #{userId}
+                      AND r.`tag_id` IN
+                      <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+                          #{tagId}
+                      </foreach>
+                    GROUP BY r.`manga_id`
+                    HAVING COUNT(DISTINCT r.`tag_id`) = #{tagCount}
                 )
             </if>
         </where>
@@ -40,17 +48,25 @@
 
     <!-- 根据条件查询漫画总记录数 -->
     <select id="getTotalByCondition" resultType="long">
+        <bind name="tagCount" value="tagIds == null ? 0 : tagIds.size()"/>
         SELECT COUNT(*) FROM `manga` m
         <where>
             <if test="userId != null">m.`user_id`=#{userId}</if>
             <if test="deleted != null">AND m.`deleted`=#{deleted}</if>
             <if test="title != null and title != ''">AND (m.`title` LIKE CONCAT('%', #{title}, '%') OR m.`chinese_title` LIKE CONCAT('%', #{title}, '%'))</if>
-            <if test="tagId != null">
+            <if test="tagCount > 0">
                 AND EXISTS (
                     SELECT 1 FROM `manga_tag_relation` r
                     INNER JOIN `manga_tag` t
                             ON t.`id` = r.`tag_id` AND t.`user_id` = #{userId}
-                    WHERE r.`manga_id` = m.`id` AND r.`tag_id` = #{tagId}
+                    WHERE r.`manga_id` = m.`id`
+                      AND r.`user_id` = #{userId}
+                      AND r.`tag_id` IN
+                      <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+                          #{tagId}
+                      </foreach>
+                    GROUP BY r.`manga_id`
+                    HAVING COUNT(DISTINCT r.`tag_id`) = #{tagCount}
                 )
             </if>
         </where>

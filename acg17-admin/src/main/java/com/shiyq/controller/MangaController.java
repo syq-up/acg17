@@ -18,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * <p>
  * 漫画 前端控制器
@@ -38,15 +40,15 @@ public class MangaController {
      * @param pageNum 页码
      * @param deleted 是否查询已删除的记录
      * @param title 标题（模糊查询，同时查询title和chinese_title）
-     * @param tagId 标签ID
+     * @param tagIds 标签ID列表，漫画需要同时包含全部标签
      * @return 分页结果
      */
     @GetMapping("/list")
     public ResultVO getList(@RequestParam(defaultValue = "1") @Positive(message = "页码必须大于0") long pageNum,
                            @RequestParam(defaultValue = "false") boolean deleted,
                            @RequestParam(required = false) @Size(max = 255, message = "标题不能超过255个字符") String title,
-                           @RequestParam(required = false) @Positive(message = "标签ID必须大于0") Integer tagId) {
-        PageVO<MangaVO> pageVO = mangaService.getList(pageNum, deleted, title, tagId);
+                           @RequestParam(required = false) List<@Positive(message = "标签ID必须大于0") Integer> tagIds) {
+        PageVO<MangaVO> pageVO = mangaService.getList(pageNum, deleted, title, tagIds);
         return ResultVO.success(pageVO);
     }
 

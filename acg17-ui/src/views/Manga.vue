@@ -6,6 +6,7 @@
       </div>
       <div class="side-btn" :class="{ 'active': tag.showTagList }" @click="openTagList">
         <icon icon="#icon-tag"></icon>
+        <span v-if="hasActiveTags" class="side-btn-badge">{{ selectedTagIds.length }}</span>
       </div>
       <div class="side-btn" v-show="showBackToTop" @click="scrollToTop">
         <icon icon="#icon-sort-asc"></icon>
@@ -15,83 +16,47 @@
       <icon icon="#icon-sort-asc"></icon>
     </div>
 
-    <div class="tag-container" :class="{ 'is-visible': tag.showTagList }">
+    <div class="tag-container" :class="{ 'is-visible': tag.showTagList || hasActiveTags }">
       <div class="tag-panel">
         <div class="tag-header">
           <div class="tag-title">标签筛选</div>
-          <button class="clear-tags-btn" v-if="hasActiveTag" @click="clearTagFilter">清除筛选</button>
+          <button v-if="hasActiveTags" type="button" class="clear-tags-btn" @click="clearTagFilter">清除筛选</button>
         </div>
-        <div class="tag-body">
-          <div class="info-row" v-if="tag.groupTags.length">
-            <span class="label">团队:</span>
-            <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.groupTags, 'group')" :key="'group-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.groupTags, 'group')" @click="toggleExpand('group')">{{ tag.expand.group ? '收起' : '展开' }}</button>
-            </div>
+        <div v-if="hasActiveTags" class="selected-tags" :class="{ compact: !tag.showTagList }">
+          <span class="selected-tags-label">已选 {{ selectedTagIds.length }}</span>
+          <div class="selected-tag-list">
+            <button
+              v-for="selectedTag in selectedTags"
+              :key="'selected-' + selectedTag.tagId"
+              type="button"
+              class="selected-tag"
+              :aria-label="`移除标签 ${selectedTag.tagName}`"
+              @click="toggleTag(selectedTag.tagId)"
+            >
+              <span v-if="selectedTag.categoryLabel" class="selected-tag-category">{{ selectedTag.categoryLabel }}</span>
+              <span>{{ selectedTag.tagName }}</span>
+              <span class="selected-tag-remove" aria-hidden="true">×</span>
+            </button>
           </div>
-          <div class="info-row" v-if="tag.artistTags.length">
-            <span class="label">艺术家:</span>
+        </div>
+        <div v-show="tag.showTagList" class="tag-body">
+          <div v-for="group in tagGroups" v-show="group.tags.length" :key="group.key" class="info-row">
+            <span class="label">{{ group.label }}:</span>
             <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.artistTags, 'artist')" :key="'artist-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
+              <button
+                v-for="item in getVisibleTags(group.tags, group.key)"
+                :key="group.key + '-' + item.tagId"
+                type="button"
+                class="tag"
+                :class="{ active: isTagActive(item.tagId) }"
+                :aria-pressed="isTagActive(item.tagId)"
+                @click="toggleTag(item.tagId)"
+              >
                 {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.artistTags, 'artist')" @click="toggleExpand('artist')">{{ tag.expand.artist ? '收起' : '展开' }}</button>
-            </div>
-          </div>
-          <div class="info-row" v-if="tag.characterTags.length">
-            <span class="label">角色:</span>
-            <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.characterTags, 'character')" :key="'character-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.characterTags, 'character')" @click="toggleExpand('character')">{{ tag.expand.character ? '收起' : '展开' }}</button>
-            </div>
-          </div>
-          <div class="info-row" v-if="tag.maleTags.length">
-            <span class="label">男性:</span>
-            <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.maleTags, 'male')" :key="'male-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.maleTags, 'male')" @click="toggleExpand('male')">{{ tag.expand.male ? '收起' : '展开' }}</button>
-            </div>
-          </div>
-          <div class="info-row" v-if="tag.femaleTags.length">
-            <span class="label">女性:</span>
-            <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.femaleTags, 'female')" :key="'female-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.femaleTags, 'female')" @click="toggleExpand('female')">{{ tag.expand.female ? '收起' : '展开' }}</button>
-            </div>
-          </div>
-          <div class="info-row" v-if="tag.mixedTags.length">
-            <span class="label">混合:</span>
-            <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.mixedTags, 'mixed')" :key="'mixed-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.mixedTags, 'mixed')" @click="toggleExpand('mixed')">{{ tag.expand.mixed ? '收起' : '展开' }}</button>
-            </div>
-          </div>
-          <div class="info-row" v-if="tag.otherTags.length">
-            <span class="label">其他:</span>
-            <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.otherTags, 'other')" :key="'other-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.otherTags, 'other')" @click="toggleExpand('other')">{{ tag.expand.other ? '收起' : '展开' }}</button>
-            </div>
-          </div>
-          <div class="info-row" v-if="tag.originalTags.length">
-            <span class="label">原作:</span>
-            <div class="tags-container">
-              <span v-for="item in getVisibleTags(tag.originalTags, 'original')" :key="'original-' + item.tagId" class="tag" :class="{ active: isTagActive(item.tagId) }" @click="searchByTag(item.tagId)">
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </span>
-              <button class="expand-tag-btn" v-if="hasHiddenTags(tag.originalTags, 'original')" @click="toggleExpand('original')">{{ tag.expand.original ? '收起' : '展开' }}</button>
+              </button>
+              <button v-if="hasHiddenTags(group.tags)" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
+                {{ tag.expand[group.key] ? '收起' : '展开' }}
+              </button>
             </div>
           </div>
           <div class="empty-tags" v-if="!hasAnyTags">暂无可用标签</div>
@@ -107,6 +72,10 @@
         </div>
       </li>
     </ul>
+    <div v-if="!manga.loading && manga.disabled && manga.list.length === 0" class="empty-manga">
+      <span>{{ hasActiveTags ? '没有同时包含这些标签的漫画' : '暂无漫画' }}</span>
+      <button v-if="hasActiveTags" type="button" @click="clearTagFilter">清除筛选</button>
+    </div>
     <acg17-loading-heart v-show="manga.loading"></acg17-loading-heart>
   </section>
   <acg17-footer v-if="manga.disabled"></acg17-footer>
@@ -122,6 +91,26 @@ import LoadingHeart from "../components/LoadingHeart";
 import Acg17Footer from "../components/Acg17Footer";
 import { useRecycleState } from '@/composables/useRecycleState';
 import { ElMessage } from "element-plus";
+
+const TAG_CATEGORIES = [
+  { key: 'group', field: 'groupTags', label: '团队', expanded: false },
+  { key: 'artist', field: 'artistTags', label: '艺术家', expanded: false },
+  { key: 'character', field: 'characterTags', label: '角色', expanded: true },
+  { key: 'male', field: 'maleTags', label: '男性', expanded: true },
+  { key: 'female', field: 'femaleTags', label: '女性', expanded: false },
+  { key: 'mixed', field: 'mixedTags', label: '混合', expanded: true },
+  { key: 'other', field: 'otherTags', label: '其他', expanded: true },
+  { key: 'original', field: 'originalTags', label: '原作', expanded: true },
+]
+
+function parseTagIds(queryValue) {
+  const values = Array.isArray(queryValue) ? queryValue : [queryValue]
+  return [...new Set(values
+    .flatMap(value => String(value ?? '').split(','))
+    .map(value => Number(value))
+    .filter(value => Number.isInteger(value) && value > 0))]
+    .sort((a, b) => a - b)
+}
 
 export default {
   name: "Manga",
@@ -151,9 +140,15 @@ export default {
 
     const containerWidth = ref(1380)
     const showBackToTop = ref(false)
+    const selectedTagIds = computed(() => parseTagIds(route.query.tagIds))
+    const selectedTagKey = computed(() => selectedTagIds.value.join(','))
     let resizeObserver = null
     let pageActive = false
-    let loadedTagId = String(route.query.tagId || '')
+    let loadedTagIds = selectedTagKey.value
+    let mangaRequestVersion = 0
+    let tagListLoading = false
+    let tagListLoaded = false
+    let tagListRequestVersion = 0
 
     const handleScroll = () => {
       showBackToTop.value = window.scrollY > 500
@@ -168,6 +163,9 @@ export default {
 
     // 分页加载漫画，用于无限滚动
     function loadManga() {
+      if (manga.loading || manga.disabled) return
+
+      const requestVersion = mangaRequestVersion
       manga.loading = true
       manga.disabled = true
 
@@ -177,14 +175,15 @@ export default {
         deleted: isRecycle.value
       }
 
-      if (route.query.tagId) {
-        params.tagId = route.query.tagId
+      if (selectedTagIds.value.length) {
+        params.tagIds = selectedTagIds.value.join(',')
       }
 
       server.get('/manga/list', {
         params: params
       })
         .then(response => {
+          if (requestVersion !== mangaRequestVersion) return
           // records.length!==0：当前页非空页，可能存在下一页，对当前页数据进行下一步处理
           // records.length===0：当前页为空页，不存在下一页，置disabled=true，不再请求下一页
           if (response.data.records.length !== 0) {
@@ -193,11 +192,13 @@ export default {
           } else {
             manga.disabled = true
           }
-          manga.loading = false
         })
         .catch(err => {
+          if (requestVersion !== mangaRequestVersion) return
           console.log(err)
-          manga.loading = false
+        })
+        .finally(() => {
+          if (requestVersion === mangaRequestVersion) manga.loading = false
         })
     }
 
@@ -224,16 +225,29 @@ export default {
       mixedTags: [], // 混合标签
       otherTags: [], // 其他标签
       originalTags: [], // 原作标签
-      expand: {
-        group: false,
-        artist: false,
-        character: true,
-        male: true,
-        female: false,
-        mixed: true,
-        other: true,
-        original: true
+      expand: Object.fromEntries(TAG_CATEGORIES.map(category => [category.key, category.expanded]))
+    })
+
+    const tagGroups = computed(() => TAG_CATEGORIES.map(category => ({
+      ...category,
+      tags: tag[category.field],
+    })))
+
+    const selectedTags = computed(() => {
+      const tagLookup = new Map()
+      for (const group of tagGroups.value) {
+        for (const item of group.tags) {
+          tagLookup.set(Number(item.tagId), {
+            ...item,
+            categoryLabel: group.label,
+          })
+        }
       }
+      return selectedTagIds.value.map(tagId => tagLookup.get(tagId) || {
+        tagId,
+        tagName: `标签 #${tagId}`,
+        categoryLabel: '',
+      })
     })
 
     // 打开/关闭标签列表
@@ -246,31 +260,33 @@ export default {
       }
     }
 
-    function loadTagList() {
+    function loadTagList(force = false) {
+      if (tagListLoading && !force) return
+      const requestVersion = ++tagListRequestVersion
+      tagListLoading = true
       server.get('/manga-tag/list', {
         params: { deleted: isRecycle.value }
       })
         .then(res => {
-          tag.artistTags = res.data.artistTags || []
-          tag.groupTags = res.data.groupTags || []
-          tag.characterTags = res.data.characterTags || []
-          tag.maleTags = res.data.maleTags || []
-          tag.femaleTags = res.data.femaleTags || []
-          tag.mixedTags = res.data.mixedTags || []
-          tag.otherTags = res.data.otherTags || []
-          tag.originalTags = res.data.originalTags || []
+          if (requestVersion !== tagListRequestVersion) return
+          for (const category of TAG_CATEGORIES) {
+            tag[category.field] = res.data[category.field] || []
+          }
+          tagListLoaded = true
         })
         .catch(err => {
+          if (requestVersion !== tagListRequestVersion) return
           ElMessage.error('获取漫画标签失败【' + err + '】，请重试')
+        })
+        .finally(() => {
+          if (requestVersion === tagListRequestVersion) tagListLoading = false
         })
     }
 
-    const hasActiveTag = computed(() => {
-      return !!route.query.tagId
-    })
+    const hasActiveTags = computed(() => selectedTagIds.value.length > 0)
 
     const hasAnyTags = computed(() => {
-      return tag.artistTags.length || tag.groupTags.length || tag.characterTags.length || tag.maleTags.length || tag.femaleTags.length || tag.mixedTags.length || tag.otherTags.length || tag.originalTags.length
+      return tagGroups.value.some(group => group.tags.length)
     })
 
     function sortedTags(tags) {
@@ -293,21 +309,32 @@ export default {
     }
 
     function isTagActive(tagId) {
-      return String(route.query.tagId || '') === String(tagId)
+      return selectedTagIds.value.includes(Number(tagId))
     }
 
-    function searchByTag(tagId) {
+    function updateTagFilter(tagIds) {
+      const normalizedTagIds = [...new Set(tagIds)].sort((a, b) => a - b)
       router.push({
         path: '/acg/manga',
-        query: { tagId }
+        query: normalizedTagIds.length
+          ? { tagIds: normalizedTagIds.join(',') }
+          : {}
       })
+    }
+
+    function toggleTag(tagId) {
+      const normalizedTagId = Number(tagId)
+      const nextTagIds = new Set(selectedTagIds.value)
+      if (nextTagIds.has(normalizedTagId)) {
+        nextTagIds.delete(normalizedTagId)
+      } else {
+        nextTagIds.add(normalizedTagId)
+      }
+      updateTagFilter([...nextTagIds])
     }
 
     function clearTagFilter() {
-      router.push({
-        path: '/acg/manga',
-        query: {}
-      })
+      updateTagFilter([])
     }
 
     function scrollToTop() {
@@ -318,26 +345,24 @@ export default {
     }
 
     function resetMangaList() {
-      loadedTagId = String(route.query.tagId || '')
+      mangaRequestVersion += 1
+      loadedTagIds = selectedTagKey.value
       manga.list = []
       manga.currentPage = 0
+      manga.loading = false
       manga.disabled = false
       loadManga()
     }
 
     // 监听回收站状态变化，重新获取数据
     watch(isRecycle, () => {
-      manga.list = []
-      manga.currentPage = 0
-      manga.disabled = false
-      loadManga()
-      if (tag.showTagList) loadTagList()
+      resetMangaList()
+      if (tag.showTagList || hasActiveTags.value) loadTagList(true)
     })
 
     // 监听路由查询参数变化，重新获取数据
-    watch(() => route.query.tagId, () => {
-      const currentTagId = String(route.query.tagId || '')
-      if (route.name === 'Manga' && currentTagId !== loadedTagId) {
+    watch(selectedTagKey, currentTagIds => {
+      if (route.name === 'Manga' && currentTagIds !== loadedTagIds) {
         resetMangaList()
       }
     })
@@ -368,19 +393,21 @@ export default {
     // 组件挂载时获取数据
     onMounted(() => {
       loadManga()
+      if (hasActiveTags.value) loadTagList()
     })
 
     onActivated(() => {
-      if (String(route.query.tagId || '') !== loadedTagId) {
+      if (selectedTagKey.value !== loadedTagIds) {
         resetMangaList()
       }
+      if (hasActiveTags.value && !tagListLoaded) loadTagList()
       activatePageListeners()
     })
 
     onDeactivated(deactivatePageListeners)
     onUnmounted(deactivatePageListeners)
 
-    return { manga, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, openTagList, sortedTags, isTagActive, searchByTag, hasActiveTag, clearTagFilter, hasAnyTags, getVisibleTags, hasHiddenTags, toggleExpand }
+    return { manga, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, tagGroups, openTagList, sortedTags, selectedTagIds, selectedTags, isTagActive, toggleTag, hasActiveTags, clearTagFilter, hasAnyTags, getVisibleTags, hasHiddenTags, toggleExpand }
   }
 }
 </script>
@@ -465,6 +492,68 @@ section {
   background: #f0f8ff;
 }
 
+.selected-tags {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #f5f9ff;
+  border: 1px solid #d9ecff;
+  border-radius: 8px;
+}
+
+.selected-tags.compact {
+  margin-bottom: 0;
+}
+
+.selected-tags-label {
+  flex: 0 0 auto;
+  padding-top: 4px;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.selected-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+  max-height: 64px;
+  overflow-y: auto;
+}
+
+.selected-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid #90caf9;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1976d2;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.selected-tag:hover {
+  background: #e3f2fd;
+  border-color: #64b5f6;
+}
+
+.selected-tag-category {
+  color: #78909c;
+  font-size: 11px;
+}
+
+.selected-tag-remove {
+  font-size: 16px;
+  line-height: 12px;
+}
+
 .tag-body {
   display: flex;
   flex-direction: column;
@@ -501,6 +590,7 @@ section {
   color: #343a40;
   transition: all 0.2s ease;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .tag:hover {
@@ -581,6 +671,7 @@ ul {
 }
 
 .side-btn {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 4px;
@@ -593,6 +684,26 @@ ul {
   transition: all 0.3s;
   z-index: 8;
   color: #409eff;
+}
+
+.side-btn-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  background: #f56c6c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .side-btn:hover {
@@ -618,6 +729,31 @@ ul {
 .right-btn {
   position: fixed;
   bottom: 50px;
+}
+
+.empty-manga {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 240px;
+  color: #909399;
+  font-size: 14px;
+}
+
+.empty-manga button {
+  padding: 7px 14px;
+  border: 1px solid #b3d8ff;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #409eff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.empty-manga button:hover {
+  background: #ecf5ff;
 }
 
 ul li {
@@ -767,9 +903,16 @@ ul li:hover .manga-title {
   }
 
   .tag-header {
-    flex-direction: column;
-    align-items: flex-start;
     gap: 8px;
+  }
+
+  .selected-tags {
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .selected-tags-label {
+    padding-top: 0;
   }
 
   .label {

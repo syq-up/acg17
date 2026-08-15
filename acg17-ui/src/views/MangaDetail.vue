@@ -452,7 +452,7 @@ export default {
     function searchByTag(tagId) {
       router.push({
         path: '/acg/manga',
-        query: { tagId }
+        query: { tagIds: String(tagId) }
       })
     }
 
