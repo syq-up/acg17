@@ -2,6 +2,7 @@ package com.shiyq.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.shiyq.entity.DO.User;
+import com.shiyq.entity.DTO.UserContext;
 import com.shiyq.entity.VO.LoginVO;
 import com.shiyq.mapper.UserMapper;
 import com.shiyq.util.JWTUtil;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -66,6 +68,24 @@ class UserServiceImplTest {
 
         assertEquals(5, user.getAuthVersion());
         verify(userMapper).updateById(user);
+    }
+
+    @Test
+    void changePasswordRehashesPasswordAndInvalidatesExistingTokens() {
+        User user = user("correct-password");
+        when(userMapper.selectById(1)).thenReturn(user);
+        when(userMapper.updateById(user)).thenReturn(1);
+        UserContext.add(1);
+
+        try {
+            userService.changePassword("correct-password", "new-password");
+
+            assertTrue(passwordEncoder.matches("new-password", user.getPassword()));
+            assertEquals(5, user.getAuthVersion());
+            verify(userMapper).updateById(user);
+        } finally {
+            UserContext.remove();
+        }
     }
 
     private User user(String rawPassword) {

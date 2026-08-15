@@ -11,6 +11,7 @@ public class UserInfoVO {
     private Long illustrationStorageBytes;
     private Long mangaCount;
     private Long mangaStorageBytes;
+    private Long gameCount;
     private Long novelCount;
     private Long novelWords;
     private String createTime;

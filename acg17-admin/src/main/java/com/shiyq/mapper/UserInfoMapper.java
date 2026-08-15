@@ -19,4 +19,6 @@ public interface UserInfoMapper extends BaseMapper<UserInfo> {
 
     UserInfoVO selectUserInfoByUserId(@Param("userId") int userId);
 
+    int clearAvatarPath(@Param("userId") int userId);
+
 }

@@ -19,6 +19,9 @@
                 FROM `manga` m
                 WHERE m.`user_id` = u.`id`) AS `mangaStorageBytes`,
                (SELECT COUNT(*)
+                FROM `game` g
+                WHERE g.`user_id` = u.`id` AND g.`deleted` = 0) AS `gameCount`,
+               (SELECT COUNT(*)
                 FROM `novel` n
                 WHERE n.`user_id` = u.`id` AND n.`deleted` = 0) AS `novelCount`,
                (SELECT COALESCE(SUM(n.`total_words`), 0)
@@ -28,4 +31,10 @@
         INNER JOIN `user_info` ui ON ui.`user_id` = u.`id`
         WHERE u.`id` = #{userId} AND u.`deleted` = 0
     </select>
+
+    <update id="clearAvatarPath">
+        UPDATE `user_info`
+        SET `avatar_path` = NULL
+        WHERE `user_id` = #{userId}
+    </update>
 </mapper>

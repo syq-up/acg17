@@ -14,6 +14,7 @@ export default createStore({
       illustrationStorageBytes: 0,
       mangaCount: 0,
       mangaStorageBytes: 0,
+      gameCount: 0,
       novelCount: 0,
       novelWords: 0,
       createTime: '',

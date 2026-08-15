@@ -2,6 +2,7 @@ package com.shiyq.controller;
 
 import com.shiyq.constant.HttpStatus;
 import com.shiyq.entity.DTO.UserContext;
+import com.shiyq.entity.DTO.ChangePasswordDTO;
 import com.shiyq.entity.VO.LoginRequest;
 import com.shiyq.entity.VO.LoginVO;
 import com.shiyq.entity.VO.ResultVO;
@@ -9,6 +10,7 @@ import com.shiyq.service.LoginAttemptLimiter;
 import com.shiyq.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -57,6 +59,12 @@ public class UserController {
 
         loginAttemptLimiter.reset(attemptKey);
         return ResponseEntity.ok(ResultVO.success(loginVO));
+    }
+
+    @PutMapping("/password")
+    public ResultVO changePassword(@RequestBody @Valid ChangePasswordDTO request) {
+        userService.changePassword(request.getCurrentPassword(), request.getNewPassword());
+        return ResultVO.success("密码修改成功");
     }
 
     @PostMapping("/logout")

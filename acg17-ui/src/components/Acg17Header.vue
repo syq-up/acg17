@@ -13,10 +13,10 @@
           </router-link>
         </nav>
       </div>
-      <div class="middle">
+      <div v-if="!isAccountRoute" class="middle">
         <acg17-search></acg17-search>
       </div>
-      <div class="nav-right unselectable">
+      <div v-if="!isAccountRoute" class="nav-right unselectable">
         <div class="btn-group">
           <button :class="isRecycle ? 'active' : ''" @click="toggleRecycle">
             回收站
@@ -30,7 +30,7 @@
     </div>
     <div class="right unselectable">
       <div class="welcome" style="white-space: nowrap;">
-        Hi, <span style="color: #409eff;" v-text="$store.state.userInfo.username"></span>~
+        Hi, <span style="color: #409eff;" v-text="displayName"></span>~
       </div>
       <button class="btn-search-mobile">
         <icon icon="#icon-search"></icon>
@@ -43,7 +43,7 @@
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item>
-              <router-link to="/">
+              <router-link :to="{ name: 'Account' }">
                 <icon icon="#icon-user"></icon>个人信息
               </router-link>
             </el-dropdown-item>
@@ -85,6 +85,11 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const store = useStore()
+
+    const displayName = computed(() =>
+      store.state.userInfo.nickname || store.state.userInfo.username || '用户'
+    )
+    const isAccountRoute = computed(() => route.path.startsWith('/account'))
 
     // 导航菜单navi
     const navi = {
@@ -135,7 +140,17 @@ export default {
       return route.path.startsWith(path)
     }
 
-    return { navi, isRecycle, toggleRecycle, setRecycle, logout, goToHome, isRouteActive }
+    return {
+      navi,
+      isRecycle,
+      toggleRecycle,
+      setRecycle,
+      logout,
+      goToHome,
+      isRouteActive,
+      displayName,
+      isAccountRoute,
+    }
   }
 }
 </script>

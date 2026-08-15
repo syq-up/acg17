@@ -52,7 +52,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addMapping("/**") //设置允许跨域的路径
                 .allowedOriginPatterns("*") //设置允许跨域请求的域名
                 // 设置允许的方法
-                .allowedMethods("POST", "GET", "PUT", "OPTIONS", "DELETE")
+                .allowedMethods("POST", "GET", "PUT", "PATCH", "OPTIONS", "DELETE")
                 .maxAge(3600) //跨域允许时间
                 .allowCredentials(true); //是否允许证书 不再默认开启
     }

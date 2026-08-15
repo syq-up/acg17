@@ -73,6 +73,19 @@ const routes = [
     redirect: '/acg/illustration',
   },
   {
+    path: '/account',
+    component: () => import('../views/Acg17Container'),
+    meta: { title: '个人中心', authRequired: true, },
+    children: [
+      {
+        path: '',
+        name: 'Account',
+        component: () => import('../views/Account'),
+        meta: { title: '个人中心', },
+      },
+    ],
+  },
+  {
     path: '/random',
     name: 'Random',
     component: () => import('../views/RandomIllustration'),
@@ -96,6 +109,10 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
       return savedPosition
+    }
+
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth' }
     }
 
     return { top: 0 }
