@@ -38,6 +38,7 @@
               {{ tag.tagName }} <span class="tag-count">{{ tag.tagCount }}</span>
             </span>
             <button
+              v-if="isTagManagementMode"
               class="edit-tag-btn"
               type="button"
               :title="`编辑${group.name}标签`"
@@ -71,6 +72,16 @@
           <button :class="manga.deleted ? 'btn-icon restore' : 'btn-icon'" @click="toggleDeleteStatus"
             :title="manga.deleted ? '恢复漫画' : '删除漫画'">
             <icon :icon="manga.deleted ? '#icon-restore' : '#icon-delete'" class="icon-svg"></icon>
+          </button>
+          <button
+            :class="['btn-icon', { 'tag-management-active': isTagManagementMode }]"
+            type="button"
+            :title="tagManagementToggleLabel"
+            :aria-label="tagManagementToggleLabel"
+            :aria-pressed="isTagManagementMode"
+            @click="toggleTagManagement"
+          >
+            <icon icon="#icon-tag" class="icon-svg"></icon>
           </button>
           <button class="btn-icon" title="下载">
             <icon icon="#icon-download" class="icon-svg"></icon>
@@ -211,13 +222,22 @@ export default {
     const mangaChapters = reactive([])
 
     const activeTagCategory = ref('')
-    const tagGroups = computed(() => TAG_CATEGORIES.map(group => ({
+    const isTagManagementMode = ref(false)
+    const allTagGroups = computed(() => TAG_CATEGORIES.map(group => ({
       ...group,
       tags: [...(manga[group.key] || [])]
         .sort((a, b) => (b.tagCount || 0) - (a.tagCount || 0)),
     })))
+    const tagGroups = computed(() => (
+      isTagManagementMode.value
+        ? allTagGroups.value
+        : allTagGroups.value.filter(group => group.tags.length > 0)
+    ))
+    const tagManagementToggleLabel = computed(() => (
+      isTagManagementMode.value ? '退出标签管理' : '进入标签管理'
+    ))
     const activeTagEditorTags = computed(() => (
-      tagGroups.value.find(group => group.category === activeTagCategory.value)?.tags || []
+      allTagGroups.value.find(group => group.category === activeTagCategory.value)?.tags || []
     ))
 
     const containerWidth = ref(1380)
@@ -431,6 +451,7 @@ export default {
     })
 
     watch(() => route.params.id, () => {
+      isTagManagementMode.value = false
       closeTagEditor()
       resetMangaPageVisibility()
       loadMangaDetail()
@@ -541,6 +562,13 @@ export default {
       activeTagCategory.value = category
     }
 
+    function toggleTagManagement() {
+      isTagManagementMode.value = !isTagManagementMode.value
+      if (!isTagManagementMode.value) {
+        closeTagEditor()
+      }
+    }
+
     function closeTagEditor() {
       activeTagCategory.value = ''
     }
@@ -588,6 +616,8 @@ export default {
       mangaPagesSentinel,
       mangaChapters,
       tagGroups,
+      isTagManagementMode,
+      tagManagementToggleLabel,
       activeTagCategory,
       activeTagEditorTags,
       goBack,
@@ -604,6 +634,7 @@ export default {
       showBackToTopRight,
       containerWidth,
       openTagEditor,
+      toggleTagManagement,
       closeTagEditor,
       loadMangaDetail,
       removeMangaPage
@@ -830,6 +861,12 @@ export default {
   background-color: #409eff;
   color: white;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+}
+
+.btn-icon.tag-management-active {
+  background-color: #409eff;
+  color: white;
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
 }
 
