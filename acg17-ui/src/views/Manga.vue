@@ -23,7 +23,7 @@
           <button v-if="hasActiveTags" type="button" class="clear-tags-btn" @click="clearTagFilter">清除筛选</button>
         </div>
         <div v-if="hasActiveTags" class="selected-tags" :class="{ compact: !tag.showTagList }">
-          <span class="selected-tags-label">已选 {{ selectedTagIds.length }}</span>
+          <span class="selected-tags-label">已选 {{ selectedTagIds.length }} · {{ mangaResultText }}</span>
           <div class="selected-tag-list">
             <button
               v-for="selectedTag in selectedTags"
@@ -40,26 +40,62 @@
           </div>
         </div>
         <div v-show="tag.showTagList" class="tag-body">
-          <div v-for="group in tagGroups" v-show="group.tags.length" :key="group.key" class="info-row">
-            <span class="label">{{ group.label }}:</span>
-            <div class="tags-container">
-              <button
-                v-for="item in getVisibleTags(group.tags, group.key)"
-                :key="group.key + '-' + item.tagId"
-                type="button"
-                class="tag"
-                :class="{ active: isTagActive(item.tagId) }"
-                :aria-pressed="isTagActive(item.tagId)"
-                @click="toggleTag(item.tagId)"
+          <div class="tag-search-area">
+            <div class="tag-search-box">
+              <icon icon="#icon-search" class="tag-search-icon"></icon>
+              <input
+                ref="tagSearchInput"
+                v-model="tagSearch"
+                type="search"
+                placeholder="输入标签名称进行查找"
+                aria-label="搜索标签"
+                autocomplete="off"
+                spellcheck="false"
+                :disabled="tag.loading"
+                @keydown="handleTagSearchKeydown"
               >
-                {{ item.tagName }} <span class="tag-count">{{ item.tagCount }}</span>
-              </button>
-              <button v-if="hasHiddenTags(group.tags)" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
-                {{ tag.expand[group.key] ? '收起' : '展开' }}
+              <button v-if="tagSearch" type="button" class="clear-tag-search" aria-label="清空标签搜索" @click="clearTagSearch">
+                <icon icon="#icon-close"></icon>
               </button>
             </div>
+            <div v-if="isTagSearching" class="tag-search-summary" role="status" aria-live="polite">
+              <span>匹配 <strong>{{ matchingTagCount }}</strong> 个标签</span>
+              <span v-if="matchingCategorySummary">· {{ matchingCategorySummary }}</span>
+            </div>
           </div>
-          <div class="empty-tags" v-if="!hasAnyTags">暂无可用标签</div>
+          <div class="tag-results" :class="{ searching: isTagSearching }">
+            <div v-for="group in displayedTagGroups" :key="group.key" class="info-row">
+              <span class="label">{{ group.label }}:</span>
+              <div class="tags-container">
+                <button
+                  v-for="item in group.tags"
+                  :key="group.key + '-' + item.tagId"
+                  type="button"
+                  class="tag"
+                  :class="{
+                    active: isTagActive(item.tagId),
+                    'keyboard-active': isTagSearching && item.searchIndex === activeTagSearchIndex
+                  }"
+                  :aria-pressed="isTagActive(item.tagId)"
+                  @click="toggleTag(item.tagId)"
+                  @mouseenter="setActiveTagSearchIndex(item.searchIndex)"
+                >
+                  <template v-for="(part, partIndex) in item.nameParts" :key="partIndex">
+                    <mark v-if="part.match">{{ part.text }}</mark>
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                  <span class="tag-count">{{ item.tagCount }}</span>
+                </button>
+                <button v-if="group.hasHidden" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
+                  {{ tag.expand[group.key] ? '收起' : '展开' }}
+                </button>
+              </div>
+            </div>
+            <div v-if="tag.loading && !hasDisplayedTags" class="empty-tags">标签加载中…</div>
+            <div v-else-if="!hasDisplayedTags" class="empty-tags">
+              {{ isTagSearching ? `没有找到包含“${tagSearch.trim()}”的标签` : '暂无可用标签' }}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -112,6 +148,29 @@ function parseTagIds(queryValue) {
     .sort((a, b) => a - b)
 }
 
+function normalizeTagName(value) {
+  return String(value ?? '').trim().toLocaleLowerCase()
+}
+
+function getTagMatchRank(tagName, query) {
+  const normalizedName = normalizeTagName(tagName)
+  if (normalizedName === query) return 0
+  if (normalizedName.startsWith(query)) return 1
+  return 2
+}
+
+function createTagNameParts(tagName, query) {
+  const name = String(tagName ?? '')
+  if (!query) return [{ text: name, match: false }]
+  const matchIndex = normalizeTagName(name).indexOf(query)
+  if (matchIndex < 0) return [{ text: name, match: false }]
+  return [
+    { text: name.slice(0, matchIndex), match: false },
+    { text: name.slice(matchIndex, matchIndex + query.length), match: true },
+    { text: name.slice(matchIndex + query.length), match: false },
+  ].filter(part => part.text)
+}
+
 export default {
   name: "Manga",
   components: {
@@ -140,8 +199,18 @@ export default {
 
     const containerWidth = ref(1380)
     const showBackToTop = ref(false)
+    const tagSearch = ref('')
+    const tagSearchInput = ref(null)
+    const activeTagSearchIndex = ref(-1)
     const selectedTagIds = computed(() => parseTagIds(route.query.tagIds))
     const selectedTagKey = computed(() => selectedTagIds.value.join(','))
+    const normalizedTagSearch = computed(() => normalizeTagName(tagSearch.value))
+    const isTagSearching = computed(() => normalizedTagSearch.value.length > 0)
+    const mangaResultText = computed(() => (
+      manga.currentPage === 0 || (manga.loading && manga.currentPage === 1)
+        ? '查询中'
+        : `找到 ${manga.total} 部`
+    ))
     let resizeObserver = null
     let pageActive = false
     let loadedTagIds = selectedTagKey.value
@@ -184,6 +253,7 @@ export default {
       })
         .then(response => {
           if (requestVersion !== mangaRequestVersion) return
+          manga.total = Number(response.data.total) || 0
           // records.length!==0：当前页非空页，可能存在下一页，对当前页数据进行下一步处理
           // records.length===0：当前页为空页，不存在下一页，置disabled=true，不再请求下一页
           if (response.data.records.length !== 0) {
@@ -225,6 +295,7 @@ export default {
       mixedTags: [], // 混合标签
       otherTags: [], // 其他标签
       originalTags: [], // 原作标签
+      loading: false,
       expand: Object.fromEntries(TAG_CATEGORIES.map(category => [category.key, category.expanded]))
     })
 
@@ -232,6 +303,50 @@ export default {
       ...category,
       tags: tag[category.field],
     })))
+
+    const displayedTagGroups = computed(() => {
+      const query = normalizedTagSearch.value
+      let searchIndex = 0
+      return tagGroups.value
+        .map(group => {
+          const sourceTags = query
+            ? group.tags
+              .filter(item => normalizeTagName(item.tagName).includes(query))
+              .sort((a, b) => {
+                const rankDifference = getTagMatchRank(a.tagName, query) - getTagMatchRank(b.tagName, query)
+                if (rankDifference) return rankDifference
+                const countDifference = Number(b.tagCount || 0) - Number(a.tagCount || 0)
+                if (countDifference) return countDifference
+                return String(a.tagName).localeCompare(String(b.tagName), 'zh-CN')
+              })
+            : getVisibleTags(group.tags, group.key)
+          const tags = sourceTags.map(item => ({
+            ...item,
+            nameParts: createTagNameParts(item.tagName, query),
+            searchIndex: query ? searchIndex++ : -1,
+          }))
+          return {
+            ...group,
+            tags,
+            hasHidden: !query && hasHiddenTags(group.tags),
+          }
+        })
+        .filter(group => group.tags.length || group.hasHidden)
+    })
+
+    const tagSearchResults = computed(() => (
+      isTagSearching.value
+        ? displayedTagGroups.value.flatMap(group => group.tags)
+        : []
+    ))
+    const matchingTagCount = computed(() => tagSearchResults.value.length)
+    const matchingCategorySummary = computed(() => displayedTagGroups.value
+      .filter(group => group.tags.length)
+      .map(group => `${group.label} ${group.tags.length}`)
+      .join(' · '))
+    const hasDisplayedTags = computed(() => (
+      displayedTagGroups.value.some(group => group.tags.length || group.hasHidden)
+    ))
 
     const selectedTags = computed(() => {
       const tagLookup = new Map()
@@ -257,6 +372,7 @@ export default {
       // 点击标签列表时，关闭搜索框
       if (tag.showTagList) {
         loadTagList()
+        nextTick(() => tagSearchInput.value?.focus())
       }
     }
 
@@ -264,6 +380,7 @@ export default {
       if (tagListLoading && !force) return
       const requestVersion = ++tagListRequestVersion
       tagListLoading = true
+      tag.loading = true
       server.get('/manga-tag/list', {
         params: { deleted: isRecycle.value }
       })
@@ -279,15 +396,14 @@ export default {
           ElMessage.error('获取漫画标签失败【' + err + '】，请重试')
         })
         .finally(() => {
-          if (requestVersion === tagListRequestVersion) tagListLoading = false
+          if (requestVersion === tagListRequestVersion) {
+            tagListLoading = false
+            tag.loading = false
+          }
         })
     }
 
     const hasActiveTags = computed(() => selectedTagIds.value.length > 0)
-
-    const hasAnyTags = computed(() => {
-      return tagGroups.value.some(group => group.tags.length)
-    })
 
     function sortedTags(tags) {
       return tags.slice().sort((a, b) => b.tagCount - a.tagCount)
@@ -306,6 +422,52 @@ export default {
 
     function toggleExpand(category) {
       tag.expand[category] = !tag.expand[category]
+    }
+
+    function setActiveTagSearchIndex(index) {
+      if (index >= 0) activeTagSearchIndex.value = index
+    }
+
+    function scrollActiveTagIntoView() {
+      nextTick(() => {
+        document.querySelector('.tag.keyboard-active')?.scrollIntoView({ block: 'nearest' })
+      })
+    }
+
+    function moveActiveTagSearchIndex(step) {
+      const resultCount = tagSearchResults.value.length
+      if (!resultCount) return
+      activeTagSearchIndex.value = (
+        activeTagSearchIndex.value + step + resultCount
+      ) % resultCount
+      scrollActiveTagIntoView()
+    }
+
+    function clearTagSearch() {
+      tagSearch.value = ''
+      activeTagSearchIndex.value = -1
+      nextTick(() => tagSearchInput.value?.focus())
+    }
+
+    function handleTagSearchKeydown(event) {
+      if (event.key === 'Escape' && tagSearch.value) {
+        event.preventDefault()
+        clearTagSearch()
+        return
+      }
+      if (!isTagSearching.value) return
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault()
+        moveActiveTagSearchIndex(event.key === 'ArrowDown' ? 1 : -1)
+        return
+      }
+      if (event.key === 'Enter' && activeTagSearchIndex.value >= 0) {
+        const activeTag = tagSearchResults.value[activeTagSearchIndex.value]
+        if (activeTag) {
+          event.preventDefault()
+          toggleTag(activeTag.tagId)
+        }
+      }
     }
 
     function isTagActive(tagId) {
@@ -349,6 +511,7 @@ export default {
       loadedTagIds = selectedTagKey.value
       manga.list = []
       manga.currentPage = 0
+      manga.total = 0
       manga.loading = false
       manga.disabled = false
       loadManga()
@@ -364,6 +527,18 @@ export default {
     watch(selectedTagKey, currentTagIds => {
       if (route.name === 'Manga' && currentTagIds !== loadedTagIds) {
         resetMangaList()
+      }
+    })
+
+    watch(normalizedTagSearch, query => {
+      activeTagSearchIndex.value = query && matchingTagCount.value ? 0 : -1
+    })
+
+    watch(matchingTagCount, resultCount => {
+      if (!resultCount) {
+        activeTagSearchIndex.value = -1
+      } else if (isTagSearching.value && (activeTagSearchIndex.value < 0 || activeTagSearchIndex.value >= resultCount)) {
+        activeTagSearchIndex.value = 0
       }
     })
 
@@ -407,7 +582,7 @@ export default {
     onDeactivated(deactivatePageListeners)
     onUnmounted(deactivatePageListeners)
 
-    return { manga, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, tagGroups, openTagList, sortedTags, selectedTagIds, selectedTags, isTagActive, toggleTag, hasActiveTags, clearTagFilter, hasAnyTags, getVisibleTags, hasHiddenTags, toggleExpand }
+    return { manga, mangaResultText, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, tagSearch, tagSearchInput, displayedTagGroups, matchingTagCount, matchingCategorySummary, hasDisplayedTags, isTagSearching, activeTagSearchIndex, openTagList, selectedTagIds, selectedTags, isTagActive, toggleTag, hasActiveTags, clearTagFilter, clearTagSearch, handleTagSearchKeydown, setActiveTagSearchIndex, toggleExpand }
   }
 }
 </script>
@@ -554,10 +729,110 @@ section {
   line-height: 12px;
 }
 
+.tag-search-area {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.tag-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tag-search-icon {
+  position: absolute;
+  left: 11px;
+  width: 18px;
+  height: 18px;
+  color: #909399;
+  pointer-events: none;
+}
+
+.tag-search-box input {
+  width: 100%;
+  height: 38px;
+  padding: 0 42px 0 38px;
+  box-sizing: border-box;
+  border: 1px solid #dcdfe6;
+  border-radius: 7px;
+  outline: none;
+  background: #ffffff;
+  color: #303133;
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tag-search-box input:focus {
+  border-color: #409eff;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12);
+}
+
+.tag-search-box input:disabled {
+  background: #f5f7fa;
+  cursor: wait;
+}
+
+.tag-search-box input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear-tag-search {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #909399;
+  cursor: pointer;
+}
+
+.clear-tag-search:hover {
+  background: #f2f6fc;
+  color: #409eff;
+}
+
+.clear-tag-search svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tag-search-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: #606266;
+  font-size: 12px;
+}
+
+.tag-search-summary strong {
+  color: #1976d2;
+}
+
 .tag-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.tag-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tag-results.searching {
+  max-height: 460px;
+  padding: 2px 5px 2px 2px;
+  overflow-y: auto;
 }
 
 .info-row {
@@ -603,6 +878,18 @@ section {
   background-color: #e3f2fd;
   border-color: #90caf9;
   color: #1976d2;
+}
+
+.tag.keyboard-active {
+  border-color: #409eff;
+  outline: 2px solid rgba(64, 158, 255, 0.22);
+  outline-offset: 1px;
+}
+
+.tag mark {
+  padding: 0;
+  background: #fff1a8;
+  color: inherit;
 }
 
 .tag-count {
@@ -913,6 +1200,14 @@ ul li:hover .manga-title {
 
   .selected-tags-label {
     padding-top: 0;
+  }
+
+  .tag-results.searching {
+    max-height: 360px;
+  }
+
+  .tag-search-box input {
+    font-size: 13px;
   }
 
   .label {
