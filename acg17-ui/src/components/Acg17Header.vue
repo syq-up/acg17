@@ -13,9 +13,6 @@
           </router-link>
         </nav>
       </div>
-      <div v-if="!isAccountRoute" class="middle">
-        <acg17-search></acg17-search>
-      </div>
       <div v-if="!isAccountRoute" class="nav-right unselectable">
         <div class="btn-group">
           <button :class="isRecycle ? 'active' : ''" @click="toggleRecycle">
@@ -32,9 +29,6 @@
       <div class="welcome" style="white-space: nowrap;">
         Hi, <span style="color: #409eff;" v-text="displayName"></span>~
       </div>
-      <button class="btn-search-mobile">
-        <icon icon="#icon-search"></icon>
-      </button>
       <acg17-upload></acg17-upload>
       <el-dropdown trigger="click">
         <div class="avatar">
@@ -67,7 +61,6 @@
 <script>
 import { computed } from 'vue';
 import Acg17SideMenu from './Acg17SideMenu';
-import Acg17Search from './Acg17Search';
 import Acg17Upload from "./Acg17Upload";
 import { useRecycleState } from '@/composables/useRecycleState';
 import { useRoute, useRouter } from 'vue-router';
@@ -78,7 +71,6 @@ export default {
   name: "Acg17Header",
   components: {
     'acg17-side-menu': Acg17SideMenu,
-    'acg17-search': Acg17Search,
     'acg17-upload': Acg17Upload,
   },
   setup() {
@@ -201,10 +193,6 @@ export default {
   align-items: center;
 }
 
-.header .middle {
-  position: relative;
-}
-
 .header .left .title {
   margin: 0 0 0 20px;
   font-weight: 600;
@@ -225,13 +213,6 @@ export default {
   flex: 1;
   display: flex;
   justify-content: flex-start;
-}
-
-.header .center .middle {
-  flex: 0 1 528px;
-  /* 不放大，可缩小，基础宽度528px */
-  min-width: 200px;
-  /* 最小宽度，防止过度压缩 */
 }
 
 .header .center .nav-right {
@@ -265,17 +246,7 @@ export default {
     display: none;
   }
 
-  .header .center .middle {
-    display: none;
-  }
-
   .header .center .btn-group {
-    display: none;
-  }
-}
-
-@media screen and (min-width:500px) {
-  .header .middle .title {
     display: none;
   }
 }
@@ -287,36 +258,8 @@ export default {
   align-items: center;
 }
 
-.header .right .btn-search-mobile {
-  width: 40px;
-  height: 40px;
-  padding: 7px;
-  margin: 0 -7px;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background-color 0.2s ease 0s, color 0.2s ease 0s;
-  background-color: transparent;
-}
-
-.header .right .btn-search-mobile:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-}
-
-.header .right .btn-search-mobile .icon {
-  width: 26px;
-  height: 26px;
-  fill: rgb(133, 133, 133);
-}
-
 @media screen and (max-width:1100px) {
   .header .right .welcome {
-    display: none;
-  }
-}
-
-@media screen and (min-width:500px) {
-  .header .right .btn-search-mobile {
     display: none;
   }
 }
