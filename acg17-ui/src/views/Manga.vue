@@ -23,20 +23,26 @@
           <button v-if="hasActiveTags" type="button" class="clear-tags-btn" @click="clearTagFilter">清除筛选</button>
         </div>
         <div v-if="hasActiveTags" class="selected-tags" :class="{ compact: !tag.showTagList }">
-          <span class="selected-tags-label">已选 {{ selectedTagIds.length }} · {{ mangaResultText }}</span>
-          <div class="selected-tag-list">
-            <button
-              v-for="selectedTag in selectedTags"
-              :key="'selected-' + selectedTag.tagId"
-              type="button"
-              class="selected-tag"
-              :aria-label="`移除标签 ${selectedTag.tagName}`"
-              @click="toggleTag(selectedTag.tagId)"
-            >
-              <span v-if="selectedTag.categoryLabel" class="selected-tag-category">{{ selectedTag.categoryLabel }}</span>
-              <span>{{ selectedTag.tagName }}</span>
-              <span class="selected-tag-remove" aria-hidden="true">×</span>
-            </button>
+          <div class="selected-tags-summary">
+            <span class="selected-tags-label">需同时包含 {{ selectedTagIds.length }} 个标签</span>
+            <span class="selected-tags-result" role="status" aria-live="polite">{{ mangaResultText }}</span>
+            <button v-if="!tag.showTagList" type="button" class="edit-tags-btn" @click="openTagList">修改筛选</button>
+          </div>
+          <div class="selected-tag-groups">
+            <div v-for="group in selectedTagGroups" :key="'selected-group-' + group.key" class="selected-tag-group">
+              <span class="selected-tag-category">{{ group.label }}</span>
+              <button
+                v-for="selectedTag in group.tags"
+                :key="'selected-' + selectedTag.tagId"
+                type="button"
+                class="selected-tag"
+                :aria-label="`移除标签 ${selectedTag.tagName}`"
+                @click="toggleTag(selectedTag.tagId)"
+              >
+                <span>{{ selectedTag.tagName }}</span>
+                <span class="selected-tag-remove" aria-hidden="true">×</span>
+              </button>
+            </div>
           </div>
         </div>
         <div v-show="tag.showTagList" class="tag-body">
@@ -64,8 +70,15 @@
             </div>
           </div>
           <div class="tag-results" :class="{ searching: isTagSearching }">
-            <div v-for="group in displayedTagGroups" :key="group.key" class="info-row">
-              <span class="label">{{ group.label }}:</span>
+            <div
+              v-for="group in displayedTagGroups"
+              :key="group.key"
+              class="tag-group"
+            >
+              <div class="tag-group-heading">
+                <span class="tag-group-label">{{ group.label }}</span>
+                <span class="tag-group-count">{{ group.countText }}</span>
+              </div>
               <div class="tags-container">
                 <button
                   v-for="item in group.tags"
@@ -86,8 +99,14 @@
                   </template>
                   <span class="tag-count">{{ item.tagCount }}</span>
                 </button>
-                <button v-if="group.hasHidden" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
-                  {{ tag.expand[group.key] ? '收起' : '展开' }}
+                <button v-if="group.canToggle" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
+                  {{ group.expanded ? '收起' : `展开其余 ${group.hiddenCount} 个` }}
+                  <icon
+                    icon="#icon-down"
+                    class="expand-tag-arrow"
+                    :class="{ expanded: group.expanded }"
+                    aria-hidden="true"
+                  ></icon>
                 </button>
               </div>
             </div>
@@ -129,14 +148,14 @@ import { useRecycleState } from '@/composables/useRecycleState';
 import { ElMessage } from "element-plus";
 
 const TAG_CATEGORIES = [
-  { key: 'group', field: 'groupTags', label: '团队', expanded: false },
-  { key: 'artist', field: 'artistTags', label: '艺术家', expanded: false },
-  { key: 'character', field: 'characterTags', label: '角色', expanded: true },
-  { key: 'male', field: 'maleTags', label: '男性', expanded: true },
-  { key: 'female', field: 'femaleTags', label: '女性', expanded: false },
-  { key: 'mixed', field: 'mixedTags', label: '混合', expanded: true },
-  { key: 'other', field: 'otherTags', label: '其他', expanded: true },
-  { key: 'original', field: 'originalTags', label: '原作', expanded: true },
+  { key: 'group', field: 'groupTags', label: '团队', visibleLimit: 16 },
+  { key: 'artist', field: 'artistTags', label: '艺术家', visibleLimit: 16 },
+  { key: 'character', field: 'characterTags', label: '角色', visibleLimit: 16 },
+  { key: 'male', field: 'maleTags', label: '男性', visibleLimit: 20 },
+  { key: 'female', field: 'femaleTags', label: '女性', visibleLimit: 36 },
+  { key: 'mixed', field: 'mixedTags', label: '混合', visibleLimit: 10 },
+  { key: 'other', field: 'otherTags', label: '其他', visibleLimit: 10 },
+  { key: 'original', field: 'originalTags', label: '原作', visibleLimit: 10 },
 ]
 
 function parseTagIds(queryValue) {
@@ -296,7 +315,7 @@ export default {
       otherTags: [], // 其他标签
       originalTags: [], // 原作标签
       loading: false,
-      expand: Object.fromEntries(TAG_CATEGORIES.map(category => [category.key, category.expanded]))
+      expandedCategories: Object.fromEntries(TAG_CATEGORIES.map(category => [category.key, false]))
     })
 
     const tagGroups = computed(() => TAG_CATEGORIES.map(category => ({
@@ -309,8 +328,11 @@ export default {
       let searchIndex = 0
       return tagGroups.value
         .map(group => {
+          const sortedGroupTags = sortedTags(group.tags)
+          const collapsedTags = getCollapsedTags(sortedGroupTags, group.visibleLimit)
+          const expanded = !query && tag.expandedCategories[group.key]
           const sourceTags = query
-            ? group.tags
+            ? sortedGroupTags
               .filter(item => normalizeTagName(item.tagName).includes(query))
               .sort((a, b) => {
                 const rankDifference = getTagMatchRank(a.tagName, query) - getTagMatchRank(b.tagName, query)
@@ -319,7 +341,7 @@ export default {
                 if (countDifference) return countDifference
                 return String(a.tagName).localeCompare(String(b.tagName), 'zh-CN')
               })
-            : getVisibleTags(group.tags, group.key)
+            : expanded ? sortedGroupTags : collapsedTags
           const tags = sourceTags.map(item => ({
             ...item,
             nameParts: createTagNameParts(item.tagName, query),
@@ -328,10 +350,13 @@ export default {
           return {
             ...group,
             tags,
-            hasHidden: !query && hasHiddenTags(group.tags),
+            expanded,
+            canToggle: !query && collapsedTags.length < sortedGroupTags.length,
+            hiddenCount: Math.max(0, sortedGroupTags.length - collapsedTags.length),
+            countText: query ? `${tags.length} 个匹配` : `共 ${sortedGroupTags.length} 个`,
           }
         })
-        .filter(group => group.tags.length || group.hasHidden)
+        .filter(group => group.tags.length || group.canToggle)
     })
 
     const tagSearchResults = computed(() => (
@@ -345,24 +370,27 @@ export default {
       .map(group => `${group.label} ${group.tags.length}`)
       .join(' · '))
     const hasDisplayedTags = computed(() => (
-      displayedTagGroups.value.some(group => group.tags.length || group.hasHidden)
+      displayedTagGroups.value.some(group => group.tags.length || group.canToggle)
     ))
 
-    const selectedTags = computed(() => {
-      const tagLookup = new Map()
+    const selectedTagGroups = computed(() => {
+      const selectedIds = new Set(selectedTagIds.value)
+      const resolvedIds = new Set()
+      const groups = []
       for (const group of tagGroups.value) {
-        for (const item of group.tags) {
-          tagLookup.set(Number(item.tagId), {
-            ...item,
-            categoryLabel: group.label,
-          })
+        const tags = sortedTags(group.tags).filter(item => selectedIds.has(Number(item.tagId)))
+        if (tags.length) {
+          tags.forEach(item => resolvedIds.add(Number(item.tagId)))
+          groups.push({ key: group.key, label: group.label, tags })
         }
       }
-      return selectedTagIds.value.map(tagId => tagLookup.get(tagId) || {
-        tagId,
-        tagName: `标签 #${tagId}`,
-        categoryLabel: '',
-      })
+      const unresolvedTags = selectedTagIds.value
+        .filter(tagId => !resolvedIds.has(tagId))
+        .map(tagId => ({ tagId, tagName: `标签 #${tagId}` }))
+      if (unresolvedTags.length) {
+        groups.push({ key: 'unresolved', label: '标签', tags: unresolvedTags })
+      }
+      return groups
     })
 
     // 打开/关闭标签列表
@@ -406,22 +434,23 @@ export default {
     const hasActiveTags = computed(() => selectedTagIds.value.length > 0)
 
     function sortedTags(tags) {
-      return tags.slice().sort((a, b) => b.tagCount - a.tagCount)
+      return tags.slice().sort((a, b) => {
+        const countDifference = Number(b.tagCount || 0) - Number(a.tagCount || 0)
+        if (countDifference) return countDifference
+        return String(a.tagName).localeCompare(String(b.tagName), 'zh-CN')
+      })
     }
 
-    function getVisibleTags(tags, category) {
-      const list = sortedTags(tags)
-      if (tag.expand[category]) return list
-      return list.filter(item => item.tagCount > 3)
-    }
-
-    function hasHiddenTags(tags) {
-      const list = sortedTags(tags)
-      return list.some(item => item.tagCount <= 3)
+    function getCollapsedTags(sortedTagList, visibleLimit) {
+      const visibleTagIds = new Set(
+        sortedTagList.slice(0, visibleLimit).map(item => Number(item.tagId))
+      )
+      selectedTagIds.value.forEach(tagId => visibleTagIds.add(tagId))
+      return sortedTagList.filter(item => visibleTagIds.has(Number(item.tagId)))
     }
 
     function toggleExpand(category) {
-      tag.expand[category] = !tag.expand[category]
+      tag.expandedCategories[category] = !tag.expandedCategories[category]
     }
 
     function setActiveTagSearchIndex(index) {
@@ -582,7 +611,7 @@ export default {
     onDeactivated(deactivatePageListeners)
     onUnmounted(deactivatePageListeners)
 
-    return { manga, mangaResultText, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, tagSearch, tagSearchInput, displayedTagGroups, matchingTagCount, matchingCategorySummary, hasDisplayedTags, isTagSearching, activeTagSearchIndex, openTagList, selectedTagIds, selectedTags, isTagActive, toggleTag, hasActiveTags, clearTagFilter, clearTagSearch, handleTagSearchKeydown, setActiveTagSearchIndex, toggleExpand }
+    return { manga, mangaResultText, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, tagSearch, tagSearchInput, displayedTagGroups, matchingTagCount, matchingCategorySummary, hasDisplayedTags, isTagSearching, activeTagSearchIndex, openTagList, selectedTagIds, selectedTagGroups, isTagActive, toggleTag, hasActiveTags, clearTagFilter, clearTagSearch, handleTagSearchKeydown, setActiveTagSearchIndex, toggleExpand }
   }
 }
 </script>
@@ -669,8 +698,8 @@ section {
 
 .selected-tags {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  gap: 9px;
   padding: 10px 12px;
   margin-bottom: 12px;
   background: #f5f9ff;
@@ -679,24 +708,87 @@ section {
 }
 
 .selected-tags.compact {
+  flex-direction: row;
+  align-items: center;
   margin-bottom: 0;
+  overflow: hidden;
+}
+
+.selected-tags-summary {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 7px;
+  min-width: 0;
+}
+
+.selected-tags-label,
+.selected-tags-result {
+  flex: 0 0 auto;
+  color: #606266;
+  font-size: 13px;
 }
 
 .selected-tags-label {
-  flex: 0 0 auto;
-  padding-top: 4px;
-  color: #606266;
-  font-size: 13px;
   font-weight: 600;
 }
 
-.selected-tag-list {
+.selected-tags-result::before {
+  content: "·";
+  margin-right: 7px;
+  color: #a8abb2;
+}
+
+.edit-tags-btn {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #409eff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.edit-tags-btn:hover {
+  background: #e3f2fd;
+}
+
+.selected-tag-groups {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  align-items: center;
+  gap: 8px 12px;
   min-width: 0;
-  max-height: 64px;
+  max-height: 112px;
   overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.selected-tags.compact .selected-tag-groups {
+  flex-wrap: nowrap;
+  flex: 1;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.selected-tag-group {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.selected-tag-category {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #e3f2fd;
+  color: #607d8b;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .selected-tag {
@@ -715,13 +807,9 @@ section {
 }
 
 .selected-tag:hover {
-  background: #e3f2fd;
-  border-color: #64b5f6;
-}
-
-.selected-tag-category {
-  color: #78909c;
-  font-size: 11px;
+  border-color: #f89898;
+  background: #fef0f0;
+  color: #f56c6c;
 }
 
 .selected-tag-remove {
@@ -824,27 +912,47 @@ section {
 }
 
 .tag-results {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  max-height: 600px;
+  padding: 2px 5px 2px 2px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .tag-results.searching {
-  max-height: 460px;
-  padding: 2px 5px 2px 2px;
-  overflow-y: auto;
-}
-
-.info-row {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: column;
+  max-height: 460px;
 }
 
-.label {
+.tag-group {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  padding: 10px 0;
+}
+
+.tag-group-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding-top: 3px;
+}
+
+.tag-group-label {
   font-weight: 600;
-  color: #495057;
-  min-width: 52px;
+  color: #303133;
+  font-size: 14px;
+}
+
+.tag-group-count {
+  color: #909399;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .tags-container {
@@ -909,20 +1017,37 @@ section {
 }
 
 .expand-tag-btn {
-  border: 1px solid #e9ecef;
-  background: #ffffff;
-  color: #409eff;
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 0;
   border-radius: 4px;
+  background: transparent;
+  color: #409eff;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
   font-size: 12px;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .expand-tag-btn:hover {
-  border-color: #409eff;
-  background: #f0f8ff;
+  background: #ecf5ff;
+}
+
+.expand-tag-arrow {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  fill: currentColor;
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+
+.expand-tag-arrow.expanded {
+  transform: rotate(180deg);
 }
 
 .empty-tags {
@@ -1161,11 +1286,6 @@ ul li:hover .manga-title {
     margin: 12px auto;
   }
 
-  .label {
-    min-width: 44px;
-    font-size: 13px;
-  }
-
   .manga-title {
     font-size: 13px;
     line-height: 18px;
@@ -1194,12 +1314,20 @@ ul li:hover .manga-title {
   }
 
   .selected-tags {
-    flex-direction: column;
     gap: 7px;
   }
 
-  .selected-tags-label {
-    padding-top: 0;
+  .selected-tags.compact {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .selected-tags-summary {
+    flex-wrap: wrap;
+  }
+
+  .selected-tag-groups {
+    gap: 7px 10px;
   }
 
   .tag-results.searching {
@@ -1210,9 +1338,14 @@ ul li:hover .manga-title {
     font-size: 13px;
   }
 
-  .label {
-    min-width: 40px;
-    font-size: 12px;
+  .tag-group {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .tag-group-label {
+    font-size: 13px;
   }
 
   .tag {
