@@ -4,7 +4,11 @@
       <div class="side-btn" @click="randomManga">
         <icon icon="#icon-random"></icon>
       </div>
-      <div class="side-btn" :class="{ 'active': tag.showTagList }" @click="openTagList">
+      <div class="side-btn" :class="{ 'active': showTitleSearch || hasTitleFilter }" @click="toggleTitleSearch">
+        <icon icon="#icon-search"></icon>
+        <span v-if="hasTitleFilter" class="side-btn-status" aria-hidden="true"></span>
+      </div>
+      <div class="side-btn" :class="{ 'active': tag.showTagList || hasActiveTags }" @click="openTagList">
         <icon icon="#icon-tag"></icon>
         <span v-if="hasActiveTags" class="side-btn-badge">{{ selectedTagIds.length }}</span>
       </div>
@@ -16,19 +20,30 @@
       <icon icon="#icon-sort-asc"></icon>
     </div>
 
-    <div class="tag-container" :class="{ 'is-visible': tag.showTagList || hasActiveTags }">
-      <div class="tag-panel">
-        <div class="tag-header">
-          <div class="tag-title">标签筛选</div>
-          <button v-if="hasActiveTags" type="button" class="clear-tags-btn" @click="clearTagFilter">清除筛选</button>
+    <div class="filter-container" :class="{ 'is-visible': showFilterPanel }">
+      <div class="filter-panel">
+        <div class="filter-header">
+          <div class="filter-title">{{ filterPanelTitle }}</div>
+          <button v-if="hasActiveFilters" type="button" class="clear-filters-btn" @click="clearAllFilters">清除全部</button>
         </div>
-        <div v-if="hasActiveTags" class="selected-tags" :class="{ compact: !tag.showTagList }">
+        <div v-if="hasActiveFilters" class="selected-tags" :class="{ compact: !showTitleSearch && !tag.showTagList }">
           <div class="selected-tags-summary">
-            <span class="selected-tags-label">需同时包含 {{ selectedTagIds.length }} 个标签</span>
+            <span class="selected-tags-label">已启用 {{ activeFilterCount }} 项筛选</span>
             <span class="selected-tags-result" role="status" aria-live="polite">{{ mangaResultText }}</span>
-            <button v-if="!tag.showTagList" type="button" class="edit-tags-btn" @click="openTagList">修改筛选</button>
           </div>
           <div class="selected-tag-groups">
+            <div v-if="hasTitleFilter" class="selected-tag-group">
+              <span class="selected-tag-category">标题</span>
+              <button
+                type="button"
+                class="selected-tag"
+                :aria-label="`清除标题搜索 ${activeTitle}`"
+                @click="clearTitleSearch"
+              >
+                <span>{{ activeTitle }}</span>
+                <span class="selected-tag-remove" aria-hidden="true">×</span>
+              </button>
+            </div>
             <div v-for="group in selectedTagGroups" :key="'selected-group-' + group.key" class="selected-tag-group">
               <span class="selected-tag-category">{{ group.label }}</span>
               <button
@@ -45,10 +60,38 @@
             </div>
           </div>
         </div>
+
+        <form v-show="showTitleSearch" class="title-search-body" role="search" @submit.prevent="commitTitleSearch">
+          <div class="filter-search-box title-search-box">
+            <icon icon="#icon-search" class="filter-search-icon"></icon>
+            <input
+              ref="titleSearchInput"
+              v-model="titleSearchDraft"
+              type="search"
+              maxlength="255"
+              placeholder="搜索漫画原文标题或中文标题"
+              aria-label="搜索漫画标题"
+              autocomplete="off"
+              spellcheck="false"
+              @keydown.esc.prevent="closeTitleSearch"
+            >
+            <button
+              v-if="titleSearchDraft || hasTitleFilter"
+              type="button"
+              class="clear-filter-search"
+              aria-label="清空标题搜索"
+              @click="clearTitleSearch"
+            >
+              <icon icon="#icon-close"></icon>
+            </button>
+          </div>
+          <button type="submit" class="submit-title-search">搜索</button>
+        </form>
+
         <div v-show="tag.showTagList" class="tag-body">
           <div class="tag-search-area">
-            <div class="tag-search-box">
-              <icon icon="#icon-search" class="tag-search-icon"></icon>
+            <div class="filter-search-box">
+              <icon icon="#icon-search" class="filter-search-icon"></icon>
               <input
                 ref="tagSearchInput"
                 v-model="tagSearch"
@@ -60,7 +103,7 @@
                 :disabled="tag.loading"
                 @keydown="handleTagSearchKeydown"
               >
-              <button v-if="tagSearch" type="button" class="clear-tag-search" aria-label="清空标签搜索" @click="clearTagSearch">
+              <button v-if="tagSearch" type="button" class="clear-filter-search" aria-label="清空标签搜索" @click="clearTagSearch">
                 <icon icon="#icon-close"></icon>
               </button>
             </div>
@@ -128,8 +171,11 @@
       </li>
     </ul>
     <div v-if="!manga.loading && manga.disabled && manga.list.length === 0" class="empty-manga">
-      <span>{{ hasActiveTags ? '没有同时包含这些标签的漫画' : '暂无漫画' }}</span>
-      <button v-if="hasActiveTags" type="button" @click="clearTagFilter">清除筛选</button>
+      <span>{{ emptyMangaText }}</span>
+      <div v-if="hasActiveFilters" class="empty-manga-actions">
+        <button v-if="hasTitleFilter" type="button" @click="clearTitleSearch">清除标题</button>
+        <button v-if="hasActiveTags" type="button" @click="clearTagFilter">清除标签</button>
+      </div>
     </div>
     <acg17-loading-heart v-show="manga.loading"></acg17-loading-heart>
   </section>
@@ -165,6 +211,11 @@ function parseTagIds(queryValue) {
     .map(value => Number(value))
     .filter(value => Number.isInteger(value) && value > 0))]
     .sort((a, b) => a - b)
+}
+
+function normalizeTitle(value) {
+  const queryValue = Array.isArray(value) ? value[0] : value
+  return String(queryValue ?? '').trim()
 }
 
 function normalizeTagName(value) {
@@ -218,21 +269,38 @@ export default {
 
     const containerWidth = ref(1380)
     const showBackToTop = ref(false)
+    const showTitleSearch = ref(false)
+    const titleSearchInput = ref(null)
     const tagSearch = ref('')
     const tagSearchInput = ref(null)
     const activeTagSearchIndex = ref(-1)
+    const activeTitle = computed(() => normalizeTitle(route.query.title))
+    const titleSearchDraft = ref(activeTitle.value)
     const selectedTagIds = computed(() => parseTagIds(route.query.tagIds))
     const selectedTagKey = computed(() => selectedTagIds.value.join(','))
+    const activeFilterKey = computed(() => JSON.stringify([activeTitle.value, selectedTagKey.value]))
     const normalizedTagSearch = computed(() => normalizeTagName(tagSearch.value))
     const isTagSearching = computed(() => normalizedTagSearch.value.length > 0)
+    const hasTitleFilter = computed(() => activeTitle.value.length > 0)
+    const hasActiveTags = computed(() => selectedTagIds.value.length > 0)
+    const hasActiveFilters = computed(() => hasTitleFilter.value || hasActiveTags.value)
+    const activeFilterCount = computed(() => selectedTagIds.value.length + (hasTitleFilter.value ? 1 : 0))
     const mangaResultText = computed(() => (
       manga.currentPage === 0 || (manga.loading && manga.currentPage === 1)
         ? '查询中'
         : `找到 ${manga.total} 部`
     ))
+    const emptyMangaText = computed(() => {
+      if (hasTitleFilter.value && hasActiveTags.value) {
+        return `没有找到标题包含“${activeTitle.value}”且同时包含这些标签的漫画`
+      }
+      if (hasTitleFilter.value) return `没有找到标题包含“${activeTitle.value}”的漫画`
+      if (hasActiveTags.value) return '没有同时包含这些标签的漫画'
+      return '暂无漫画'
+    })
     let resizeObserver = null
     let pageActive = false
-    let loadedTagIds = selectedTagKey.value
+    let loadedFilterKey = activeFilterKey.value
     let mangaRequestVersion = 0
     let tagListLoading = false
     let tagListLoaded = false
@@ -261,6 +329,10 @@ export default {
       const params = {
         pageNum: ++manga.currentPage,
         deleted: isRecycle.value
+      }
+
+      if (hasTitleFilter.value) {
+        params.title = activeTitle.value
       }
 
       if (selectedTagIds.value.length) {
@@ -316,6 +388,15 @@ export default {
       originalTags: [], // 原作标签
       loading: false,
       expandedCategories: Object.fromEntries(TAG_CATEGORIES.map(category => [category.key, false]))
+    })
+
+    const showFilterPanel = computed(() => (
+      showTitleSearch.value || tag.showTagList || hasActiveFilters.value
+    ))
+    const filterPanelTitle = computed(() => {
+      if (showTitleSearch.value) return '标题搜索'
+      if (tag.showTagList) return '标签筛选'
+      return '漫画筛选'
     })
 
     const tagGroups = computed(() => TAG_CATEGORIES.map(category => ({
@@ -393,12 +474,30 @@ export default {
       return groups
     })
 
+    function closeTitleSearch() {
+      showTitleSearch.value = false
+      titleSearchDraft.value = activeTitle.value
+    }
+
+    function toggleTitleSearch() {
+      if (showTitleSearch.value) {
+        closeTitleSearch()
+        return
+      }
+      showTitleSearch.value = true
+      tag.showTagList = false
+      titleSearchDraft.value = activeTitle.value
+      scrollToTop()
+      nextTick(() => titleSearchInput.value?.focus())
+    }
+
     // 打开/关闭标签列表
     function openTagList() {
-      tag.showTagList = !tag.showTagList
+      const willOpen = !tag.showTagList
+      tag.showTagList = willOpen
       scrollToTop()
-      // 点击标签列表时，关闭搜索框
-      if (tag.showTagList) {
+      if (willOpen) {
+        closeTitleSearch()
         loadTagList()
         nextTick(() => tagSearchInput.value?.focus())
       }
@@ -430,8 +529,6 @@ export default {
           }
         })
     }
-
-    const hasActiveTags = computed(() => selectedTagIds.value.length > 0)
 
     function sortedTags(tags) {
       return tags.slice().sort((a, b) => {
@@ -503,14 +600,36 @@ export default {
       return selectedTagIds.value.includes(Number(tagId))
     }
 
-    function updateTagFilter(tagIds) {
+    function updateFilters({ title = activeTitle.value, tagIds = selectedTagIds.value } = {}) {
+      const normalizedTitle = normalizeTitle(title)
       const normalizedTagIds = [...new Set(tagIds)].sort((a, b) => a - b)
+      const nextFilterKey = JSON.stringify([normalizedTitle, normalizedTagIds.join(',')])
+      if (nextFilterKey === activeFilterKey.value) return
+
+      const query = {}
+      if (normalizedTitle) query.title = normalizedTitle
+      if (normalizedTagIds.length) query.tagIds = normalizedTagIds.join(',')
+
       router.push({
         path: '/acg/manga',
-        query: normalizedTagIds.length
-          ? { tagIds: normalizedTagIds.join(',') }
-          : {}
+        query
       })
+    }
+
+    function commitTitleSearch() {
+      const title = normalizeTitle(titleSearchDraft.value)
+      titleSearchDraft.value = title
+      updateFilters({ title })
+    }
+
+    function clearTitleSearch() {
+      titleSearchDraft.value = ''
+      updateFilters({ title: '' })
+      if (showTitleSearch.value) nextTick(() => titleSearchInput.value?.focus())
+    }
+
+    function updateTagFilter(tagIds) {
+      updateFilters({ tagIds })
     }
 
     function toggleTag(tagId) {
@@ -528,6 +647,11 @@ export default {
       updateTagFilter([])
     }
 
+    function clearAllFilters() {
+      titleSearchDraft.value = ''
+      updateFilters({ title: '', tagIds: [] })
+    }
+
     function scrollToTop() {
       window.scrollTo({
         top: 0,
@@ -537,7 +661,7 @@ export default {
 
     function resetMangaList() {
       mangaRequestVersion += 1
-      loadedTagIds = selectedTagKey.value
+      loadedFilterKey = activeFilterKey.value
       manga.list = []
       manga.currentPage = 0
       manga.total = 0
@@ -552,11 +676,15 @@ export default {
       if (tag.showTagList || hasActiveTags.value) loadTagList(true)
     })
 
-    // 监听路由查询参数变化，重新获取数据
-    watch(selectedTagKey, currentTagIds => {
-      if (route.name === 'Manga' && currentTagIds !== loadedTagIds) {
+    // 监听标题和标签筛选变化，重新获取数据
+    watch(activeFilterKey, currentFilterKey => {
+      if (route.name === 'Manga' && currentFilterKey !== loadedFilterKey) {
         resetMangaList()
       }
+    })
+
+    watch(activeTitle, title => {
+      titleSearchDraft.value = title
     })
 
     watch(normalizedTagSearch, query => {
@@ -601,7 +729,7 @@ export default {
     })
 
     onActivated(() => {
-      if (selectedTagKey.value !== loadedTagIds) {
+      if (activeFilterKey.value !== loadedFilterKey) {
         resetMangaList()
       }
       if (hasActiveTags.value && !tagListLoaded) loadTagList()
@@ -611,7 +739,54 @@ export default {
     onDeactivated(deactivatePageListeners)
     onUnmounted(deactivatePageListeners)
 
-    return { manga, mangaResultText, goToMangaDetail, isRecycle, toggleRecycle, setRecycle, loadManga, randomManga, scrollToTop, showBackToTop, containerWidth, tag, tagSearch, tagSearchInput, displayedTagGroups, matchingTagCount, matchingCategorySummary, hasDisplayedTags, isTagSearching, activeTagSearchIndex, openTagList, selectedTagIds, selectedTagGroups, isTagActive, toggleTag, hasActiveTags, clearTagFilter, clearTagSearch, handleTagSearchKeydown, setActiveTagSearchIndex, toggleExpand }
+    return {
+      manga,
+      mangaResultText,
+      emptyMangaText,
+      goToMangaDetail,
+      isRecycle,
+      toggleRecycle,
+      setRecycle,
+      loadManga,
+      randomManga,
+      scrollToTop,
+      showBackToTop,
+      containerWidth,
+      showTitleSearch,
+      showFilterPanel,
+      filterPanelTitle,
+      titleSearchInput,
+      titleSearchDraft,
+      activeTitle,
+      hasTitleFilter,
+      hasActiveFilters,
+      activeFilterCount,
+      toggleTitleSearch,
+      closeTitleSearch,
+      commitTitleSearch,
+      clearTitleSearch,
+      clearAllFilters,
+      tag,
+      tagSearch,
+      tagSearchInput,
+      displayedTagGroups,
+      matchingTagCount,
+      matchingCategorySummary,
+      hasDisplayedTags,
+      isTagSearching,
+      activeTagSearchIndex,
+      openTagList,
+      selectedTagIds,
+      selectedTagGroups,
+      isTagActive,
+      toggleTag,
+      hasActiveTags,
+      clearTagFilter,
+      clearTagSearch,
+      handleTagSearchKeydown,
+      setActiveTagSearchIndex,
+      toggleExpand,
+    }
   }
 }
 </script>
@@ -641,7 +816,7 @@ section {
   min-height: calc(100vh - 104px - 200px);
 }
 
-.tag-container {
+.filter-container {
   max-width: 1380px;
   margin: 0 auto;
   max-height: 0;
@@ -651,7 +826,7 @@ section {
   pointer-events: none;
 }
 
-.tag-container.is-visible {
+.filter-container.is-visible {
   margin-bottom: 20px;
   max-height: 1000px;
   opacity: 1;
@@ -659,7 +834,7 @@ section {
   pointer-events: auto;
 }
 
-.tag-panel {
+.filter-panel {
   background: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 10px;
@@ -667,20 +842,20 @@ section {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
 
-.tag-header {
+.filter-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
 }
 
-.tag-title {
+.filter-title {
   font-size: 16px;
   font-weight: 600;
   color: #2c3e50;
 }
 
-.clear-tags-btn {
+.clear-filters-btn {
   border: 1px solid #e9ecef;
   background: #ffffff;
   color: #409eff;
@@ -691,7 +866,7 @@ section {
   font-size: 13px;
 }
 
-.clear-tags-btn:hover {
+.clear-filters-btn:hover {
   border-color: #409eff;
   background: #f0f8ff;
 }
@@ -737,22 +912,6 @@ section {
   content: "·";
   margin-right: 7px;
   color: #a8abb2;
-}
-
-.edit-tags-btn {
-  flex: 0 0 auto;
-  padding: 3px 7px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: #409eff;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.edit-tags-btn:hover {
-  background: #e3f2fd;
 }
 
 .selected-tag-groups {
@@ -817,19 +976,49 @@ section {
   line-height: 12px;
 }
 
+.title-search-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title-search-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.submit-title-search {
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid #409eff;
+  border-radius: 7px;
+  background: #409eff;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.submit-title-search:hover {
+  border-color: #66b1ff;
+  background: #66b1ff;
+}
+
 .tag-search-area {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
-.tag-search-box {
+.filter-search-box {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.tag-search-icon {
+.filter-search-icon {
   position: absolute;
   left: 11px;
   width: 18px;
@@ -838,7 +1027,7 @@ section {
   pointer-events: none;
 }
 
-.tag-search-box input {
+.filter-search-box input {
   width: 100%;
   height: 38px;
   padding: 0 42px 0 38px;
@@ -853,21 +1042,21 @@ section {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.tag-search-box input:focus {
+.filter-search-box input:focus {
   border-color: #409eff;
   box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12);
 }
 
-.tag-search-box input:disabled {
+.filter-search-box input:disabled {
   background: #f5f7fa;
   cursor: wait;
 }
 
-.tag-search-box input::-webkit-search-cancel-button {
+.filter-search-box input::-webkit-search-cancel-button {
   display: none;
 }
 
-.clear-tag-search {
+.clear-filter-search {
   position: absolute;
   right: 8px;
   display: flex;
@@ -883,12 +1072,12 @@ section {
   cursor: pointer;
 }
 
-.clear-tag-search:hover {
+.clear-filter-search:hover {
   background: #f2f6fc;
   color: #409eff;
 }
 
-.clear-tag-search svg {
+.clear-filter-search svg {
   width: 17px;
   height: 17px;
 }
@@ -1078,7 +1267,7 @@ ul {
   transition: transform 0.6s ease;
 }
 
-.tag-container.is-visible + ul {
+.filter-container.is-visible + ul {
   transform: translateY(10px);
 }
 
@@ -1118,6 +1307,18 @@ ul {
   line-height: 1;
 }
 
+.side-btn-status {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #f56c6c;
+}
+
 .side-btn:hover {
   background-color: #f2f6fc;
   color: #409eff;
@@ -1152,6 +1353,13 @@ ul {
   min-height: 240px;
   color: #909399;
   font-size: 14px;
+}
+
+.empty-manga-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 
 .empty-manga button {
@@ -1282,7 +1490,7 @@ ul li:hover .manga-title {
     margin: 74px auto 20px;
   }
 
-  .tag-container {
+  .filter-container {
     margin: 12px auto;
   }
 
@@ -1305,12 +1513,25 @@ ul li:hover .manga-title {
     margin: 64px auto 20px;
   }
 
-  .tag-panel {
+  .filter-panel {
     padding: 12px;
   }
 
-  .tag-header {
+  .filter-header {
     gap: 8px;
+  }
+
+  .title-search-body {
+    gap: 8px;
+  }
+
+  .filter-search-box input {
+    font-size: 13px;
+  }
+
+  .submit-title-search {
+    padding: 0 14px;
+    font-size: 13px;
   }
 
   .selected-tags {
@@ -1332,10 +1553,6 @@ ul li:hover .manga-title {
 
   .tag-results.searching {
     max-height: 360px;
-  }
-
-  .tag-search-box input {
-    font-size: 13px;
   }
 
   .tag-group {
