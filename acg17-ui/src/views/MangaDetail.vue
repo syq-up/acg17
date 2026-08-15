@@ -101,11 +101,20 @@
     <div class="manga-pages unselectable">
       <h3>漫画页面</h3>
       <ul class="pages-list">
-        <li v-for="pageItem in mangaPages" :key="'p' + pageItem.page" class="page-item"
+        <li v-for="pageItem in visibleMangaPages" :key="'p' + pageItem.page" class="page-item"
           @click="goToPage(pageItem.page)">
-          <img :src="pageItem.path" :alt="`第${pageItem.page}页`" />
+          <img :src="pageItem.path" :alt="`第${pageItem.page}页`" loading="lazy" decoding="async" />
           <div class="page-remove" @click.stop="removeMangaPage(pageItem.page)">×</div>
           <div class="page-number">{{ pageItem.page }}</div>
+        </li>
+        <li
+          v-if="hasMoreMangaPages"
+          ref="mangaPagesSentinel"
+          class="manga-pages-sentinel"
+          role="status"
+          aria-live="polite"
+        >
+          正在加载更多页面…
         </li>
       </ul>
     </div>
@@ -153,6 +162,9 @@ const TAG_CATEGORIES = [
   { category: 'original', key: 'originalTags', name: '原作' },
 ]
 
+const INITIAL_MANGA_PAGE_COUNT = 12
+const MANGA_PAGE_BATCH_SIZE = 6
+
 export default {
   name: 'MangaDetail',
   components: {
@@ -189,6 +201,11 @@ export default {
 
     // 漫画页面数据直接使用后端返回的pages
     const mangaPages = reactive([])
+    const visiblePageCount = ref(INITIAL_MANGA_PAGE_COUNT)
+    const mangaPagesSentinel = ref(null)
+    const visibleMangaPages = computed(() => mangaPages.slice(0, visiblePageCount.value))
+    const hasMoreMangaPages = computed(() => visiblePageCount.value < mangaPages.length)
+    let mangaPagesObserver = null
 
     // 章节列表数据
     const mangaChapters = reactive([])
@@ -220,8 +237,66 @@ export default {
       }
     }
 
+    function supportsIntersectionObserver() {
+      return typeof window !== 'undefined' && typeof window.IntersectionObserver === 'function'
+    }
+
+    function disconnectMangaPagesObserver() {
+      if (mangaPagesObserver) {
+        mangaPagesObserver.disconnect()
+        mangaPagesObserver = null
+      }
+    }
+
+    function observeMangaPagesSentinel() {
+      if (!supportsIntersectionObserver()) {
+        visiblePageCount.value = mangaPages.length
+        disconnectMangaPagesObserver()
+        return
+      }
+
+      if (!hasMoreMangaPages.value || !mangaPagesSentinel.value) {
+        disconnectMangaPagesObserver()
+        return
+      }
+
+      // The sentinel may remain inside the expanded root after a batch is added.
+      // Recreate the observer so its initial intersection is evaluated again.
+      disconnectMangaPagesObserver()
+      mangaPagesObserver = new window.IntersectionObserver((entries) => {
+        if (entries.some(entry => entry.isIntersecting)) {
+          visiblePageCount.value = Math.min(
+            visiblePageCount.value + MANGA_PAGE_BATCH_SIZE,
+            mangaPages.length
+          )
+        }
+      }, {
+        rootMargin: '0px 0px 600px 0px',
+        threshold: 0,
+      })
+
+      mangaPagesObserver.observe(mangaPagesSentinel.value)
+    }
+
+    function resetMangaPageVisibility() {
+      disconnectMangaPagesObserver()
+      visiblePageCount.value = supportsIntersectionObserver()
+        ? Math.min(INITIAL_MANGA_PAGE_COUNT, mangaPages.length)
+        : mangaPages.length
+      nextTick(observeMangaPagesSentinel)
+    }
+
+    watch(
+      [() => mangaPages.length, visiblePageCount],
+      () => {
+        nextTick(observeMangaPagesSentinel)
+      },
+      { flush: 'post' }
+    )
+
     // 从后端加载漫画详情数据
     async function loadMangaDetail() {
+      resetMangaPageVisibility()
       try {
         const mangaId = parseInt(route.params.id)
         const res = await server.get(`/manga/${mangaId}`)
@@ -249,17 +324,19 @@ export default {
 
           // 设置漫画章节数据
           mangaChapters.length = 0
+          mangaPages.length = 0
           if (mangaData.pages && mangaData.pages.length > 0) {
             mangaChapters.push(...mangaData.pages)
 
             // 设置漫画页面数据
-            mangaPages.length = 0
             if (mangaChapters[0].pagelist && mangaChapters[0].pagelist.length > 0) {
               mangaPages.push(...mangaChapters[0].pagelist)
               manga.currentChapter = mangaChapters[0].chapter
               manga.cover = mangaPages[0].path
             }
           }
+
+          resetMangaPageVisibility()
 
         } else {
           console.error('获取漫画详情失败:', res.message)
@@ -355,6 +432,7 @@ export default {
 
     watch(() => route.params.id, () => {
       closeTagEditor()
+      resetMangaPageVisibility()
       loadMangaDetail()
       loadRelatedManga()
     })
@@ -363,6 +441,7 @@ export default {
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', updateWidth)
       if (resizeObserver) resizeObserver.disconnect()
+      disconnectMangaPagesObserver()
     })
 
     async function toggleFavorite() {
@@ -433,6 +512,7 @@ export default {
         manga.currentChapter = chapterItem.chapter
         mangaPages.length = 0
         mangaPages.push(...chapterItem.pagelist)
+        resetMangaPageVisibility()
         // 跳转到章节的第一页
         // router.push({
         //   path: `/acg/manga/${manga.id}/${manga.currentChapter}/1`,
@@ -503,6 +583,9 @@ export default {
       manga,
       relatedManga,
       mangaPages,
+      visibleMangaPages,
+      hasMoreMangaPages,
+      mangaPagesSentinel,
       mangaChapters,
       tagGroups,
       activeTagCategory,
@@ -867,6 +950,16 @@ export default {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
+}
+
+.manga-pages-sentinel {
+  grid-column: 1 / -1;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  font-size: 13px;
 }
 
 .related-manga h3 {
