@@ -168,7 +168,7 @@
       </div>
     </div>
 
-    <ul class="manga-container unselectable" v-infinite-scroll="loadManga" :infinite-scroll-disabled="manga.disabled">
+    <ul class="manga-container unselectable" v-infinite-scroll="loadMoreManga" :infinite-scroll-disabled="manga.disabled || !pageActive">
       <li v-for="(manga) in manga.list" :key="manga.id" @click="goToMangaDetail(manga.id)">
         <img class="manga-img" :src="manga.cover" alt="manga">
         <div class="manga-info">
@@ -306,7 +306,7 @@ export default {
       return '暂无漫画'
     })
     let resizeObserver = null
-    let pageActive = false
+    const pageActive = ref(false)
     let loadedFilterKey = activeFilterKey.value
     let mangaRequestVersion = 0
     let tagListLoading = false
@@ -370,6 +370,11 @@ export default {
         .finally(() => {
           if (requestVersion === mangaRequestVersion) manga.loading = false
         })
+    }
+
+    function loadMoreManga() {
+      if (!pageActive.value) return
+      loadManga()
     }
 
     // 随机打开一个漫画
@@ -765,11 +770,11 @@ export default {
     })
 
     function activatePageListeners() {
-      pageActive = true
+      pageActive.value = true
       window.addEventListener('scroll', handleScroll)
       handleScroll()
       nextTick(() => {
-        if (!pageActive) return
+        if (!pageActive.value) return
         updateWidth()
         window.addEventListener('resize', updateWidth)
         if (!resizeObserver) {
@@ -781,7 +786,7 @@ export default {
     }
 
     function deactivatePageListeners() {
-      pageActive = false
+      pageActive.value = false
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', updateWidth)
       if (resizeObserver) resizeObserver.disconnect()
@@ -813,6 +818,8 @@ export default {
       toggleRecycle,
       setRecycle,
       loadManga,
+      loadMoreManga,
+      pageActive,
       randomManga,
       scrollToTop,
       showBackToTop,
