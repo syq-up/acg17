@@ -5,12 +5,50 @@
 -->
 <template>
   <section>
-    <div class="side-btn left-btn" @click="randomGame" :style="{ right: '50%', marginRight: (containerWidth / 2 + 30) + 'px' }">
-      <icon icon="#icon-random"></icon>
+    <div class="side-btn-group left-btn-group" :style="{ right: '50%', marginRight: (containerWidth / 2 + 30) + 'px' }">
+      <div class="side-btn" @click="randomGame">
+        <icon icon="#icon-random"></icon>
+      </div>
+      <div class="side-btn" :class="{ active: showTitleSearch || hasTitleFilter }" @click="toggleTitleSearch">
+        <icon icon="#icon-search"></icon>
+        <span v-if="hasTitleFilter" class="side-btn-status" aria-hidden="true"></span>
+      </div>
     </div>
     <div class="side-btn right-btn" v-show="showBackToTop" @click="scrollToTop" :style="{ left: '50%', marginLeft: (containerWidth / 2 + 30) + 'px' }">
       <icon icon="#icon-sort-asc"></icon>
     </div>
+
+    <div class="filter-container" :class="{ 'is-visible': showTitleSearch }" @transitionend="handleFilterPanelTransitionEnd">
+      <div class="filter-collapse">
+        <form class="filter-panel title-search-body" role="search" @submit.prevent="commitTitleSearch">
+          <div class="filter-search-box">
+            <icon icon="#icon-search" class="filter-search-icon"></icon>
+            <input
+              ref="titleSearchInput"
+              v-model="titleSearchDraft"
+              type="search"
+              maxlength="255"
+              placeholder="搜索游戏原文标题或中文标题"
+              aria-label="搜索游戏标题"
+              autocomplete="off"
+              spellcheck="false"
+              @keydown.esc.prevent="closeTitleSearch"
+            >
+            <button
+              v-if="titleSearchDraft || hasTitleFilter"
+              type="button"
+              class="clear-filter-search"
+              aria-label="清空标题搜索"
+              @click="clearTitleSearch"
+            >
+              <icon icon="#icon-close"></icon>
+            </button>
+          </div>
+          <button type="submit" class="submit-title-search">搜索</button>
+        </form>
+      </div>
+    </div>
+
     <ul class="game-container unselectable">
       <li v-for="(game) in gameData.list" :key="game.id" @click="showGameDetail(game)">
         <div class="game-img-container">
@@ -21,6 +59,10 @@
         </div>
       </li>
     </ul>
+    <div v-if="!gameData.loading && gameData.list.length === 0" class="empty-game">
+      <span>{{ emptyGameText }}</span>
+      <button v-if="hasTitleFilter" type="button" @click="clearTitleSearch">清除标题搜索</button>
+    </div>
   </section>
 
   <!-- 游戏详情弹出框 -->
@@ -109,11 +151,17 @@
 </template>
 
 <script>
-import { reactive, ref, onMounted, watch, onUnmounted, nextTick } from 'vue'
+import { computed, reactive, ref, onMounted, watch, onUnmounted, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import server from '@/util/request'
 import Acg17Footer from "../components/Acg17Footer"
 import Icon from "../components/Icon"
 import { useRecycleState } from '@/composables/useRecycleState'
+
+function normalizeTitle(value) {
+  const queryValue = Array.isArray(value) ? value[0] : value
+  return String(queryValue ?? '').trim()
+}
 
 export default {
   name: "Game",
@@ -122,6 +170,9 @@ export default {
     'icon': Icon,
   },
   setup() {
+    const route = useRoute()
+    const router = useRouter()
+
     // 使用全局回收站状态管理
     const { isRecycle, toggleRecycle, setRecycle } = useRecycleState('game')
 
@@ -141,7 +192,19 @@ export default {
 
     const containerWidth = ref(1380)
     const showBackToTop = ref(false)
+    const showTitleSearch = ref(false)
+    const titleSearchInput = ref(null)
+    const activeTitle = computed(() => normalizeTitle(route.query.title))
+    const titleSearchDraft = ref(activeTitle.value)
+    const hasTitleFilter = computed(() => activeTitle.value.length > 0)
+    const emptyGameText = computed(() => (
+      hasTitleFilter.value
+        ? `没有找到标题包含“${activeTitle.value}”的游戏`
+        : '暂无游戏'
+    ))
     let resizeObserver = null
+    let gameRequestVersion = 0
+    let pendingFilterFocus = false
 
     const handleScroll = () => {
       showBackToTop.value = window.scrollY > 500
@@ -157,17 +220,24 @@ export default {
 
     // 获取游戏列表
     async function getGameList(pageNum = 1, deleted = false) {
+      const requestVersion = ++gameRequestVersion
       try {
         gameData.loading = true
+        gameData.list = []
+        gameData.total = 0
+        gameData.disabled = false
+
+        const params = {
+          pageNum,
+          deleted
+        }
+        if (hasTitleFilter.value) params.title = activeTitle.value
 
         const response = await server.get('/game/list', {
-          params: {
-            pageNum: pageNum,
-            deleted: deleted
-          }
+          params
         })
-        
-        if (response.code === 200) {
+
+        if (requestVersion === gameRequestVersion && response.code === 200) {
           const pageData = response.data
           gameData.list = pageData.records || []
           gameData.total = pageData.total || 0
@@ -175,9 +245,64 @@ export default {
           gameData.disabled = pageData.records.length < pageData.size
         }
       } catch (error) {
+        if (requestVersion !== gameRequestVersion) return
         console.error('获取游戏列表失败:', error)
       } finally {
-        gameData.loading = false
+        if (requestVersion === gameRequestVersion) gameData.loading = false
+      }
+    }
+
+    function focusTitleSearchInput() {
+      if (!pendingFilterFocus) return
+      titleSearchInput.value?.focus({ preventScroll: true })
+      pendingFilterFocus = false
+    }
+
+    function closeTitleSearch() {
+      titleSearchDraft.value = activeTitle.value
+      showTitleSearch.value = false
+      pendingFilterFocus = false
+    }
+
+    function toggleTitleSearch() {
+      if (showTitleSearch.value) {
+        closeTitleSearch()
+        return
+      }
+      pendingFilterFocus = true
+      showTitleSearch.value = true
+      titleSearchDraft.value = activeTitle.value
+      scrollToTop()
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        nextTick(focusTitleSearchInput)
+      }
+    }
+
+    function handleFilterPanelTransitionEnd(event) {
+      if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows') return
+      if (showTitleSearch.value) nextTick(focusTitleSearchInput)
+    }
+
+    function updateTitleFilter(title) {
+      const normalizedTitle = normalizeTitle(title)
+      if (normalizedTitle === activeTitle.value) return
+      router.push({
+        path: '/acg/game',
+        query: normalizedTitle ? { title: normalizedTitle } : {}
+      })
+    }
+
+    function commitTitleSearch() {
+      const title = normalizeTitle(titleSearchDraft.value)
+      titleSearchDraft.value = title
+      updateTitleFilter(title)
+    }
+
+    function clearTitleSearch() {
+      titleSearchDraft.value = ''
+      updateTitleFilter('')
+      if (showTitleSearch.value) {
+        nextTick(() => titleSearchInput.value?.focus({ preventScroll: true }))
       }
     }
 
@@ -263,8 +388,13 @@ export default {
     }
 
     // 监听回收站状态变化，重新获取数据
-    watch(isRecycle, (newValue) => {
-      getGameList(1, newValue)
+    watch(isRecycle, () => {
+      getGameList(1, isRecycle.value)
+    })
+
+    watch(activeTitle, title => {
+      titleSearchDraft.value = title
+      getGameList(1, isRecycle.value)
     })
 
     // 组件挂载时获取数据
@@ -306,7 +436,18 @@ export default {
       randomGame,
       scrollToTop,
       showBackToTop,
-      containerWidth
+      containerWidth,
+      showTitleSearch,
+      titleSearchInput,
+      titleSearchDraft,
+      activeTitle,
+      hasTitleFilter,
+      emptyGameText,
+      toggleTitleSearch,
+      closeTitleSearch,
+      handleFilterPanelTransitionEnd,
+      commitTitleSearch,
+      clearTitleSearch
     }
   }
 }
@@ -331,6 +472,132 @@ section {
   min-height: calc(100vh - 104px - 200px);
 }
 
+.filter-container {
+  display: grid;
+  grid-template-rows: 0fr;
+  max-width: 1380px;
+  margin: 0 auto;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-bottom 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+}
+
+.filter-container.is-visible {
+  grid-template-rows: 1fr;
+  margin-bottom: 20px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.filter-collapse {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.filter-panel {
+  padding: 16px 18px;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.title-search-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-search-box {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+}
+
+.filter-search-icon {
+  position: absolute;
+  left: 11px;
+  width: 18px;
+  height: 18px;
+  color: #909399;
+  pointer-events: none;
+}
+
+.filter-search-box input {
+  width: 100%;
+  height: 38px;
+  padding: 0 42px 0 38px;
+  box-sizing: border-box;
+  border: 1px solid #dcdfe6;
+  border-radius: 7px;
+  outline: none;
+  background: #ffffff;
+  color: #303133;
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-search-box input:focus {
+  border-color: #409eff;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12);
+}
+
+.filter-search-box input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear-filter-search {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #909399;
+  cursor: pointer;
+}
+
+.clear-filter-search:hover {
+  background: #f2f6fc;
+  color: #409eff;
+}
+
+.clear-filter-search svg {
+  width: 17px;
+  height: 17px;
+}
+
+.submit-title-search {
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid #409eff;
+  border-radius: 7px;
+  background: #409eff;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.submit-title-search:hover {
+  border-color: #66b1ff;
+  background: #66b1ff;
+}
+
 ul {
   width: 100%;
   max-width: 1380px;
@@ -345,6 +612,7 @@ ul {
 }
 
 .side-btn {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 4px;
@@ -370,14 +638,59 @@ ul {
   fill: currentColor;
 }
 
-.left-btn {
+.left-btn-group {
   position: fixed;
   top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .right-btn {
   position: fixed;
   bottom: 50px;
+}
+
+.side-btn.active {
+  background: #ecf5ff;
+  color: #1976d2;
+}
+
+.side-btn-status {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #f56c6c;
+}
+
+.empty-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 260px;
+  color: #909399;
+  text-align: center;
+}
+
+.empty-game button {
+  padding: 7px 14px;
+  border: 1px solid #409eff;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #409eff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.empty-game button:hover {
+  background: #ecf5ff;
 }
 
 ul li {
@@ -783,5 +1096,30 @@ ul li:hover .game-title {
   font-size: 14px;
   font-weight: 500;
   z-index: 1101;
+}
+
+@media (max-width: 767px) {
+  .filter-panel {
+    padding: 12px;
+  }
+
+  .title-search-body {
+    gap: 8px;
+  }
+
+  .filter-search-box input {
+    font-size: 13px;
+  }
+
+  .submit-title-search {
+    padding: 0 14px;
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-container {
+    transition: none;
+  }
 }
 </style>
