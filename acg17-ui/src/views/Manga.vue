@@ -20,142 +20,148 @@
       <icon icon="#icon-sort-asc"></icon>
     </div>
 
-    <div class="filter-container" :class="{ 'is-visible': showFilterPanel }">
-      <div class="filter-panel">
-        <div class="filter-header">
-          <div class="filter-title">{{ filterPanelTitle }}</div>
-          <button v-if="hasActiveFilters" type="button" class="clear-filters-btn" @click="clearAllFilters">清除全部</button>
-        </div>
-        <div v-if="hasActiveFilters" class="selected-tags" :class="{ compact: !showTitleSearch && !tag.showTagList }">
-          <div class="selected-tags-summary">
-            <span class="selected-tags-label">已启用 {{ activeFilterCount }} 项筛选</span>
-            <span class="selected-tags-result" role="status" aria-live="polite">{{ mangaResultText }}</span>
+    <div
+      class="filter-container"
+      :class="{ 'is-visible': showFilterPanel }"
+      @transitionend="handleFilterPanelTransitionEnd"
+    >
+      <div class="filter-collapse">
+        <div class="filter-panel">
+          <div class="filter-header">
+            <div class="filter-title">{{ filterPanelTitle }}</div>
+            <button v-if="hasActiveFilters" type="button" class="clear-filters-btn" @click="clearAllFilters">清除全部</button>
           </div>
-          <div class="selected-tag-groups">
-            <div v-if="hasTitleFilter" class="selected-tag-group">
-              <span class="selected-tag-category">标题</span>
-              <button
-                type="button"
-                class="selected-tag"
-                :aria-label="`清除标题搜索 ${activeTitle}`"
-                @click="clearTitleSearch"
-              >
-                <span>{{ activeTitle }}</span>
-                <span class="selected-tag-remove" aria-hidden="true">×</span>
-              </button>
+          <div v-if="hasActiveFilters" class="selected-tags" :class="{ compact: !showTitleSearch && !tag.showTagList }">
+            <div class="selected-tags-summary">
+              <span class="selected-tags-label">已启用 {{ activeFilterCount }} 项筛选</span>
+              <span class="selected-tags-result" role="status" aria-live="polite">{{ mangaResultText }}</span>
             </div>
-            <div v-for="group in selectedTagGroups" :key="'selected-group-' + group.key" class="selected-tag-group">
-              <span class="selected-tag-category">{{ group.label }}</span>
-              <button
-                v-for="selectedTag in group.tags"
-                :key="'selected-' + selectedTag.tagId"
-                type="button"
-                class="selected-tag"
-                :aria-label="`移除标签 ${selectedTag.tagName}`"
-                @click="toggleTag(selectedTag.tagId)"
-              >
-                <span>{{ selectedTag.tagName }}</span>
-                <span class="selected-tag-remove" aria-hidden="true">×</span>
-              </button>
+            <div class="selected-tag-groups">
+              <div v-if="hasTitleFilter" class="selected-tag-group">
+                <span class="selected-tag-category">标题</span>
+                <button
+                  type="button"
+                  class="selected-tag"
+                  :aria-label="`清除标题搜索 ${activeTitle}`"
+                  @click="clearTitleSearch"
+                >
+                  <span>{{ activeTitle }}</span>
+                  <span class="selected-tag-remove" aria-hidden="true">×</span>
+                </button>
+              </div>
+              <div v-for="group in selectedTagGroups" :key="'selected-group-' + group.key" class="selected-tag-group">
+                <span class="selected-tag-category">{{ group.label }}</span>
+                <button
+                  v-for="selectedTag in group.tags"
+                  :key="'selected-' + selectedTag.tagId"
+                  type="button"
+                  class="selected-tag"
+                  :aria-label="`移除标签 ${selectedTag.tagName}`"
+                  @click="toggleTag(selectedTag.tagId)"
+                >
+                  <span>{{ selectedTag.tagName }}</span>
+                  <span class="selected-tag-remove" aria-hidden="true">×</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <form v-show="showTitleSearch" class="title-search-body" role="search" @submit.prevent="commitTitleSearch">
-          <div class="filter-search-box title-search-box">
-            <icon icon="#icon-search" class="filter-search-icon"></icon>
-            <input
-              ref="titleSearchInput"
-              v-model="titleSearchDraft"
-              type="search"
-              maxlength="255"
-              placeholder="搜索漫画原文标题或中文标题"
-              aria-label="搜索漫画标题"
-              autocomplete="off"
-              spellcheck="false"
-              @keydown.esc.prevent="closeTitleSearch"
-            >
-            <button
-              v-if="titleSearchDraft || hasTitleFilter"
-              type="button"
-              class="clear-filter-search"
-              aria-label="清空标题搜索"
-              @click="clearTitleSearch"
-            >
-              <icon icon="#icon-close"></icon>
-            </button>
-          </div>
-          <button type="submit" class="submit-title-search">搜索</button>
-        </form>
-
-        <div v-show="tag.showTagList" class="tag-body">
-          <div class="tag-search-area">
-            <div class="filter-search-box">
+          <form v-show="showTitleSearch" class="title-search-body" role="search" @submit.prevent="commitTitleSearch">
+            <div class="filter-search-box title-search-box">
               <icon icon="#icon-search" class="filter-search-icon"></icon>
               <input
-                ref="tagSearchInput"
-                v-model="tagSearch"
+                ref="titleSearchInput"
+                v-model="titleSearchDraft"
                 type="search"
-                placeholder="输入标签名称进行查找"
-                aria-label="搜索标签"
+                maxlength="255"
+                placeholder="搜索漫画原文标题或中文标题"
+                aria-label="搜索漫画标题"
                 autocomplete="off"
                 spellcheck="false"
-                :disabled="tag.loading"
-                @keydown="handleTagSearchKeydown"
+                @keydown.esc.prevent="closeTitleSearch"
               >
-              <button v-if="tagSearch" type="button" class="clear-filter-search" aria-label="清空标签搜索" @click="clearTagSearch">
+              <button
+                v-if="titleSearchDraft || hasTitleFilter"
+                type="button"
+                class="clear-filter-search"
+                aria-label="清空标题搜索"
+                @click="clearTitleSearch"
+              >
                 <icon icon="#icon-close"></icon>
               </button>
             </div>
-            <div v-if="isTagSearching" class="tag-search-summary" role="status" aria-live="polite">
-              <span>匹配 <strong>{{ matchingTagCount }}</strong> 个标签</span>
-              <span v-if="matchingCategorySummary">· {{ matchingCategorySummary }}</span>
-            </div>
-          </div>
-          <div class="tag-results" :class="{ searching: isTagSearching }">
-            <div
-              v-for="group in displayedTagGroups"
-              :key="group.key"
-              class="tag-group"
-            >
-              <div class="tag-group-heading">
-                <span class="tag-group-label">{{ group.label }}</span>
-                <span class="tag-group-count">{{ group.countText }}</span>
-              </div>
-              <div class="tags-container">
-                <button
-                  v-for="item in group.tags"
-                  :key="group.key + '-' + item.tagId"
-                  type="button"
-                  class="tag"
-                  :class="{
-                    active: isTagActive(item.tagId),
-                    'keyboard-active': isTagSearching && item.searchIndex === activeTagSearchIndex
-                  }"
-                  :aria-pressed="isTagActive(item.tagId)"
-                  @click="toggleTag(item.tagId)"
-                  @mouseenter="setActiveTagSearchIndex(item.searchIndex)"
+            <button type="submit" class="submit-title-search">搜索</button>
+          </form>
+
+          <div v-show="tag.showTagList" class="tag-body">
+            <div class="tag-search-area">
+              <div class="filter-search-box">
+                <icon icon="#icon-search" class="filter-search-icon"></icon>
+                <input
+                  ref="tagSearchInput"
+                  v-model="tagSearch"
+                  type="search"
+                  placeholder="输入标签名称进行查找"
+                  aria-label="搜索标签"
+                  autocomplete="off"
+                  spellcheck="false"
+                  :disabled="tag.loading"
+                  @keydown="handleTagSearchKeydown"
                 >
-                  <template v-for="(part, partIndex) in item.nameParts" :key="partIndex">
-                    <mark v-if="part.match">{{ part.text }}</mark>
-                    <span v-else>{{ part.text }}</span>
-                  </template>
-                  <span class="tag-count">{{ item.tagCount }}</span>
-                </button>
-                <button v-if="group.canToggle" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
-                  {{ group.expanded ? '收起' : `展开其余 ${group.hiddenCount} 个` }}
-                  <icon
-                    icon="#icon-down"
-                    class="expand-tag-arrow"
-                    :class="{ expanded: group.expanded }"
-                    aria-hidden="true"
-                  ></icon>
+                <button v-if="tagSearch" type="button" class="clear-filter-search" aria-label="清空标签搜索" @click="clearTagSearch">
+                  <icon icon="#icon-close"></icon>
                 </button>
               </div>
+              <div v-if="isTagSearching" class="tag-search-summary" role="status" aria-live="polite">
+                <span>匹配 <strong>{{ matchingTagCount }}</strong> 个标签</span>
+                <span v-if="matchingCategorySummary">· {{ matchingCategorySummary }}</span>
+              </div>
             </div>
-            <div v-if="tag.loading && !hasDisplayedTags" class="empty-tags">标签加载中…</div>
-            <div v-else-if="!hasDisplayedTags" class="empty-tags">
-              {{ isTagSearching ? `没有找到包含“${tagSearch.trim()}”的标签` : '暂无可用标签' }}
+            <div class="tag-results" :class="{ searching: isTagSearching }">
+              <div
+                v-for="group in displayedTagGroups"
+                :key="group.key"
+                class="tag-group"
+              >
+                <div class="tag-group-heading">
+                  <span class="tag-group-label">{{ group.label }}</span>
+                  <span class="tag-group-count">{{ group.countText }}</span>
+                </div>
+                <div class="tags-container">
+                  <button
+                    v-for="item in group.tags"
+                    :key="group.key + '-' + item.tagId"
+                    type="button"
+                    class="tag"
+                    :class="{
+                      active: isTagActive(item.tagId),
+                      'keyboard-active': isTagSearching && item.searchIndex === activeTagSearchIndex
+                    }"
+                    :aria-pressed="isTagActive(item.tagId)"
+                    @click="toggleTag(item.tagId)"
+                    @mouseenter="setActiveTagSearchIndex(item.searchIndex)"
+                  >
+                    <template v-for="(part, partIndex) in item.nameParts" :key="partIndex">
+                      <mark v-if="part.match">{{ part.text }}</mark>
+                      <span v-else>{{ part.text }}</span>
+                    </template>
+                    <span class="tag-count">{{ item.tagCount }}</span>
+                  </button>
+                  <button v-if="group.canToggle" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
+                    {{ group.expanded ? '收起' : `展开其余 ${group.hiddenCount} 个` }}
+                    <icon
+                      icon="#icon-down"
+                      class="expand-tag-arrow"
+                      :class="{ expanded: group.expanded }"
+                      aria-hidden="true"
+                    ></icon>
+                  </button>
+                </div>
+              </div>
+              <div v-if="tag.loading && !hasDisplayedTags" class="empty-tags">标签加载中…</div>
+              <div v-else-if="!hasDisplayedTags" class="empty-tags">
+                {{ isTagSearching ? `没有找到包含“${tagSearch.trim()}”的标签` : '暂无可用标签' }}
+              </div>
             </div>
           </div>
         </div>
@@ -269,6 +275,7 @@ export default {
 
     const containerWidth = ref(1380)
     const showBackToTop = ref(false)
+    const filterPanelOpen = ref(false)
     const showTitleSearch = ref(false)
     const titleSearchInput = ref(null)
     const tagSearch = ref('')
@@ -305,6 +312,8 @@ export default {
     let tagListLoading = false
     let tagListLoaded = false
     let tagListRequestVersion = 0
+    let pendingFilterClose = null
+    let pendingFilterFocus = null
 
     const handleScroll = () => {
       showBackToTop.value = window.scrollY > 500
@@ -391,7 +400,7 @@ export default {
     })
 
     const showFilterPanel = computed(() => (
-      showTitleSearch.value || tag.showTagList || hasActiveFilters.value
+      filterPanelOpen.value || hasActiveFilters.value
     ))
     const filterPanelTitle = computed(() => {
       if (showTitleSearch.value) return '标题搜索'
@@ -474,33 +483,82 @@ export default {
       return groups
     })
 
+    function finishPendingFilterClose() {
+      if (pendingFilterClose === 'title') showTitleSearch.value = false
+      if (pendingFilterClose === 'tag') tag.showTagList = false
+      pendingFilterClose = null
+    }
+
+    function closeFilterPanel(editor) {
+      filterPanelOpen.value = false
+      pendingFilterClose = editor
+      pendingFilterFocus = null
+      if (hasActiveFilters.value || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        finishPendingFilterClose()
+      }
+    }
+
+    function focusPendingFilterInput() {
+      const input = pendingFilterFocus === 'title'
+        ? titleSearchInput.value
+        : pendingFilterFocus === 'tag' ? tagSearchInput.value : null
+      if (!input || input.disabled) return
+      input.focus({ preventScroll: true })
+      pendingFilterFocus = null
+    }
+
+    function requestFilterInputFocus(editor, panelWasVisible) {
+      pendingFilterFocus = editor
+      if (panelWasVisible || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        nextTick(focusPendingFilterInput)
+      }
+    }
+
+    function handleFilterPanelTransitionEnd(event) {
+      if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows') return
+      if (!showFilterPanel.value) {
+        finishPendingFilterClose()
+      } else {
+        nextTick(focusPendingFilterInput)
+      }
+    }
+
     function closeTitleSearch() {
-      showTitleSearch.value = false
       titleSearchDraft.value = activeTitle.value
+      closeFilterPanel('title')
     }
 
     function toggleTitleSearch() {
-      if (showTitleSearch.value) {
+      if (showTitleSearch.value && filterPanelOpen.value) {
         closeTitleSearch()
         return
       }
+      const panelWasVisible = showFilterPanel.value
+      pendingFilterClose = null
+      filterPanelOpen.value = true
       showTitleSearch.value = true
       tag.showTagList = false
       titleSearchDraft.value = activeTitle.value
       scrollToTop()
-      nextTick(() => titleSearchInput.value?.focus())
+      requestFilterInputFocus('title', panelWasVisible)
     }
 
     // 打开/关闭标签列表
     function openTagList() {
-      const willOpen = !tag.showTagList
-      tag.showTagList = willOpen
-      scrollToTop()
-      if (willOpen) {
-        closeTitleSearch()
-        loadTagList()
-        nextTick(() => tagSearchInput.value?.focus())
+      if (tag.showTagList && filterPanelOpen.value) {
+        closeFilterPanel('tag')
+        scrollToTop()
+        return
       }
+      const panelWasVisible = showFilterPanel.value
+      pendingFilterClose = null
+      filterPanelOpen.value = true
+      tag.showTagList = true
+      showTitleSearch.value = false
+      titleSearchDraft.value = activeTitle.value
+      scrollToTop()
+      loadTagList()
+      requestFilterInputFocus('tag', panelWasVisible)
     }
 
     function loadTagList(force = false) {
@@ -526,6 +584,7 @@ export default {
           if (requestVersion === tagListRequestVersion) {
             tagListLoading = false
             tag.loading = false
+            if (pendingFilterFocus === 'tag') nextTick(focusPendingFilterInput)
           }
         })
     }
@@ -572,7 +631,7 @@ export default {
     function clearTagSearch() {
       tagSearch.value = ''
       activeTagSearchIndex.value = -1
-      nextTick(() => tagSearchInput.value?.focus())
+      nextTick(() => tagSearchInput.value?.focus({ preventScroll: true }))
     }
 
     function handleTagSearchKeydown(event) {
@@ -625,7 +684,9 @@ export default {
     function clearTitleSearch() {
       titleSearchDraft.value = ''
       updateFilters({ title: '' })
-      if (showTitleSearch.value) nextTick(() => titleSearchInput.value?.focus())
+      if (showTitleSearch.value) {
+        nextTick(() => titleSearchInput.value?.focus({ preventScroll: true }))
+      }
     }
 
     function updateTagFilter(tagIds) {
@@ -685,6 +746,10 @@ export default {
 
     watch(activeTitle, title => {
       titleSearchDraft.value = title
+    })
+
+    watch(hasActiveFilters, active => {
+      if (active && pendingFilterClose) finishPendingFilterClose()
     })
 
     watch(normalizedTagSearch, query => {
@@ -763,6 +828,7 @@ export default {
       activeFilterCount,
       toggleTitleSearch,
       closeTitleSearch,
+      handleFilterPanelTransitionEnd,
       commitTitleSearch,
       clearTitleSearch,
       clearAllFilters,
@@ -817,21 +883,29 @@ section {
 }
 
 .filter-container {
+  display: grid;
+  grid-template-rows: 0fr;
   max-width: 1380px;
   margin: 0 auto;
-  max-height: 0;
   opacity: 0;
   overflow: hidden;
-  transition: max-height 0.5s ease-out, opacity 0.4s ease-out 0.2s, margin-bottom 0.1s ease-out 0.3s;
+  transition:
+    grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-bottom 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
   pointer-events: none;
 }
 
 .filter-container.is-visible {
+  grid-template-rows: 1fr;
   margin-bottom: 20px;
-  max-height: 1000px;
   opacity: 1;
-  transition: max-height 0.5s ease-in, opacity 0.3s ease-in, margin-bottom 0.1s ease-out 0.2s;
   pointer-events: auto;
+}
+
+.filter-collapse {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .filter-panel {
@@ -1105,7 +1179,7 @@ section {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
   max-height: 600px;
-  padding: 2px 5px 2px 2px;
+  padding-right: 5px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -1264,11 +1338,6 @@ ul {
   grid-auto-rows: var(--height);
   gap: var(--gap);
   justify-content: center;
-  transition: transform 0.6s ease;
-}
-
-.filter-container.is-visible + ul {
-  transform: translateY(10px);
 }
 
 .side-btn {
@@ -1623,6 +1692,12 @@ ul li:hover .manga-title {
 
   ul li:hover {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-container {
+    transition: none;
   }
 }
 
