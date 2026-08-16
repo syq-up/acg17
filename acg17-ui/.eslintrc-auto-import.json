@@ -1,0 +1,6 @@
+{
+  "globals": {
+    "ElMessage": "readonly",
+    "ElMessageBox": "readonly"
+  }
+}

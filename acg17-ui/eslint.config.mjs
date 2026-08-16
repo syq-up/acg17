@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import globals from 'globals'
+import autoImportGlobals from './.eslintrc-auto-import.json' with { type: 'json' }
 
 export default [
   {
@@ -16,6 +17,7 @@ export default [
     languageOptions: {
       globals: {
         ...globals.browser,
+        ...autoImportGlobals.globals,
       },
     },
     rules: {

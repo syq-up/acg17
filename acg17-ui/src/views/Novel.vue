@@ -190,7 +190,6 @@ import { useStore } from 'vuex'
 import { useRouter } from 'vue-router';
 import server from '@/util/request';
 import Acg17Footer from "../components/Acg17Footer";
-import { ElMessage } from "element-plus";
 import { useRecycleState } from '@/composables/useRecycleState';
 
 export default {

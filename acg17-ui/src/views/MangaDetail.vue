@@ -160,7 +160,6 @@ import { useRoute, useRouter } from 'vue-router'
 import Acg17Footer from '../components/Acg17Footer'
 import MangaTagEditor from '../components/manga-detail/MangaTagEditor.vue'
 import server from '@/util/request';
-import { ElMessage, ElMessageBox } from 'element-plus';
 
 const TAG_CATEGORIES = [
   { category: 'group', key: 'groupTags', name: '团队' },
@@ -173,7 +172,7 @@ const TAG_CATEGORIES = [
   { category: 'original', key: 'originalTags', name: '原作' },
 ]
 
-const INITIAL_MANGA_PAGE_COUNT = 12
+const INITIAL_MANGA_PAGE_COUNT = 18
 const MANGA_PAGE_BATCH_SIZE = 6
 
 export default {
@@ -291,7 +290,7 @@ export default {
           )
         }
       }, {
-        rootMargin: '0px 0px 600px 0px',
+        rootMargin: '0px 0px 500px 0px',
         threshold: 0,
       })
 
@@ -368,27 +367,7 @@ export default {
 
     // 加载相关推荐漫画
     async function loadRelatedManga() {
-      try {
-        const response = await server.get('/manga/list', {
-          params: {
-            pageNum: 1,
-            deleted: false
-          }
-        })
-
-        if (response.code === 200 && response.data && response.data.records) {
-          // 取前4个作为相关推荐，排除当前漫画
-          const currentMangaId = parseInt(route.params.id)
-          const filteredManga = response.data.records
-            .filter(item => item.id !== currentMangaId)
-            .slice(0, 4)
-
-          relatedManga.length = 0
-          relatedManga.push(...filteredManga)
-        }
-      } catch (error) {
-        console.error('加载相关推荐时发生错误:', error)
-      }
+      // TODO 后端提供了一个接口来获取相关推荐漫画
     }
 
     // 返回上一页（但排除漫画页)

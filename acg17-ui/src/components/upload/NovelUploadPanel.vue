@@ -138,7 +138,6 @@
 
 <script setup>
 import { nextTick, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import server from '@/util/request'
 
 const props = defineProps({

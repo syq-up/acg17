@@ -67,7 +67,6 @@ import server from '@/util/request';
 
 import LoadingHeart from "../components/LoadingHeart";
 import Acg17Footer from "../components/Acg17Footer";
-import { ElMessage } from "element-plus";
 import { useRecycleState, loadData } from '@/composables/useRecycleState';
 
 export default {

@@ -1,7 +1,6 @@
 import axios from "axios";
 import store from "../store";
 import router from "../router";
-import { ElMessage } from "element-plus";
 
 // 创建axios实例
 const server = axios.create({

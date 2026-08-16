@@ -128,7 +128,6 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import { ElMessage } from 'element-plus'
 import server from '@/util/request'
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024

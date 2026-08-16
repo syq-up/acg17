@@ -256,7 +256,6 @@ import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router';
 import server from '@/util/request';
 import LoadingHeart from "../components/LoadingHeart";
-import { ElMessage } from "element-plus";
 
 export default {
   name: "NovelReader",

@@ -15,8 +15,6 @@ import { reactive } from 'vue'
 // import LoadingHeart from "../components/LoadingHeart";
 import Acg17Footer from "../components/Acg17Footer";
 import { useRecycleState } from '@/composables/useRecycleState';
-// import {ElMessage} from "element-plus";
-// import { ElMessage } from "element-plus";
 
 export default {
   name: "Anime",

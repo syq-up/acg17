@@ -10,7 +10,5 @@ import './assets/fonts/Blueaka_Bold/Blueaka_Bold.css'
 // 全局组件
 import Icon from './components/Icon';
 import LoadingHeart from './components/LoadingHeart';
-// TODO element-plus，使用命令组件样式没有导入
-import 'element-plus/es/components/message/style/css'
 
 createApp(App).use(store).use(router).component('icon', Icon).component('loading-heart', LoadingHeart).mount('#app')

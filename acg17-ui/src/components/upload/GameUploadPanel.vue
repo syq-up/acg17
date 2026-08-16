@@ -186,7 +186,6 @@
 
 <script setup>
 import { onUnmounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import server from '@/util/request'
 
 const emit = defineEmits(['completed'])

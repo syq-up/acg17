@@ -39,7 +39,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import server from '@/util/request'
 import uploadLoadingUrl from '@/assets/icon/upload/loading.svg'
 

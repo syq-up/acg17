@@ -11,11 +11,16 @@ export default defineConfig({
     vue(),
     AutoImport({
       dts: false,
-      resolvers: [ElementPlusResolver()],
+      eslintrc: {
+        enabled: true,
+        filepath: './.eslintrc-auto-import.json',
+        globalsPropValue: 'readonly',
+      },
+      resolvers: [ElementPlusResolver({ importStyle: 'css' })],
     }),
     Components({
       dts: false,
-      resolvers: [ElementPlusResolver()],
+      resolvers: [ElementPlusResolver({ importStyle: 'css' })],
     }),
   ],
   resolve: {
