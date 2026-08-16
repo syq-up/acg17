@@ -245,7 +245,9 @@ public class MangaArchiveProcessor {
                 || "thumbs.db".equals(lowerName)
                 || "__macosx".equals(lowerName)
                 || lowerName.startsWith("._")
-                || lowerName.endsWith(".torrent");
+                || lowerName.endsWith(".torrent")
+                || lowerName.endsWith(".txt")
+                || lowerName.endsWith(".json");
     }
 
     /**

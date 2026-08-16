@@ -39,8 +39,10 @@
               value-key="tagId"
               multiple
               filterable
+              allow-create
+              default-first-option
               clearable
-              placeholder="请选择或搜索团队"
+              placeholder="请选择或输入团队"
             >
               <el-option
                 v-for="tag in groupTagGroup.available"
@@ -59,8 +61,10 @@
               value-key="tagId"
               multiple
               filterable
+              allow-create
+              default-first-option
               clearable
-              placeholder="请选择或搜索艺术家"
+              placeholder="请选择或输入艺术家"
             >
               <el-option
                 v-for="tag in artistTagGroup.available"
@@ -85,20 +89,23 @@
           >
             <input ref="mangaFileInput" type="file" accept=".zip" hidden @click.stop @change="selectFile(manga, $event, '漫画文件')">
             <div class="upload-content">
-              <div class="upload-icon"><icon icon="#icon-upload"></icon></div>
-              <div class="upload-text">
-                <p class="primary-text">拖拽漫画文件到此处上传</p>
-                <p class="secondary-text">或 <em>点击选择文件</em></p>
-                <p class="hint-text">仅支持 ZIP 格式，单个文件不超过 500MB</p>
+              <template v-if="!manga.selectedFile">
+                <div class="upload-icon"><icon icon="#icon-upload"></icon></div>
+                <div class="upload-text">
+                  <p class="primary-text">拖拽漫画文件到此处上传</p>
+                  <p class="secondary-text">或 <em>点击选择文件</em></p>
+                  <p class="hint-text">仅支持 ZIP 格式，单个文件不超过 500MB</p>
+                </div>
+              </template>
+              <div v-else class="manga-file-list">
+                <div class="upload-icon"><icon icon="#icon-upload"></icon></div>
+                <div class="file-item">
+                  <span class="file-name">{{ manga.selectedFile.name }}</span>
+                  <button class="remove-btn" type="button" @click.stop="removeSelectedFile(manga, mangaFileInput)">
+                    <icon icon="#icon-delete"></icon>
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-          <div v-if="manga.selectedFile" class="file-list manga-file-list">
-            <div class="file-item">
-              <span class="file-name">{{ manga.selectedFile.name }}</span>
-              <button class="remove-btn" type="button" @click="removeSelectedFile(manga, mangaFileInput)">
-                <icon icon="#icon-delete"></icon>
-              </button>
             </div>
           </div>
         </div>
@@ -159,11 +166,11 @@
       </div>
 
       <div class="form-actions manga-submit-actions">
-        <span v-if="manga.error" class="error-message">{{ manga.error }}</span>
         <button class="submit-btn" type="submit" :disabled="manga.uploading">
           <icon icon="#icon-upload"></icon>
           {{ manga.uploading ? '上传中...' : '上传漫画' }}
         </button>
+        <span v-if="manga.error" class="error-message">{{ manga.error }}</span>
       </div>
     </form>
 
@@ -230,7 +237,7 @@
           </div>
         </div>
 
-        <div v-if="chapter.selectedFile" class="file-list">
+        <div v-if="chapter.selectedFile">
           <div class="file-item">
             <span class="file-name">{{ chapter.selectedFile.name }}</span>
             <button class="remove-btn" type="button" @click="removeSelectedFile(chapter, chapterFileInput)">
@@ -410,11 +417,7 @@ async function addManga() {
   formData.append('title', title)
   formData.append('chineseTitle', manga.chineseTitle.trim())
   formData.append('tags', JSON.stringify(tagGroups.flatMap(group => (
-    group.selected.map(tag => ({
-      ...(tag.tagId > 0 ? { tagId: tag.tagId } : {}),
-      tagName: tag.tagName,
-      category: group.category,
-    }))
+    group.selected.map(tag => serializeTag(tag, group.category))
   ))))
   formData.append('file', manga.selectedFile)
 
@@ -430,6 +433,17 @@ async function addManga() {
     manga.error = `上传失败【${error}】，请重试`
   } finally {
     manga.uploading = false
+  }
+}
+
+function serializeTag(tag, category) {
+  if (typeof tag === 'string') {
+    return { tagName: tag.trim(), category }
+  }
+  return {
+    ...(tag.tagId > 0 ? { tagId: tag.tagId } : {}),
+    tagName: tag.tagName,
+    category,
   }
 }
 
@@ -658,7 +672,23 @@ async function addChapter() {
 }
 
 .manga-file-list {
+  box-sizing: border-box;
+  width: 100%;
   margin-top: 0;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.manga-file-list .file-item {
+  margin-bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  text-align: left;
+}
+
+.custom-upload .manga-file-list .remove-btn {
+  pointer-events: auto;
 }
 
 .manga-submit-actions {
@@ -886,10 +916,6 @@ async function addChapter() {
 }
 
 /* 文件列表样式 */
-.file-list {
-  margin-top: 16px;
-}
-
 .file-item {
   display: grid;
   grid-template-columns: auto 40px;
