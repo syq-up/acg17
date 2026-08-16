@@ -247,7 +247,6 @@ PUT    /api/game/{id}/restore
 | --- | --- | --- |
 | `file.uploadFolder` | `/home/shiyq/work-data/acg17/` | 开发环境上传根目录，可由 `FILE_UPLOAD_FOLDER` 覆盖 |
 | `file.illustrationFolder` | `illustrations/upload/` | 原图目录 |
-| `file.illustrationThumbFolder` | `illustrations/upload-t/` | 插画缩略图目录 |
 | `file.mangaFolder` | `manga/` | 漫画目录 |
 | `file.novelFolder` | `novels/` | 小说目录 |
 | `file.gameFolder` | `games/` | 游戏目录 |

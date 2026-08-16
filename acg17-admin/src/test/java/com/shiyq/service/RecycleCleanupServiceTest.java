@@ -50,15 +50,13 @@ class RecycleCleanupServiceTest {
         ReflectionTestUtils.setField(fileStorageService, "uploadFolder", uploadFolder.toString());
         service.setFileStorageService(fileStorageService);
         ReflectionTestUtils.setField(service, "illustrationFolder", "illustrations/upload");
-        ReflectionTestUtils.setField(service, "illustrationThumbFolder", "illustrations/thumb");
         ReflectionTestUtils.setField(service, "mangaFolder", "manga");
         ReflectionTestUtils.setField(service, "gameFolder", "games");
     }
 
     @Test
-    void illustrationCleanupUsesTheRecordOwnerAndDeletesBothFiles() throws Exception {
+    void illustrationCleanupUsesTheRecordOwnerAndDeletesOriginalFile() throws Exception {
         Path original = createFile("illustrations/upload/example.webp");
-        Path thumb = createFile("illustrations/thumb/example.webp");
         Illustration illustration = new Illustration();
         illustration.setId(8);
         illustration.setPath("example.webp");
@@ -70,7 +68,6 @@ class RecycleCleanupServiceTest {
         assertTrue(service.cleanIllustration(8, CUTOFF));
 
         assertFalse(Files.exists(original));
-        assertFalse(Files.exists(thumb));
     }
 
     @Test

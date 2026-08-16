@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,8 +37,6 @@ public class RecycleCleanupService {
 
     @Value("${file.illustrationFolder}")
     private String illustrationFolder;
-    @Value("${file.illustrationThumbFolder}")
-    private String illustrationThumbFolder;
     @Value("${file.mangaFolder}")
     private String mangaFolder;
     @Value("${file.gameFolder}")
@@ -86,12 +83,11 @@ public class RecycleCleanupService {
         }
 
         Path originalPath = fileStorageService.resolveManagedPath(illustrationFolder, illustration.getPath());
-        Path thumbPath = fileStorageService.resolveManagedPath(illustrationThumbFolder, illustration.getPath());
 
         if (illustrationMapper.realDeleteExpiredById(id, cutoff) != 1) {
             throw new IllegalStateException("物理删除插画记录失败: " + id);
         }
-        fileStorageService.deleteAfterCommit(Arrays.asList(originalPath, thumbPath));
+        fileStorageService.deleteAfterCommit(List.of(originalPath));
         return true;
     }
 
@@ -107,7 +103,7 @@ public class RecycleCleanupService {
         if (mangaMapper.realDeleteExpiredById(id, cutoff) != 1) {
             throw new IllegalStateException("物理删除漫画记录失败: " + id);
         }
-        fileStorageService.deleteAfterCommit(Arrays.asList(mangaDirectory));
+        fileStorageService.deleteAfterCommit(List.of(mangaDirectory));
         return true;
     }
 
@@ -123,7 +119,6 @@ public class RecycleCleanupService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         cleaned += fileStorageService.cleanupUnreferencedFiles(illustrationFolder, illustrationPaths, cutoff);
-        cleaned += fileStorageService.cleanupUnreferencedFiles(illustrationThumbFolder, illustrationPaths, cutoff);
 
         List<Manga> mangas = mangaMapper.getAllForFileCleanup();
         List<String> mangaIds = mangas.stream()

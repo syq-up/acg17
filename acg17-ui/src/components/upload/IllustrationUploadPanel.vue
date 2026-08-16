@@ -64,7 +64,7 @@ async function uploadIllustration({ file }) {
     const image = images.value.find(item => item.id === temporaryId)
     if (image) {
       image.id = res.data.id
-      image.url = res.data.urlTiny
+      image.url = res.data.thumbnailUrl
     }
   } catch (error) {
     images.value = images.value.filter(item => item.id !== temporaryId)

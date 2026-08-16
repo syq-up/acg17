@@ -2,15 +2,23 @@ package com.shiyq.service.impl;
 
 import com.shiyq.entity.DO.Illustration;
 import com.shiyq.entity.DTO.UserContext;
+import com.shiyq.entity.VO.IllustrationVO;
+import com.shiyq.entity.VO.PageVO;
 import com.shiyq.entity.VO.ReorderRequest;
 import com.shiyq.mapper.IllustrationMapper;
 import com.shiyq.mapper.UserMapper;
+import com.shiyq.service.MediaUrlSigner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +39,11 @@ class IllustrationServiceImplTest {
         service = new IllustrationServiceImpl();
         service.setIllustrationMapper(illustrationMapper);
         service.setUserMapper(userMapper);
+        MediaUrlSigner mediaUrlSigner = mock(MediaUrlSigner.class);
+        when(mediaUrlSigner.sign(anyString(), anyString()))
+                .thenReturn("/api/media?path=signed");
+        service.setMediaUrlSigner(mediaUrlSigner);
+        ReflectionTestUtils.setField(service, "illustrationFolder", "illustrations/upload");
         UserContext.add(USER_ID);
     }
 
@@ -78,6 +91,21 @@ class IllustrationServiceImplTest {
         when(illustrationMapper.getRandomRecord()).thenReturn(null);
 
         assertNull(service.getRandomIllustration());
+    }
+
+    @Test
+    void listReturnsOriginalAndSmallStyleUrlsFromTheOriginalFile() {
+        Illustration illustration = illustration(11, 3);
+        illustration.setPath("image.png");
+        when(illustrationMapper.getListByCondition(USER_ID, 1L, 36L, false))
+                .thenReturn(List.of(illustration));
+        when(illustrationMapper.getTotalByCondition(USER_ID, false)).thenReturn(1L);
+
+        PageVO<IllustrationVO> page = service.getList(1L, false);
+
+        IllustrationVO result = page.getRecords().getFirst();
+        assertEquals("/api/media?path=signed", result.getOriginalUrl());
+        assertEquals("/api/media?path=signed&style=small", result.getThumbnailUrl());
     }
 
     private Illustration illustration(int id, int sortOrder) {

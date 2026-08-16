@@ -7,6 +7,7 @@ import com.shiyq.entity.DTO.GameUploadDTO;
 import com.shiyq.entity.DTO.MangaChapterUploadDTO;
 import com.shiyq.entity.DTO.MangaUploadDTO;
 import com.shiyq.entity.DTO.UserContext;
+import com.shiyq.entity.VO.IllustrationVO;
 import com.shiyq.entity.VO.MangaChapterVO;
 import com.shiyq.mapper.GameMapper;
 import com.shiyq.mapper.IllustrationMapper;
@@ -69,7 +70,7 @@ class FileOperationConsistencyServiceTest {
     }
 
     @Test
-    void illustrationUploadPublishesOriginalAndThumbnailTogether() throws Exception {
+    void illustrationUploadPublishesOnlyOriginalAndReturnsDerivedThumbnailUrl() throws Exception {
         IllustrationMapper illustrationMapper = mock(IllustrationMapper.class);
         UserMapper userMapper = mock(UserMapper.class);
         AtomicReference<Illustration> savedIllustration = new AtomicReference<>();
@@ -89,17 +90,16 @@ class FileOperationConsistencyServiceTest {
         when(mediaUrlSigner.sign(anyString(), anyString())).thenReturn("/api/media?signed=test");
         service.setMediaUrlSigner(mediaUrlSigner);
         ReflectionTestUtils.setField(service, "illustrationFolder", "illustrations/upload");
-        ReflectionTestUtils.setField(service, "illustrationThumbFolder", "illustrations/thumb");
 
-        service.upload(new MockMultipartFile("file", "image.jpg", "image/jpeg", pngBytes()));
+        IllustrationVO result = service.upload(
+                new MockMultipartFile("file", "image.jpg", "image/jpeg", pngBytes()));
 
         assertEquals(1L, regularFileCount(uploadFolder.resolve("illustrations/upload")));
-        assertEquals(1L, regularFileCount(uploadFolder.resolve("illustrations/thumb")));
         assertTrue(savedIllustration.get().getPath().endsWith(".png"));
         assertTrue(Files.isRegularFile(uploadFolder.resolve("illustrations/upload")
                 .resolve(savedIllustration.get().getPath())));
-        assertTrue(Files.isRegularFile(uploadFolder.resolve("illustrations/thumb")
-                .resolve(savedIllustration.get().getPath())));
+        assertEquals("/api/media?signed=test", result.getOriginalUrl());
+        assertEquals("/api/media?signed=test&style=small", result.getThumbnailUrl());
         assertEquals(0L, childCount(uploadFolder.resolve(".staging")));
     }
 
@@ -130,7 +130,6 @@ class FileOperationConsistencyServiceTest {
         service.setIllustrationMapper(illustrationMapper);
         service.setFileStorageService(fileStorageService);
         ReflectionTestUtils.setField(service, "illustrationFolder", "illustrations/upload");
-        ReflectionTestUtils.setField(service, "illustrationThumbFolder", "illustrations/thumb");
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> service.upload(new MockMultipartFile(

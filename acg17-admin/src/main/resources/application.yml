@@ -34,7 +34,6 @@ mybatis-plus:
 
 file:
   illustrationFolder: illustrations/upload/
-  illustrationThumbFolder: illustrations/upload-t/
   mangaFolder: manga/
   novelFolder: novels/
   gameFolder: games/

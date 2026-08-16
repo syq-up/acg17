@@ -21,12 +21,11 @@ import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import com.shiyq.util.ImageThumbnailUtil;
 
@@ -44,8 +43,6 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
 
     @Value("${file.illustrationFolder}")
     private String illustrationFolder;
-    @Value("${file.illustrationThumbFolder}")
-    private String illustrationThumbFolder;
     @Value("${file.maxIllustrationFileSize:100MB}")
     private String maxIllustrationFileSize = "100MB";
 
@@ -89,9 +86,7 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
         Path stagingDirectory = fileStorageService.createStagingDirectory("illustration-");
         Path uploadedFile = stagingDirectory.resolve("upload");
         Path finalOriginal = null;
-        Path finalThumb = null;
         boolean originalMoved = false;
-        boolean thumbMoved = false;
         boolean readyForCommit = false;
         try {
             file.transferTo(uploadedFile.toFile());
@@ -103,12 +98,8 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
             }
             String filename = NanoIdUtil.randomNanoId() + "." + formatName;
             Path stagedOriginal = stagingDirectory.resolve(filename);
-            Path stagedThumb = stagingDirectory.resolve("thumb-" + filename);
             Files.move(uploadedFile, stagedOriginal);
             finalOriginal = fileStorageService.resolveManagedPath(illustrationFolder, filename);
-            finalThumb = fileStorageService.resolveManagedPath(illustrationThumbFolder, filename);
-            ImageThumbnailUtil.generateThumbnail(
-                    stagedOriginal.toFile(), stagedThumb.toFile(), 400, formatName);
 
             int[] dimensions = ImageThumbnailUtil.getImageDimensions(stagedOriginal.toFile());
             double ratio = 0D;
@@ -125,20 +116,14 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
             }
             fileStorageService.moveIntoPlace(stagedOriginal, finalOriginal);
             originalMoved = true;
-            fileStorageService.moveIntoPlace(stagedThumb, finalThumb);
-            thumbMoved = true;
-            fileStorageService.deleteOnRollback(Arrays.asList(finalOriginal, finalThumb));
+            fileStorageService.deleteOnRollback(List.of(finalOriginal));
             readyForCommit = true;
-            return IllustrationConvert.INSTANCE.toVO(illustration)
-                    .setUrlTiny(generateAccessUrl(illustration.getPath(), illustrationThumbFolder));
+            return toVO(illustration);
         } finally {
             fileStorageService.deleteQuietly(stagingDirectory);
             if (!readyForCommit) {
                 if (originalMoved) {
                     fileStorageService.deleteQuietly(finalOriginal);
-                }
-                if (thumbMoved) {
-                    fileStorageService.deleteQuietly(finalThumb);
                 }
             }
         }
@@ -157,8 +142,7 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
             throw new IllegalStateException("新增插画记录失败");
         }
         // 把路径修改为外网访问地址，再返回给前端
-        return IllustrationConvert.INSTANCE.toVO(illustration)
-                .setUrlTiny(generateAccessUrl(illustration.getPath(), illustrationFolder));
+        return toVO(illustration);
     }
 
     @Override
@@ -170,14 +154,10 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
         // 查询插画作品列表
         List<Illustration> list = illustrationMapper.getListByCondition(userId, pageNum, pageSize,
                 deleted);
-        List<IllustrationVO> voList = IllustrationConvert.INSTANCE.toVOList(list);
         // 把路径修改为外网访问地址，再返回给前端
-        for (int i = 0; i < list.size(); i++) {
-            String path = list.get(i).getPath();
-            // 缩略图和原图
-            voList.get(i).setUrlTiny(generateAccessUrl(path, illustrationThumbFolder));
-            voList.get(i).setUrlMiddle(generateAccessUrl(path, illustrationFolder));
-        }
+        List<IllustrationVO> voList = list.stream()
+                .map(this::toVO)
+                .toList();
         pageVO.setRecords(voList);
         pageVO.setTotal(illustrationMapper.getTotalByCondition(userId, deleted));
         return pageVO;
@@ -191,8 +171,7 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
             return null;
         }
         // 转VO，把路径修改为外网访问地址，再返回给前端
-        return IllustrationConvert.INSTANCE.toVO(illustration)
-                .setUrlMiddle(generateAccessUrl(illustration.getPath(), illustrationFolder));
+        return toVO(illustration);
     }
 
     @Override
@@ -256,14 +235,18 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
         }
     }
 
-    /**
-     * 生成外网访问的URL
-     */
-    public String generateAccessUrl(String filename, String style) {
-        if (filename == null || filename.trim().isEmpty()) {
+    private IllustrationVO toVO(Illustration illustration) {
+        IllustrationVO vo = IllustrationConvert.INSTANCE.toVO(illustration);
+        String originalUrl = generateOriginalUrl(illustration.getPath());
+        return vo.setOriginalUrl(originalUrl)
+                .setThumbnailUrl(originalUrl == null ? null : originalUrl + "&style=small");
+    }
+
+    private String generateOriginalUrl(String path) {
+        if (path == null || path.trim().isEmpty()) {
             return null;
         }
-        return mediaUrlSigner.sign(style, filename);
+        return mediaUrlSigner.sign(illustrationFolder, path);
     }
 
 }
