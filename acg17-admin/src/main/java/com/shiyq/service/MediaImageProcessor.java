@@ -4,7 +4,7 @@ import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
 import app.photofox.vipsffm.VipsOption;
 import app.photofox.vipsffm.enums.VipsSize;
-import com.shiyq.util.ImageThumbnailUtil;
+import com.shiyq.util.ImageFileInspector;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -67,18 +67,17 @@ public class MediaImageProcessor {
             return MediaVariant.original(source);
         }
 
-        final int[] dimensions;
+        final ImageFileInspector.ImageFileInfo imageInfo;
         try {
             // ImageIO is used only for the cheap header/dimension decision.  It
             // also means small animated images remain animated and byte-for-
             // byte unchanged, as required by the style contract.
-            ImageThumbnailUtil.detectImageExtension(source.toFile());
-            dimensions = ImageThumbnailUtil.getImageDimensions(source.toFile());
+            imageInfo = ImageFileInspector.inspect(source.toFile());
         } catch (IOException exception) {
             throw new UnsupportedImageException("媒体文件不是受支持的图片", exception);
         }
 
-        if (!style.requiresProcessing(dimensions[0], dimensions[1])) {
+        if (!style.requiresProcessing(imageInfo.width(), imageInfo.height())) {
             return MediaVariant.original(source);
         }
 

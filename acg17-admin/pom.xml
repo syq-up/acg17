@@ -77,12 +77,6 @@
             <version>${twelvemonkeys.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>net.coobird</groupId>
-            <artifactId>thumbnailator</artifactId>
-            <version>${thumbnailator.version}</version>
-        </dependency>
-
         <!-- libvips bindings (requires libvips on the host/container) -->
         <dependency>
             <groupId>app.photofox.vips-ffm</groupId>

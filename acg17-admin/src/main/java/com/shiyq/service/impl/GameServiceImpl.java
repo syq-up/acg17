@@ -13,7 +13,7 @@ import com.shiyq.service.GameService;
 import com.shiyq.service.MediaUrlSigner;
 import com.shiyq.util.DesktopIniUtil;
 import com.shiyq.util.ImageConverterUtil;
-import com.shiyq.util.ImageThumbnailUtil;
+import com.shiyq.util.ImageFileInspector;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -357,7 +357,7 @@ public class GameServiceImpl extends ServiceImpl<GameMapper, Game> implements Ga
 
     private String detectImageExtension(File imageFile, String label) {
         try {
-            return ImageThumbnailUtil.detectImageExtension(imageFile);
+            return ImageFileInspector.inspect(imageFile).extension();
         } catch (IOException exception) {
             throw new IllegalArgumentException(label + "不是受支持的有效图片", exception);
         }

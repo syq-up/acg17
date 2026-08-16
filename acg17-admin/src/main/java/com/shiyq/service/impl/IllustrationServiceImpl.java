@@ -12,6 +12,7 @@ import com.shiyq.service.FileStorageService;
 import com.shiyq.service.IllustrationService;
 import com.shiyq.service.MediaUrlSigner;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
+import com.shiyq.util.ImageFileInspector;
 import com.shiyq.util.NanoIdUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,8 +27,6 @@ import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import com.shiyq.util.ImageThumbnailUtil;
 
 /**
  * <p>
@@ -90,21 +89,20 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
         boolean readyForCommit = false;
         try {
             file.transferTo(uploadedFile.toFile());
-            String formatName;
+            ImageFileInspector.ImageFileInfo imageInfo;
             try {
-                formatName = ImageThumbnailUtil.detectImageExtension(uploadedFile.toFile());
+                imageInfo = ImageFileInspector.inspect(uploadedFile.toFile());
             } catch (IOException exception) {
                 throw new IllegalArgumentException("插画文件不是受支持的有效图片", exception);
             }
-            String filename = NanoIdUtil.randomNanoId() + "." + formatName;
+            String filename = NanoIdUtil.randomNanoId() + "." + imageInfo.extension();
             Path stagedOriginal = stagingDirectory.resolve(filename);
             Files.move(uploadedFile, stagedOriginal);
             finalOriginal = fileStorageService.resolveManagedPath(illustrationFolder, filename);
 
-            int[] dimensions = ImageThumbnailUtil.getImageDimensions(stagedOriginal.toFile());
             double ratio = 0D;
-            if (dimensions[1] > 0) {
-                ratio = BigDecimal.valueOf((double) dimensions[0] / dimensions[1])
+            if (imageInfo.height() > 0) {
+                ratio = BigDecimal.valueOf((double) imageInfo.width() / imageInfo.height())
                         .setScale(6, RoundingMode.HALF_UP)
                         .doubleValue();
             }

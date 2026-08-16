@@ -1,6 +1,6 @@
 package com.shiyq.service;
 
-import com.shiyq.util.ImageThumbnailUtil;
+import com.shiyq.util.ImageFileInspector;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -335,7 +335,7 @@ public class MangaArchiveProcessor {
 
         int pageNumber = 1;
         for (File imageFile : imageFiles) {
-            String extension = ImageThumbnailUtil.detectImageExtension(imageFile);
+            String extension = ImageFileInspector.inspect(imageFile).extension();
             File targetFile = new File(targetChapterDirectory, pageNumber + "." + extension);
             FileUtils.copyFile(imageFile, targetFile);
             pageNumber++;
@@ -344,7 +344,7 @@ public class MangaArchiveProcessor {
 
     private boolean isImageFile(File file) {
         try {
-            ImageThumbnailUtil.detectImageExtension(file);
+            ImageFileInspector.inspect(file);
             return true;
         } catch (IOException e) {
             return false;

@@ -8,7 +8,7 @@ import com.shiyq.service.UserInfoService;
 import com.shiyq.service.FileStorageService;
 import com.shiyq.service.MediaUrlSigner;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
-import com.shiyq.util.ImageThumbnailUtil;
+import com.shiyq.util.ImageFileInspector;
 import com.shiyq.util.NanoIdUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -106,7 +106,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             file.transferTo(uploadedFile.toFile());
             String formatName;
             try {
-                formatName = ImageThumbnailUtil.detectImageExtension(uploadedFile.toFile());
+                formatName = ImageFileInspector.inspect(uploadedFile.toFile()).extension();
             } catch (IOException exception) {
                 throw new IllegalArgumentException("头像文件不是受支持的有效图片", exception);
             }
