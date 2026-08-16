@@ -8,8 +8,8 @@ package com.shiyq.service;
  */
 public enum MediaStyle {
     ORIGINAL(0),
-    SMALL(400),
-    MEDIUM(800);
+    SMALL(450),
+    MEDIUM(900);
 
     private final int maxEdge;
 

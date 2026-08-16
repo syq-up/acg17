@@ -34,7 +34,7 @@ class MediaImageProcessorTest {
 
     @Test
     void smallImagesAndOriginalAreReturnedWithoutNativeProcessing() throws Exception {
-        Path source = writePng("small.png", 400, 400);
+        Path source = writePng("small.png", 450, 450);
         FakeProcessor processor = new FakeProcessor(uploadFolder);
 
         MediaImageProcessor.MediaVariant original = processor.process(
@@ -50,7 +50,7 @@ class MediaImageProcessorTest {
 
     @Test
     void animatedImagesAtTheLimitAreAlsoReturnedByteForByte() throws Exception {
-        Path source = writeAnimatedGif("small-animation.gif", 400, 200);
+        Path source = writeAnimatedGif("small-animation.gif", 450, 225);
         byte[] original = Files.readAllBytes(source);
         FakeProcessor processor = new FakeProcessor(uploadFolder);
 
@@ -115,16 +115,16 @@ class MediaImageProcessorTest {
         assertTrue(variant.isDerived());
         assertTrue(variant.path().getFileName().toString().endsWith(".webp"));
         BufferedImage output = ImageIO.read(variant.path().toFile());
-        assertEquals(400, output.getWidth());
-        assertEquals(200, output.getHeight());
-        assertEquals(0, new Color(output.getRGB(200, 100), true).getAlpha());
+        assertEquals(450, output.getWidth());
+        assertEquals(225, output.getHeight());
+        assertEquals(0, new Color(output.getRGB(225, 112), true).getAlpha());
 
         Path portrait = writePng("native-portrait.png", 600, 1200);
         MediaImageProcessor.MediaVariant portraitVariant = processor.process(
                 portrait, "illustrations/1/native-portrait.png", MediaStyle.SMALL);
         BufferedImage portraitOutput = ImageIO.read(portraitVariant.path().toFile());
-        assertEquals(200, portraitOutput.getWidth());
-        assertEquals(400, portraitOutput.getHeight());
+        assertEquals(225, portraitOutput.getWidth());
+        assertEquals(450, portraitOutput.getHeight());
     }
 
     @Test
@@ -137,9 +137,9 @@ class MediaImageProcessorTest {
                 source, "illustrations/1/large-animation.gif", MediaStyle.SMALL);
 
         BufferedImage output = ImageIO.read(variant.path().toFile());
-        assertEquals(400, output.getWidth());
-        assertEquals(200, output.getHeight());
-        Color center = new Color(output.getRGB(200, 100), true);
+        assertEquals(450, output.getWidth());
+        assertEquals(225, output.getHeight());
+        Color center = new Color(output.getRGB(225, 112), true);
         assertTrue(center.getRed() > center.getBlue());
         try (ImageInputStream input = ImageIO.createImageInputStream(variant.path().toFile())) {
             ImageReader reader = ImageIO.getImageReaders(input).next();

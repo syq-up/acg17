@@ -22,9 +22,9 @@ class MediaStyleTest {
     @Test
     void stylesOnlyDownsizeAndNeverUpsize() {
         assertFalse(MediaStyle.ORIGINAL.requiresProcessing(4000, 4000));
-        assertFalse(MediaStyle.SMALL.requiresProcessing(400, 400));
-        assertTrue(MediaStyle.SMALL.requiresProcessing(401, 200));
-        assertFalse(MediaStyle.MEDIUM.requiresProcessing(800, 800));
-        assertTrue(MediaStyle.MEDIUM.requiresProcessing(801, 200));
+        assertFalse(MediaStyle.SMALL.requiresProcessing(450, 450));
+        assertTrue(MediaStyle.SMALL.requiresProcessing(451, 200));
+        assertFalse(MediaStyle.MEDIUM.requiresProcessing(900, 900));
+        assertTrue(MediaStyle.MEDIUM.requiresProcessing(901, 200));
     }
 }
