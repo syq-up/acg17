@@ -1,6 +1,8 @@
 package com.shiyq.controller;
 
 import com.shiyq.service.FileStorageService;
+import com.shiyq.service.MediaImageProcessor;
+import com.shiyq.service.MediaStyle;
 import com.shiyq.service.MediaUrlSigner;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -31,16 +33,30 @@ public class MediaController {
 
     private final MediaUrlSigner mediaUrlSigner;
     private final FileStorageService fileStorageService;
+    private final MediaImageProcessor mediaImageProcessor;
 
-    public MediaController(MediaUrlSigner mediaUrlSigner, FileStorageService fileStorageService) {
+    public MediaController(MediaUrlSigner mediaUrlSigner,
+                           FileStorageService fileStorageService,
+                           MediaImageProcessor mediaImageProcessor) {
         this.mediaUrlSigner = mediaUrlSigner;
         this.fileStorageService = fileStorageService;
+        this.mediaImageProcessor = mediaImageProcessor;
     }
 
     @GetMapping
     public ResponseEntity<Resource> getMedia(@RequestParam String path,
                                              @RequestParam long expires,
-                                             @RequestParam String signature) {
+                                             @RequestParam String signature,
+                                             @RequestParam(required = false) String style) {
+        final MediaStyle mediaStyle;
+        try {
+            mediaStyle = MediaStyle.parse(style == null ? "original" : style);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest()
+                    .cacheControl(CacheControl.noStore())
+                    .build();
+        }
+
         final String relativePath;
         try {
             relativePath = mediaUrlSigner.verify(path, expires, signature);
@@ -51,10 +67,8 @@ public class MediaController {
         }
 
         final Path mediaFile;
-        final long mediaSize;
         try {
             mediaFile = fileStorageService.resolveReadableFile(relativePath);
-            mediaSize = Files.size(mediaFile);
         } catch (NoSuchFileException exception) {
             return ResponseEntity.notFound().build();
         } catch (IOException exception) {
@@ -63,17 +77,54 @@ public class MediaController {
                     .build();
         }
 
-        FileSystemResource resource = new FileSystemResource(mediaFile);
-        MediaType mediaType = MediaTypeFactory.getMediaType(resource)
+        Path responseFile = mediaFile;
+        boolean derived = false;
+        MediaType mediaType = MediaTypeFactory.getMediaType(new FileSystemResource(mediaFile))
                 .orElse(MediaType.APPLICATION_OCTET_STREAM);
+        if (mediaStyle != MediaStyle.ORIGINAL) {
+            try {
+                MediaImageProcessor.MediaVariant variant = mediaImageProcessor.process(
+                        mediaFile, relativePath, mediaStyle);
+                responseFile = variant.path();
+                derived = variant.isDerived();
+                if (variant.mediaType() != null) {
+                    mediaType = variant.mediaType();
+                }
+            } catch (MediaImageProcessor.UnsupportedImageException exception) {
+                return ResponseEntity.status(415)
+                        .cacheControl(CacheControl.noStore())
+                        .build();
+            } catch (IOException exception) {
+                // A processing error must not silently turn into an original
+                // image response: callers should see a failed variant request.
+                return ResponseEntity.internalServerError()
+                        .cacheControl(CacheControl.noStore())
+                        .build();
+            }
+        }
+
+        FileSystemResource resource = new FileSystemResource(responseFile);
+        final long responseSize;
+        try {
+            responseSize = Files.size(responseFile);
+        } catch (IOException exception) {
+            return ResponseEntity.internalServerError()
+                    .cacheControl(CacheControl.noStore())
+                    .build();
+        }
         long maxAge = mediaUrlSigner.remainingSeconds(expires);
+        String filename = mediaFile.getFileName().toString();
+        if (derived) {
+            int extensionIndex = filename.lastIndexOf('.');
+            filename = (extensionIndex > 0 ? filename.substring(0, extensionIndex) : filename) + ".webp";
+        }
         ContentDisposition disposition = ContentDisposition.inline()
-                .filename(mediaFile.getFileName().toString(), StandardCharsets.UTF_8)
+                .filename(filename, StandardCharsets.UTF_8)
                 .build();
 
         return ResponseEntity.ok()
                 .contentType(mediaType)
-                .contentLength(mediaSize)
+                .contentLength(responseSize)
                 .cacheControl(CacheControl.maxAge(maxAge, TimeUnit.SECONDS).cachePrivate())
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header("X-Content-Type-Options", "nosniff")

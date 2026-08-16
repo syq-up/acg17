@@ -37,6 +37,7 @@ public class FileStorageService {
 
     private static final String STAGING_FOLDER = ".staging";
     private static final String PENDING_DELETE_FOLDER = ".pending-delete";
+    private static final String MEDIA_CACHE_FOLDER = "media-cache";
 
     @Value("${file.uploadFolder}")
     private String uploadFolder;
@@ -63,6 +64,12 @@ public class FileStorageService {
     public Path resolveReadableFile(String relativePath) throws IOException {
         Path root = uploadRoot();
         Path target = resolveManagedPath("", relativePath);
+        Path cacheRoot = root.resolve(MEDIA_CACHE_FOLDER).normalize();
+        if (target.startsWith(cacheRoot)) {
+            // Derived files are an implementation detail and must never be
+            // addressable as signed source paths.
+            throw new NoSuchFileException(relativePath);
+        }
         if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
             throw new NoSuchFileException(relativePath);
         }

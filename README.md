@@ -54,6 +54,7 @@ ACG17 是一个面向个人媒体库的 ACG 资源管理与浏览项目，支持
 - JDK 25（项目使用 `.sdkmanrc` 中的 `25.0.4-tem`）
 - Node.js 24.x（推荐 `.nvmrc` 中的 `24.19.0`）
 - npm 11.x（项目锁定的 package manager 为 `npm@11.17.0`）
+- libvips 8.15+（后端实时图片派生依赖 ABI 42）
 - Docker 和 Docker Compose
 
 ## 本地运行
@@ -87,6 +88,12 @@ Compose 会创建 `acg17` 数据库，并在 MySQL 数据卷首次初始化时�
 
 ### 2. 启动后端
 
+Ubuntu/WSL2 首次运行前安装 libvips：
+
+```bash
+sudo apt-get install -y libvips42t64 libvips-tools
+```
+
 公共配置位于 `application.yml`，`application-dev.yml` 和 `application-prod.yml` 只保存端口、上传根目录等环境差异。三个文件都不包含真实凭据，并应正常提交到 Git。
 
 Spring Boot 不会自动读取根目录的 `.env`，启动前需要将其导入当前 shell。JWT 密钥和媒体 URL 签名密钥必须彼此独立，并且都至少包含 32 字节随机数据。
@@ -99,6 +106,8 @@ source .env
 set +a
 SPRING_PROFILES_ACTIVE=dev ./mvnw -pl acg17-admin spring-boot:run
 ```
+
+Maven 已为测试和 `spring-boot:run` 配置 libvips FFM 所需的 native access。以后直接运行打包 JAR 时，需要使用 `java --enable-native-access=ALL-UNNAMED -jar ...`。
 
 后端默认地址为 `http://127.0.0.1:18003`，接口上下文路径为 `/api`。
 
@@ -242,12 +251,15 @@ PUT    /api/game/{id}/restore
 | `file.mangaFolder` | `manga/` | 漫画目录 |
 | `file.novelFolder` | `novels/` | 小说目录 |
 | `file.gameFolder` | `games/` | 游戏目录 |
+| `{file.uploadFolder}/media-cache/` | 自动创建 | 实时图片派生缓存，不允许作为签名源文件直接访问 |
 | `file.publicAssetFolder` | `illustrations/web-img/` | 允许公开访问的站点装饰素材目录 |
 | `file.publicAssetAccessPath` | `/public-assets/**` | 公开装饰素材的访问路径 |
 
 上传限制和 ZIP 解压保护在公共 `application.yml` 中配置：单文件默认 512 MB、单次请求默认 1 GB、单张插画默认 100 MB、单张游戏图片默认 20 MB，一个游戏最多上传 20 张预览图；漫画 ZIP 默认最多 5,000 个条目、单个条目 100 MB、解压后总大小 1 GB。前端上传提示可能比后端限制更严格，以后端配置为准。
 
 用户上传的插画、漫画、游戏文件和头像不再直接映射为静态资源。后端返回的媒体 URL 会绑定规范化后的相对路径和过期时间，并使用 HMAC-SHA256 签名；`/api/media` 只有在签名有效、尚未过期且目标文件位于上传根目录内时才返回文件。签名 URL 在有效期内等同于临时访问凭证，不应写入公开日志或长期保存。
+
+签名媒体 URL 可追加不参与签名的预定义 `style` 参数：省略或 `original` 返回原文件；`small` 和 `medium` 分别仅在图片最长边超过 400px、800px 时保持宽高比缩小。发生缩放时，后端使用 libvips 读取静态图或动图第一帧，生成移除元数据的静态 WebP 并写入 `media-cache`；未知规则和任意宽高参数均不受支持。
 
 ### 认证与自动清理
 

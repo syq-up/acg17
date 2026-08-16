@@ -27,6 +27,7 @@
         <commons-io.version>2.22.0</commons-io.version>
         <twelvemonkeys.version>3.14.0</twelvemonkeys.version>
         <thumbnailator.version>0.4.21</thumbnailator.version>
+        <vips-ffm.version>1.9.8</vips-ffm.version>
         <maven.test.skip>false</maven.test.skip>
     </properties>
 

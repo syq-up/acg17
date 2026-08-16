@@ -83,6 +83,14 @@ class FileStorageServiceTest {
     }
 
     @Test
+    void derivedCacheFilesCannotBeReadAsSignedSourceMedia() throws Exception {
+        createFile("media-cache/derived.webp");
+
+        assertThrows(IOException.class,
+                () -> service.resolveReadableFile("media-cache/derived.webp"));
+    }
+
+    @Test
     void maintenanceKeepsReferencedFilesAndRemovesOldOrphans() throws Exception {
         Path referenced = createFile("illustrations/upload/kept.webp");
         Path orphan = createFile("illustrations/upload/orphan.webp");
