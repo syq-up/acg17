@@ -13,7 +13,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -42,14 +41,13 @@ public class MangaArchiveProcessor {
     private String maxZipExtractedSize = "1GB";
 
     /**
-     * 展开完整漫画，并生成封面。输出目录结构为“章节编号/页码.扩展名”。
+     * 展开完整漫画。输出目录结构为“章节编号/页码.扩展名”。
      */
     public void extractManga(File zipFile, File targetMangaDirectory) throws IOException {
         File extractedDirectory = extractToTemporaryDirectory(zipFile, targetMangaDirectory.getParentFile());
         try {
             File mangaDirectory = analyzeAndAdjustStructure(extractedDirectory);
             copyDirectoryWithRenumbering(mangaDirectory, targetMangaDirectory);
-            generateCoverThumbnail(targetMangaDirectory);
         } catch (Exception e) {
             if (targetMangaDirectory.exists()) {
                 FileUtils.deleteDirectory(targetMangaDirectory);
@@ -344,50 +342,6 @@ public class MangaArchiveProcessor {
         }
     }
 
-    private void generateCoverThumbnail(File mangaDirectory) throws IOException {
-        File coverImage = findCoverFile(mangaDirectory);
-        if (coverImage == null) {
-            throw new IOException("未找到封面图片文件");
-        }
-        try {
-            ImageThumbnailUtil.generateThumbnail(
-                    coverImage, new File(mangaDirectory, "cover.jpg"), 440, "jpg");
-        } catch (Exception e) {
-            throw new IOException("生成封面缩略图失败", e);
-        }
-    }
-
-    private File findCoverFile(File directory) {
-        File[] files = directory.listFiles();
-        if (files == null) {
-            return null;
-        }
-        List<File> chapterDirectories = new ArrayList<>();
-        for (File file : files) {
-            if (file.isDirectory()) {
-                chapterDirectories.add(file);
-            }
-        }
-        if (chapterDirectories.isEmpty()) {
-            return null;
-        }
-        chapterDirectories.sort((left, right) -> Integer.compare(
-                Integer.parseInt(left.getName()), Integer.parseInt(right.getName())));
-
-        File[] images = chapterDirectories.get(0).listFiles();
-        if (images == null) {
-            return null;
-        }
-        Arrays.sort(images, (left, right) -> Integer.compare(
-                pageNumberFromFilename(left), pageNumberFromFilename(right)));
-        for (File image : images) {
-            if (image.isFile() && isImageFile(image)) {
-                return image;
-            }
-        }
-        return null;
-    }
-
     private boolean isImageFile(File file) {
         try {
             ImageThumbnailUtil.detectImageExtension(file);
@@ -395,12 +349,6 @@ public class MangaArchiveProcessor {
         } catch (IOException e) {
             return false;
         }
-    }
-
-    private int pageNumberFromFilename(File file) {
-        String name = file.getName();
-        int dotIndex = name.lastIndexOf('.');
-        return Integer.parseInt(dotIndex < 0 ? name : name.substring(0, dotIndex));
     }
 
     private int compareNaturalNames(File left, File right) {

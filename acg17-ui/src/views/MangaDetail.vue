@@ -19,7 +19,7 @@
     <div class="manga-container">
       <!-- 漫画封面 -->
       <div class="manga-cover unselectable">
-        <img :src="manga.cover" :alt="manga.title" />
+        <img :src="withMediaStyle(manga.cover, 'medium')" :alt="manga.title" />
       </div>
 
       <!-- 漫画信息 -->
@@ -114,7 +114,7 @@
       <ul class="pages-list">
         <li v-for="pageItem in visibleMangaPages" :key="'p' + pageItem.page" class="page-item"
           @click="goToPage(pageItem.page)">
-          <img :src="pageItem.path" :alt="`第${pageItem.page}页`" loading="lazy" decoding="async" />
+          <img :src="withMediaStyle(pageItem.path, 'small')" :alt="`第${pageItem.page}页`" loading="lazy" decoding="async" />
           <div class="page-remove" @click.stop="removeMangaPage(pageItem.page)">×</div>
           <div class="page-number">{{ pageItem.page }}</div>
         </li>
@@ -135,7 +135,7 @@
       <h3>相关推荐</h3>
       <div class="related-list">
         <div v-for="item in relatedManga" :key="item.id" class="related-item" @click="goToManga(item.id)">
-          <img :src="item.cover" :alt="item.title" />
+          <img :src="withMediaStyle(item.cover, 'small')" :alt="item.title" />
           <div class="related-title">{{ item.title }}</div>
         </div>
       </div>
@@ -159,6 +159,7 @@ import { computed, reactive, onMounted, onUnmounted, ref, nextTick, watch } from
 import { useRoute, useRouter } from 'vue-router'
 import Acg17Footer from '../components/Acg17Footer'
 import MangaTagEditor from '../components/manga-detail/MangaTagEditor.vue'
+import { withMediaStyle } from '@/util/media'
 import server from '@/util/request';
 
 const TAG_CATEGORIES = [
@@ -351,7 +352,6 @@ export default {
             if (mangaChapters[0].pagelist && mangaChapters[0].pagelist.length > 0) {
               mangaPages.push(...mangaChapters[0].pagelist)
               manga.currentChapter = mangaChapters[0].chapter
-              manga.cover = mangaPages[0].path
             }
           }
 
@@ -588,6 +588,7 @@ export default {
 
     return {
       manga,
+      withMediaStyle,
       relatedManga,
       mangaPages,
       visibleMangaPages,

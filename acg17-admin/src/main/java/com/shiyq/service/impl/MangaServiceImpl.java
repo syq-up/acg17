@@ -123,17 +123,12 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         // 默认页大小为 30
         PageVO<MangaVO> pageVO = new PageVO<>(30L, pageNum);
         // 查询漫画作品列表
-        List<Manga> list = mangaMapper.getListByCondition(userId, pageNum, 30L, deleted,
+        List<MangaVO> mangaVOList = mangaMapper.getListByCondition(userId, pageNum, 30L, deleted,
                 title, normalizedTagIds);
-        
-        // 转换为VO并处理cover路径和favorite字段
-        List<MangaVO> mangaVOList = MangaConvert.INSTANCE.toMangaVOList(list);
-        for (int i = 0; i < mangaVOList.size(); i++) {
-            MangaVO mangaVO = mangaVOList.get(i);
-            Manga manga = list.get(i);
-            
-            // 生成cover外网URL
-            mangaVO.setCover(generateAccessUrl(manga.getCover()));
+
+        // 列表只查询 pages 中第一章的当前首图，图片样式由前端按展示场景选择。
+        for (MangaVO mangaVO : mangaVOList) {
+            mangaVO.setCover(generateAccessUrl(mangaVO.getCover()));
         }
         
         pageVO.setRecords(mangaVOList);
@@ -164,16 +159,22 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
         // 转换为MangaDetailVO
         MangaDetailVO mangaDetailVO = MangaConvert.INSTANCE.toMangaDetailVO(manga);
         
-        // 封面URL、喜欢字段处理
-        mangaDetailVO.setCover(generateAccessUrl(manga.getCover()));
-        
         List<MangaChapterData> chapters = parseChapterData(manga.getPages());
+        String firstPagePath = firstPagePath(chapters);
+        mangaDetailVO.setCover(generateAccessUrl(firstPagePath));
         addPageAccessUrls(chapters);
         mangaDetailVO.setPages(chapters);
         
         populateTagGroups(mangaDetailVO, mangaTagService.getTagsByMangaId(manga.getId()));
         
         return mangaDetailVO;
+    }
+
+    private String firstPagePath(List<MangaChapterData> chapters) {
+        if (chapters.isEmpty() || chapters.get(0).getPagelist().isEmpty()) {
+            return null;
+        }
+        return chapters.get(0).getPagelist().get(0).getPath();
     }
 
     private void addPageAccessUrls(List<MangaChapterData> chapters) {
@@ -273,8 +274,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                 try {
                     Path stagedMangaDirectory = stagingDirectory.resolve(String.valueOf(manga.getId()));
                     mangaArchiveProcessor.extractManga(tempZipFile, stagedMangaDirectory.toFile());
-                    // 设置漫画封面路径和大小
-                    manga.setCover(manga.getId() + "/cover.jpg");
+                    // 设置漫画文件大小
                     long storedSize = FileUtils.sizeOfDirectory(stagedMangaDirectory.toFile());
                     manga.setSize(storedSize);
                     
@@ -282,7 +282,7 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                     String pages = generatePagesJson(stagedMangaDirectory.toFile(), manga.getId());
                     manga.setPages(pages);
                     
-                    // 更新数据库中的封面路径、大小和pages
+                    // 更新数据库中的大小和pages
                     if (mangaMapper.updateById(manga) != 1) {
                         throw new IllegalStateException("更新漫画文件信息失败");
                     }

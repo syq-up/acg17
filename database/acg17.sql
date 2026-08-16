@@ -71,7 +71,6 @@ CREATE TABLE `manga`  (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '漫画ID，自增主键',
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '标题',
   `chinese_title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '中文标题',
-  `cover` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '封面图片路径',
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '简介',
   `pages` json NULL COMMENT '页数据，存储所有话(集)和对应的页集合，格式：[{\"chapter\":1,\"title\":\"第1话\",\"pagelist\":[{\"page\":1,\"path\":\"/path/to/page1.jpg\"},{\"page\":2,\"path\":\"/path/to/page2.jpg\"}]}]',
   `size` bigint NOT NULL DEFAULT 0 COMMENT '大小，单位为字节',

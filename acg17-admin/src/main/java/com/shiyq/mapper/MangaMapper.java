@@ -1,6 +1,7 @@
 package com.shiyq.mapper;
 
 import com.shiyq.entity.DO.Manga;
+import com.shiyq.entity.VO.MangaVO;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -29,7 +30,7 @@ public interface MangaMapper extends BaseMapper<Manga> {
      * @param tagIds 标签ID列表，漫画需要同时包含全部标签
      * @return 漫画列表
      */
-    List<Manga> getListByCondition(@Param("userId") Integer userId, 
+    List<MangaVO> getListByCondition(@Param("userId") Integer userId,
                                    @Param("pageNum") Long pageNum, 
                                    @Param("pageSize") Long pageSize, 
                                    @Param("deleted") Boolean deleted,

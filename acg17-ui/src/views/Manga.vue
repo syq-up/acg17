@@ -170,7 +170,7 @@
 
     <ul class="manga-container unselectable" v-infinite-scroll="loadMoreManga" :infinite-scroll-disabled="manga.disabled || !pageActive">
       <li v-for="(manga) in manga.list" :key="manga.id" @click="goToMangaDetail(manga.id)">
-        <img class="manga-img" :src="manga.cover" alt="manga">
+        <img class="manga-img" :src="withMediaStyle(manga.cover, 'small')" alt="manga">
         <div class="manga-info">
           <div class="manga-title">{{ manga.chineseTitle || manga.title }}</div>
         </div>
@@ -192,6 +192,7 @@
 import { reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, ref, nextTick, computed } from 'vue'
 // import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router';
+import { withMediaStyle } from '@/util/media'
 import server from '@/util/request';
 
 import LoadingHeart from "../components/LoadingHeart";
@@ -810,6 +811,7 @@ export default {
 
     return {
       manga,
+      withMediaStyle,
       mangaResultText,
       emptyMangaText,
       goToMangaDetail,

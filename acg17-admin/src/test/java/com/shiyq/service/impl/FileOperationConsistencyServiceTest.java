@@ -226,7 +226,7 @@ class FileOperationConsistencyServiceTest {
 
         service.addManga(request);
 
-        assertTrue(Files.isRegularFile(uploadFolder.resolve("manga/9/cover.jpg")));
+        assertFalse(Files.exists(uploadFolder.resolve("manga/9/cover.jpg")));
         assertTrue(Files.isRegularFile(uploadFolder.resolve("manga/9/1/1.png")));
         long storedSize = directorySize(uploadFolder.resolve("manga/9"));
         assertEquals(storedSize, savedManga.get().getSize());
@@ -320,7 +320,7 @@ class FileOperationConsistencyServiceTest {
         service.addManga(request);
 
         assertTrue(Files.isRegularFile(uploadFolder.resolve("manga/19/1/1.png")));
-        assertEquals(2L, regularFileCount(uploadFolder.resolve("manga/19"))
+        assertEquals(1L, regularFileCount(uploadFolder.resolve("manga/19"))
                 + regularFileCount(uploadFolder.resolve("manga/19/1")));
         assertEquals(0L, childCount(uploadFolder.resolve(".staging")));
     }

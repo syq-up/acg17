@@ -120,11 +120,11 @@ class FileStorageServiceTest {
     void maintenanceOnlyRemovesUnreferencedMangaPageImages() throws Exception {
         Path referenced = createFile("manga/1/1/kept.webp");
         Path orphan = createFile("manga/1/1/orphan.webp");
-        Path cover = createFile("manga/1/cover.jpg");
+        Path rootMetadata = createFile("manga/1/metadata.txt");
         FileTime oldTime = FileTime.fromMillis(1_600_000_000_000L);
         Files.setLastModifiedTime(referenced, oldTime);
         Files.setLastModifiedTime(orphan, oldTime);
-        Files.setLastModifiedTime(cover, oldTime);
+        Files.setLastModifiedTime(rootMetadata, oldTime);
         Map<String, Set<String>> references = new HashMap<>();
         references.put("1", new HashSet<>(Collections.singletonList("1/1/kept.webp")));
 
@@ -134,7 +134,7 @@ class FileStorageServiceTest {
         assertEquals(1, cleaned);
         assertTrue(Files.exists(referenced));
         assertFalse(Files.exists(orphan));
-        assertTrue(Files.exists(cover));
+        assertTrue(Files.exists(rootMetadata));
     }
 
     private Path createFile(String relativePath) throws IOException {

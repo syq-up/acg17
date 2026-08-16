@@ -51,12 +51,6 @@ public class Manga implements Serializable {
     private String chineseTitle;
 
     /**
-     * 封面图片路径
-     */
-    @TableField("cover")
-    private String cover;
-
-    /**
      * 简介
      */
     @TableField("description")

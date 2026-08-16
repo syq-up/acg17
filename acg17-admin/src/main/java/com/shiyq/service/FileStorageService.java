@@ -194,7 +194,7 @@ public class FileStorageService {
     }
 
     /**
-     * 只扫描结构明确的“漫画ID/章节ID/图片”路径，避免触碰封面和其他业务文件。
+     * 只扫描结构明确的“漫画ID/章节ID/图片”路径，避免触碰漫画目录根部的其他文件。
      */
     public int cleanupUnreferencedMangaPages(String subFolder,
                                              Map<String, Set<String>> referencedPages,
