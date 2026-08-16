@@ -2,6 +2,7 @@ package com.shiyq.service;
 
 import com.shiyq.entity.DO.Illustration;
 import com.shiyq.entity.DO.Manga;
+import com.shiyq.entity.DO.Game;
 import com.shiyq.mapper.GameMapper;
 import com.shiyq.mapper.IllustrationMapper;
 import com.shiyq.mapper.MangaMapper;
@@ -108,6 +109,47 @@ class RecycleCleanupServiceTest {
         assertTrue(service.cleanManga(9, CUTOFF));
 
         assertFalse(Files.exists(mangaDirectory));
+    }
+
+    @Test
+    void gameCleanupDeletesItsDirectoryAfterTheRecord() throws Exception {
+        Path gameDirectory = uploadFolder.resolve("games/10");
+        Files.createDirectories(gameDirectory);
+        Files.write(gameDirectory.resolve("game.zip"), Collections.singletonList("x"));
+        Game game = new Game();
+        game.setId(10);
+        game.setUserId(88);
+        when(gameMapper.selectExpiredByIdForUpdate(10, CUTOFF)).thenReturn(game);
+        when(gameMapper.realDeleteExpiredById(10, CUTOFF)).thenReturn(1);
+
+        assertTrue(service.cleanGame(10, CUTOFF));
+
+        assertFalse(Files.exists(gameDirectory));
+    }
+
+    @Test
+    void restoredGameIsSkippedAfterTheLockedRecheck() throws Exception {
+        when(gameMapper.selectExpiredByIdForUpdate(10, CUTOFF)).thenReturn(null);
+
+        assertFalse(service.cleanGame(10, CUTOFF));
+
+        verify(gameMapper, never()).realDeleteExpiredById(10, CUTOFF);
+    }
+
+    @Test
+    void databaseFailureLeavesGameFilesUntouched() throws Exception {
+        Path gameDirectory = uploadFolder.resolve("games/10");
+        Files.createDirectories(gameDirectory);
+        Files.write(gameDirectory.resolve("game.zip"), Collections.singletonList("x"));
+        Game game = new Game();
+        game.setId(10);
+        when(gameMapper.selectExpiredByIdForUpdate(10, CUTOFF)).thenReturn(game);
+        when(gameMapper.realDeleteExpiredById(10, CUTOFF)).thenReturn(0);
+
+        assertThrows(IllegalStateException.class, () -> service.cleanGame(10, CUTOFF));
+
+        assertTrue(Files.exists(gameDirectory));
+        verify(gameMapper).realDeleteExpiredById(10, CUTOFF);
     }
 
     private Path createFile(String relativePath) throws IOException {

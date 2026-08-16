@@ -44,4 +44,22 @@ class TimerConfigTest {
 
         verify(cleanupService).cleanupFileResidues(any(Date.class));
     }
+
+    @Test
+    void oneGameFailureDoesNotStopTheRemainingCandidates() throws Exception {
+        RecycleCleanupService cleanupService = mock(RecycleCleanupService.class);
+        when(cleanupService.getExpiredGameIds(any(Date.class))).thenReturn(Arrays.asList(11, 12, 13));
+        when(cleanupService.cleanGame(org.mockito.ArgumentMatchers.eq(11), any(Date.class))).thenReturn(true);
+        doThrow(new IOException("test failure"))
+                .when(cleanupService).cleanGame(org.mockito.ArgumentMatchers.eq(12), any(Date.class));
+        when(cleanupService.cleanGame(org.mockito.ArgumentMatchers.eq(13), any(Date.class))).thenReturn(false);
+
+        TimerConfig timer = new TimerConfig();
+        timer.setRecycleCleanupService(cleanupService);
+        timer.deleteExpiredGames();
+
+        verify(cleanupService).cleanGame(org.mockito.ArgumentMatchers.eq(11), any(Date.class));
+        verify(cleanupService).cleanGame(org.mockito.ArgumentMatchers.eq(12), any(Date.class));
+        verify(cleanupService).cleanGame(org.mockito.ArgumentMatchers.eq(13), any(Date.class));
+    }
 }

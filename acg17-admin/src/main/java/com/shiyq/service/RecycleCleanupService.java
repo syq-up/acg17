@@ -3,6 +3,7 @@ package com.shiyq.service;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import com.shiyq.entity.DO.Game;
 import com.shiyq.entity.DO.Illustration;
 import com.shiyq.entity.DO.Manga;
 import com.shiyq.entity.DTO.MangaChapterData;
@@ -75,6 +76,10 @@ public class RecycleCleanupService {
         return mangaMapper.getExpiredIds(cutoff);
     }
 
+    public List<Integer> getExpiredGameIds(Date cutoff) {
+        return gameMapper.getExpiredIds(cutoff);
+    }
+
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
     public boolean cleanIllustration(int id, Date cutoff) throws IOException {
         Illustration illustration = illustrationMapper.selectExpiredByIdForUpdate(id, cutoff);
@@ -104,6 +109,22 @@ public class RecycleCleanupService {
             throw new IllegalStateException("物理删除漫画记录失败: " + id);
         }
         fileStorageService.deleteAfterCommit(List.of(mangaDirectory));
+        return true;
+    }
+
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
+    public boolean cleanGame(int id, Date cutoff) throws IOException {
+        Game game = gameMapper.selectExpiredByIdForUpdate(id, cutoff);
+        if (game == null) {
+            return false;
+        }
+
+        Path gameDirectory = fileStorageService.resolveManagedPath(gameFolder, String.valueOf(id));
+
+        if (gameMapper.realDeleteExpiredById(id, cutoff) != 1) {
+            throw new IllegalStateException("物理删除游戏记录失败: " + id);
+        }
+        fileStorageService.deleteAfterCommit(List.of(gameDirectory));
         return true;
     }
 

@@ -46,10 +46,34 @@
         WHERE id = #{id} AND user_id = #{userId} AND deleted = 0
     </update>
 
+    <!-- 查询达到回收站保留期限的游戏ID -->
+    <select id="getExpiredIds" resultType="int">
+        SELECT `id` FROM `game`
+        WHERE `deleted` = 1 AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+        ORDER BY `update_time`, `id`
+    </select>
+
+    <!-- 锁定并读取仍满足清理条件的游戏 -->
+    <select id="selectExpiredByIdForUpdate" resultMap="GameResultMap">
+        SELECT * FROM `game`
+        WHERE `id` = #{id}
+          AND `deleted` = 1
+          AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+        FOR UPDATE
+    </select>
+
+    <!-- 物理删除仍满足清理条件的游戏 -->
+    <delete id="realDeleteExpiredById">
+        DELETE FROM `game`
+        WHERE `id` = #{id}
+          AND `deleted` = 1
+          AND `update_time` &lt;= #{cutoff,jdbcType=TIMESTAMP}
+    </delete>
+
     <!-- 根据条件分页查询游戏列表 -->
     <select id="getListByCondition" resultMap="GameResultMap">
         <bind name="offset" value="(pageNum-1)*pageSize"/>
-        SELECT `id`, `title`, `chinese_title`, `version`, `cover`, `description`, `preview_images`, `favorite`, `create_time`, `update_time` FROM `game`
+        SELECT `id`, `title`, `chinese_title`, `version`, `cover`, `description`, `preview_images`, `favorite`, `deleted`, `create_time`, `update_time` FROM `game`
         WHERE `user_id` = #{userId}
           AND `deleted` = #{deleted}
         <if test="title != null and title != ''">

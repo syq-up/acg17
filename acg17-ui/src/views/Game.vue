@@ -49,7 +49,7 @@
       </div>
     </div>
 
-    <ul class="game-container unselectable">
+    <TransitionGroup name="game-list" tag="ul" class="game-container unselectable">
       <li v-for="(game) in gameData.list" :key="game.id" @click="showGameDetail(game)">
         <div class="game-img-container">
           <img class="game-img" :src="withMediaStyle(game.cover, 'small')" :alt="game.title">
@@ -58,66 +58,89 @@
           <div class="game-title">{{ game.chineseTitle || game.title }}</div>
         </div>
       </li>
-    </ul>
+    </TransitionGroup>
     <div v-if="!gameData.loading && gameData.list.length === 0" class="empty-game">
       <span>{{ emptyGameText }}</span>
       <button v-if="hasTitleFilter" type="button" @click="clearTitleSearch">清除标题搜索</button>
     </div>
   </section>
 
-  <div v-if="showModal" class="modal-overlay" @click="closeModal">
-    <div class="modal-content" @click.stop>
-      <button type="button" class="close-btn" aria-label="关闭游戏详情" @click="closeModal">&times;</button>
+  <Transition name="game-modal" @after-leave="handleModalAfterLeave">
+    <div v-if="showModal" class="modal-overlay" @click="closeModal">
+      <div class="modal-content" @click.stop>
+        <button type="button" class="close-btn" aria-label="关闭游戏详情" @click="closeModal">&times;</button>
 
-      <div class="modal-body">
-        <div class="game-detail-container">
-          <div class="game-thumbnail unselectable">
-            <img
-              class="game-thumbnail-backdrop"
-              :src="withMediaStyle(selectedGame.cover, 'medium')"
-              alt=""
-              aria-hidden="true"
-            >
-            <img
-              class="game-thumbnail-image"
-              :src="withMediaStyle(selectedGame.cover, 'medium')"
-              :alt="selectedGame.title"
-            >
+        <div class="modal-body">
+          <div class="game-detail-container">
+            <div class="game-thumbnail unselectable">
+              <img
+                class="game-thumbnail-backdrop"
+                :src="withMediaStyle(selectedGame.cover, 'medium')"
+                alt=""
+                aria-hidden="true"
+              >
+              <img
+                class="game-thumbnail-image"
+                :src="withMediaStyle(selectedGame.cover, 'medium')"
+                :alt="selectedGame.title"
+              >
+            </div>
+
+            <div class="game-basic-info">
+              <div class="game-heading">
+                <h2>{{ selectedGame.chineseTitle || selectedGame.title }}</h2>
+              </div>
+
+              <div v-if="selectedGame.chineseTitle" class="info-row">
+                <span class="label">原名</span>
+                <span class="value">{{ selectedGame.title }}</span>
+              </div>
+
+              <div class="info-row">
+                <span class="label">版本号</span>
+                <span class="value">{{ selectedGame.version || '-' }}</span>
+              </div>
+
+              <div class="info-row">
+                <span class="label">游戏简介</span>
+                <div class="game-description">{{ selectedGame.description }}</div>
+              </div>
+
+              <div class="game-action-buttons unselectable">
+                <button
+                  :class="selectedGame.favorite ? 'btn-icon favorite' : 'btn-icon'"
+                  type="button"
+                  :title="selectedGame.favorite ? '取消喜欢' : '添加喜欢'"
+                  :aria-label="selectedGame.favorite ? '取消喜欢' : '添加喜欢'"
+                  @click="toggleFavorite"
+                >
+                  <icon :icon="selectedGame.favorite ? '#icon-favorite-y' : '#icon-favorite-n'" class="icon-svg"></icon>
+                </button>
+                <button
+                  :class="selectedGame.deleted ? 'btn-icon restore' : 'btn-icon'"
+                  type="button"
+                  :title="selectedGame.deleted ? '恢复游戏' : '删除游戏'"
+                  :aria-label="selectedGame.deleted ? '恢复游戏' : '删除游戏'"
+                  @click="toggleDeleteStatus"
+                >
+                  <icon :icon="selectedGame.deleted ? '#icon-restore' : '#icon-delete'" class="icon-svg"></icon>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="game-basic-info">
-            <div class="game-heading">
-              <h2>{{ selectedGame.chineseTitle || selectedGame.title }}</h2>
-            </div>
-
-            <div v-if="selectedGame.chineseTitle" class="info-row">
-              <span class="label">原名</span>
-              <span class="value">{{ selectedGame.title }}</span>
-            </div>
-
-            <div class="info-row">
-              <span class="label">版本号</span>
-              <span class="value">{{ selectedGame.version || '-' }}</span>
-            </div>
-
-            <div class="info-row">
-              <span class="label">游戏简介</span>
-              <div class="game-description">{{ selectedGame.description }}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="game-previews unselectable" v-if="selectedGame.previewImages && selectedGame.previewImages.length > 0">
-          <h3>游戏预览</h3>
-          <div class="preview-images">
-            <div v-for="(image, index) in selectedGame.previewImages" :key="index" class="preview-item">
-              <img :src="withMediaStyle(image, 'small')" :alt="`预览图 ${index + 1}`" loading="lazy" decoding="async" @click="showImagePreview(index)" />
+          <div class="game-previews unselectable" v-if="selectedGame.previewImages && selectedGame.previewImages.length > 0">
+            <h3>游戏预览</h3>
+            <div class="preview-images">
+              <div v-for="(image, index) in selectedGame.previewImages" :key="index" class="preview-item">
+                <img :src="withMediaStyle(image, 'small')" :alt="`预览图 ${index + 1}`" loading="lazy" decoding="async" @click="showImagePreview(index)" />
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </Transition>
 
   <div v-if="showImageModal" class="image-modal-overlay" @click="closeImageModal">
     <div class="image-modal-content" @click.stop>
@@ -207,6 +230,7 @@ export default {
     let resizeObserver = null
     let gameRequestVersion = 0
     let pendingFilterFocus = false
+    let pendingGameRemovalId = null
 
     const handleScroll = () => {
       showBackToTop.value = window.scrollY > 500
@@ -308,6 +332,49 @@ export default {
       }
     }
 
+    async function toggleFavorite() {
+      const game = selectedGame.value
+      if (!game.id) return
+
+      try {
+        const favorite = !game.favorite
+        const response = await server.put(`/game/${game.id}/favorite?favorite=${favorite}`)
+        if (response.code === 200) {
+          game.favorite = favorite
+          const listGame = gameData.list.find(item => item.id === game.id)
+          if (listGame) listGame.favorite = favorite
+          ElMessage.success(favorite ? '游戏已收藏' : '已取消收藏')
+        } else {
+          ElMessage.error('更新收藏状态失败')
+        }
+      } catch (error) {
+        console.error('游戏收藏操作失败:', error)
+        ElMessage.error('更新收藏状态失败')
+      }
+    }
+
+    async function toggleDeleteStatus() {
+      const game = selectedGame.value
+      if (!game.id) return
+
+      try {
+        const response = game.deleted
+          ? await server.put(`/game/${game.id}/restore`)
+          : await server.delete(`/game/${game.id}`)
+
+        if (response.code === 200) {
+          ElMessage.success(game.deleted ? '游戏已恢复' : '游戏已删除')
+          pendingGameRemovalId = game.id
+          closeModal()
+        } else {
+          ElMessage.error(game.deleted ? '恢复游戏失败' : '删除游戏失败')
+        }
+      } catch (error) {
+        console.error('游戏删除/恢复操作失败:', error)
+        ElMessage.error(game.deleted ? '恢复游戏失败' : '删除游戏失败')
+      }
+    }
+
     // 显示游戏详情
     function showGameDetail(game) {
       selectedGame.value = game
@@ -319,8 +386,18 @@ export default {
     // 关闭详情弹出框
     function closeModal() {
       showModal.value = false
+    }
+
+    function handleModalAfterLeave() {
+      if (pendingGameRemovalId !== null) {
+        const listIndex = gameData.list.findIndex(item => item.id === pendingGameRemovalId)
+        if (listIndex !== -1) {
+          gameData.list.splice(listIndex, 1)
+          gameData.total = Math.max(0, gameData.total - 1)
+        }
+        pendingGameRemovalId = null
+      }
       selectedGame.value = {}
-      // 恢复背景滚动
       document.body.style.overflow = 'auto'
     }
 
@@ -427,6 +504,7 @@ export default {
       setRecycle,
       showGameDetail,
       closeModal,
+      handleModalAfterLeave,
       showImagePreview,
       closeImageModal,
       previousImage,
@@ -447,6 +525,8 @@ export default {
       handleFilterPanelTransitionEnd,
       commitTitleSearch,
       clearTitleSearch,
+      toggleFavorite,
+      toggleDeleteStatus,
       withMediaStyle
     }
   }
@@ -772,6 +852,20 @@ ul li:hover .game-title {
   overflow: visible;
 }
 
+.game-list-leave-active {
+  pointer-events: none;
+  transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.game-list-leave-to {
+  opacity: 0;
+  transform: scale(0.94);
+}
+
+.game-list-move {
+  transition: transform 0.3s ease;
+}
+
 /* 弹出框样式 */
 .modal-overlay {
   position: fixed;
@@ -800,19 +894,31 @@ ul li:hover .game-title {
   max-height: 90vh;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
 }
 
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-50px) scale(0.9);
-  }
+.game-modal-enter-active,
+.game-modal-leave-active {
+  transition: opacity 0.22s ease;
+}
 
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.game-modal-enter-active .modal-content,
+.game-modal-leave-active .modal-content {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.game-modal-enter-from,
+.game-modal-leave-to,
+.game-modal-enter-from .modal-content,
+.game-modal-leave-to .modal-content {
+  opacity: 0;
+}
+
+.game-modal-enter-from .modal-content {
+  transform: translateY(18px) scale(0.98);
+}
+
+.game-modal-leave-to .modal-content {
+  transform: translateY(12px) scale(0.98);
 }
 
 .close-btn {
@@ -889,8 +995,12 @@ ul li:hover .game-title {
 }
 
 .game-basic-info {
+  box-sizing: border-box;
   min-width: 0;
+  min-height: 420px;
+  padding-bottom: 66px;
   padding-top: 4px;
+  position: relative;
 }
 
 .game-heading {
@@ -937,6 +1047,65 @@ ul li:hover .game-title {
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.game-action-buttons {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  gap: 15px;
+}
+
+.btn-icon {
+  background-color: transparent;
+  color: #409eff;
+  border: 2px solid #409eff;
+  padding: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+
+.btn-icon:hover {
+  background-color: #409eff;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+}
+
+.btn-icon.favorite {
+  border-color: #ff5c64;
+  color: #ff5c64;
+}
+
+.btn-icon.restore {
+  border-color: #57d055;
+  color: #57d055;
+}
+
+.btn-icon.favorite:hover {
+  background-color: #ff5c64;
+}
+
+.btn-icon.restore:hover {
+  background-color: #57d055;
+}
+
+.icon-svg {
+  width: 28px;
+  height: 28px;
+  transition: all 0.3s ease;
+  fill: currentColor;
+}
+
+.btn-icon:hover .icon-svg {
+  fill: white;
 }
 
 .game-previews {
@@ -1138,6 +1307,8 @@ ul li:hover .game-title {
   }
 
   .game-basic-info {
+    min-height: 0;
+    padding-bottom: 66px;
     padding-top: 0;
   }
 
@@ -1196,6 +1367,15 @@ ul li:hover .game-title {
 
 @media (prefers-reduced-motion: reduce) {
   .filter-container {
+    transition: none;
+  }
+
+  .game-modal-enter-active,
+  .game-modal-leave-active,
+  .game-modal-enter-active .modal-content,
+  .game-modal-leave-active .modal-content,
+  .game-list-leave-active,
+  .game-list-move {
     transition: none;
   }
 }

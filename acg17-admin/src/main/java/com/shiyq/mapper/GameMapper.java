@@ -5,6 +5,7 @@ import com.shiyq.entity.DO.Game;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -54,6 +55,21 @@ public interface GameMapper extends BaseMapper<Game> {
     int updateFavoriteByIdAndUserId(@Param("id") Integer id,
                                     @Param("favorite") boolean favorite,
                                     @Param("userId") Integer userId);
+
+    /**
+     * 查询达到回收站保留期限的游戏ID
+     */
+    List<Integer> getExpiredIds(@Param("cutoff") Date cutoff);
+
+    /**
+     * 锁定并读取仍满足清理条件的游戏
+     */
+    Game selectExpiredByIdForUpdate(@Param("id") Integer id, @Param("cutoff") Date cutoff);
+
+    /**
+     * 物理删除仍满足清理条件的游戏
+     */
+    int realDeleteExpiredById(@Param("id") Integer id, @Param("cutoff") Date cutoff);
 
     /**
      * 根据条件查询游戏列表

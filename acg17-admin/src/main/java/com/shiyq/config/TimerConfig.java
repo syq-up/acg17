@@ -77,6 +77,31 @@ public class TimerConfig {
     }
 
     /**
+     * 每天03：20执行，对逻辑删除达到最大保留时间的游戏进行删除
+     */
+    @Scheduled(cron = "0 20 3 * * ?", zone = "Asia/Shanghai")
+    public void deleteExpiredGames() {
+        Date cutoff = cutoff();
+        List<Integer> ids = recycleCleanupService.getExpiredGameIds(cutoff);
+        int cleaned = 0;
+        int skipped = 0;
+        int failed = 0;
+        for (Integer id : ids) {
+            try {
+                if (recycleCleanupService.cleanGame(id, cutoff)) {
+                    cleaned++;
+                } else {
+                    skipped++;
+                }
+            } catch (Exception e) {
+                failed++;
+                log.error("清理过期游戏失败，id={}", id, e);
+            }
+        }
+        log.info("过期游戏清理完成，候选={}，成功={}，跳过={}，失败={}", ids.size(), cleaned, skipped, failed);
+    }
+
+    /**
      * 每天04：00清理上传失败残留、待重试删除以及没有数据库引用的旧文件。
      */
     @Scheduled(cron = "0 0 4 * * ?", zone = "Asia/Shanghai")
