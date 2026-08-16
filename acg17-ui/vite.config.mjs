@@ -11,11 +11,6 @@ export default defineConfig({
     vue(),
     AutoImport({
       dts: false,
-      eslintrc: {
-        enabled: true,
-        filepath: './.eslintrc-auto-import.json',
-        globalsPropValue: 'readonly',
-      },
       resolvers: [ElementPlusResolver({ importStyle: 'css' })],
     }),
     Components({
