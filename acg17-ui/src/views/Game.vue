@@ -28,7 +28,7 @@
               v-model="titleSearchDraft"
               type="search"
               maxlength="255"
-              placeholder="搜索游戏原文标题或中文标题"
+              placeholder="搜索游戏原标题或中文标题"
               aria-label="搜索游戏标题"
               autocomplete="off"
               spellcheck="false"
@@ -65,51 +65,48 @@
     </div>
   </section>
 
-  <!-- 游戏详情弹出框 -->
   <div v-if="showModal" class="modal-overlay" @click="closeModal">
     <div class="modal-content" @click.stop>
-      <div class="modal-header">
-        <h2>{{ selectedGame.chineseTitle || selectedGame.title }}</h2>
-        <button class="close-btn" @click="closeModal">&times;</button>
-      </div>
+      <button type="button" class="close-btn" aria-label="关闭游戏详情" @click="closeModal">&times;</button>
 
       <div class="modal-body">
         <div class="game-detail-container">
-          <!-- 游戏缩略图 -->
           <div class="game-thumbnail unselectable">
-            <img :src="withMediaStyle(selectedGame.cover, 'medium')" :alt="selectedGame.title" />
+            <img
+              class="game-thumbnail-backdrop"
+              :src="withMediaStyle(selectedGame.cover, 'medium')"
+              alt=""
+              aria-hidden="true"
+            >
+            <img
+              class="game-thumbnail-image"
+              :src="withMediaStyle(selectedGame.cover, 'medium')"
+              :alt="selectedGame.title"
+            >
           </div>
 
-          <!-- 游戏基本信息 -->
           <div class="game-basic-info">
-            <div class="info-row">
-              <span class="label">游戏名称:</span>
+            <div class="game-heading">
+              <h2>{{ selectedGame.chineseTitle || selectedGame.title }}</h2>
+            </div>
+
+            <div v-if="selectedGame.chineseTitle" class="info-row">
+              <span class="label">原名</span>
               <span class="value">{{ selectedGame.title }}</span>
             </div>
 
             <div class="info-row">
-              <span class="label">中文名称:</span>
-              <span class="value">{{ selectedGame.chineseTitle }}</span>
-            </div>
-
-            <div class="info-row">
-              <span class="label">版本号:</span>
+              <span class="label">版本号</span>
               <span class="value">{{ selectedGame.version || '-' }}</span>
             </div>
 
-            <!-- <div class="info-row">
-              <span class="label">上传时间:</span>
-              <span class="value">{{ selectedGame.createTime }}</span>
-            </div> -->
-
             <div class="info-row">
-              <span class="label">游戏简介:</span>
-              <div class="game-description" style="white-space: pre-wrap;">{{ selectedGame.description }}</div>
+              <span class="label">游戏简介</span>
+              <div class="game-description">{{ selectedGame.description }}</div>
             </div>
           </div>
         </div>
 
-        <!-- 游戏预览图 -->
         <div class="game-previews unselectable" v-if="selectedGame.previewImages && selectedGame.previewImages.length > 0">
           <h3>游戏预览</h3>
           <div class="preview-images">
@@ -119,28 +116,33 @@
           </div>
         </div>
       </div>
-
-      <div class="modal-footer unselectable">
-        <button class="btn-secondary" @click="closeModal">关闭</button>
-      </div>
     </div>
   </div>
 
-  <!-- 图片预览弹出框 -->
   <div v-if="showImageModal" class="image-modal-overlay" @click="closeImageModal">
     <div class="image-modal-content" @click.stop>
-      <img :src="selectedGame.previewImages[currentImageIndex]" alt="预览图" />
-      <button class="image-close-btn" @click="closeImageModal">&times;</button>
+      <img :src="selectedGame.previewImages[currentImageIndex]" :alt="`预览图 ${currentImageIndex + 1}`" />
+      <button type="button" class="image-close-btn" aria-label="关闭图片预览" @click="closeImageModal">&times;</button>
       
-      <!-- 左右切换按钮 -->
-      <button v-if="currentImageIndex > 0" class="image-nav-btn prev-btn" @click="previousImage">
+      <button
+        v-if="currentImageIndex > 0"
+        type="button"
+        class="image-nav-btn prev-btn"
+        aria-label="上一张预览图"
+        @click="previousImage"
+      >
         <icon icon="#icon-left"></icon>
       </button>
-      <button v-if="currentImageIndex < selectedGame.previewImages.length - 1" class="image-nav-btn next-btn" @click="nextImage">
+      <button
+        v-if="currentImageIndex < selectedGame.previewImages.length - 1"
+        type="button"
+        class="image-nav-btn next-btn"
+        aria-label="下一张预览图"
+        @click="nextImage"
+      >
         <icon icon="#icon-right"></icon>
       </button>
       
-      <!-- 图片计数器 -->
       <div class="image-counter">
         {{ currentImageIndex + 1 }} / {{ selectedGame.previewImages.length }}
       </div>
@@ -188,7 +190,6 @@ export default {
     const showModal = ref(false)
     const selectedGame = ref({})
     const showImageModal = ref(false)
-    const previewImage = ref('')
     const currentImageIndex = ref(0)
 
     const containerWidth = ref(1380)
@@ -326,7 +327,6 @@ export default {
     // 显示图片预览
     function showImagePreview(index) {
       currentImageIndex.value = index
-      previewImage.value = selectedGame.value.previewImages[index]
       showImageModal.value = true
       // 添加键盘事件监听
       document.addEventListener('keydown', handleImageKeydown)
@@ -335,7 +335,6 @@ export default {
     // 关闭图片预览
     function closeImageModal() {
       showImageModal.value = false
-      previewImage.value = ''
       currentImageIndex.value = 0
       // 移除键盘事件监听
       document.removeEventListener('keydown', handleImageKeydown)
@@ -345,7 +344,6 @@ export default {
     function previousImage() {
       if (currentImageIndex.value > 0) {
         currentImageIndex.value--
-        previewImage.value = selectedGame.value.previewImages[currentImageIndex.value]
       }
     }
 
@@ -353,7 +351,6 @@ export default {
     function nextImage() {
       if (currentImageIndex.value < selectedGame.value.previewImages.length - 1) {
         currentImageIndex.value++
-        previewImage.value = selectedGame.value.previewImages[currentImageIndex.value]
       }
     }
 
@@ -414,6 +411,8 @@ export default {
     onUnmounted(() => {
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', updateWidth)
+      document.removeEventListener('keydown', handleImageKeydown)
+      document.body.style.overflow = 'auto'
       if (resizeObserver) resizeObserver.disconnect()
     })
 
@@ -422,7 +421,6 @@ export default {
       showModal,
       selectedGame,
       showImageModal,
-      previewImage,
       currentImageIndex,
       isRecycle,
       toggleRecycle,
@@ -787,17 +785,20 @@ ul li:hover .game-title {
   align-items: center;
   z-index: 1000;
   backdrop-filter: blur(5px);
-  padding: 20px;
+  padding: 16px;
   box-sizing: border-box;
 }
 
 .modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   background-color: white;
   border-radius: 12px;
-  max-width: 1160px;
-  max-height: 90vh;
   width: 100%;
-  overflow-y: auto;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: modalSlideIn 0.3s ease-out;
 }
@@ -814,41 +815,26 @@ ul li:hover .game-title {
   }
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 30px;
-  border-bottom: 1px solid #e9ecef;
-  background-color: #f8f9fa;
-  border-radius: 12px 12px 0 0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #2c3e50;
-  font-size: 24px;
-  font-weight: 600;
-  flex: 1;
-  margin-right: 20px;
-  word-break: break-word;
-}
-
 .close-btn {
-  background: none;
-  border: none;
-  font-size: 28px;
-  color: #6c757d;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 0;
   border-radius: 50%;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+  color: #6c757d;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
   transition: all 0.2s ease;
-  flex-shrink: 0;
 }
 
 .close-btn:hover {
@@ -857,77 +843,119 @@ ul li:hover .game-title {
 }
 
 .modal-body {
-  padding: 30px;
+  min-height: 0;
+  padding: 32px;
+  overflow-y: auto;
 }
 
 .game-detail-container {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  align-items: start;
   gap: 30px;
-  margin-bottom: 30px;
 }
 
 .game-thumbnail {
-  flex-shrink: 0;
+  position: relative;
+  width: 280px;
+  height: 420px;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 10px;
+  background-color: #edf1f5;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
 }
 
-.game-thumbnail img {
-  width: 330px;
-  height: auto;
-  max-height: 330px;
+.game-thumbnail-backdrop,
+.game-thumbnail-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.game-thumbnail-backdrop {
   object-fit: cover;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  filter: blur(16px);
+  opacity: 0.3;
+  transform: scale(1.08);
+}
+
+.game-thumbnail-image {
+  z-index: 1;
+  object-fit: contain;
+  object-position: center;
 }
 
 .game-basic-info {
-  flex: 1;
   min-width: 0;
+  padding-top: 4px;
+}
+
+.game-heading {
+  padding: 0 48px 18px 0;
+}
+
+.game-heading h2 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .info-row {
-  display: flex;
-  margin-bottom: 15px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
 }
 
 .label {
   font-weight: 600;
   color: #495057;
-  margin-right: 12px;
-  min-width: 80px;
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .value {
   color: #495057;
-  flex: 1;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .game-description {
-  max-height: 220px;
+  max-height: 260px;
+  padding-right: 8px;
   overflow-y: auto;
   color: #495057;
   line-height: 1.6;
-  flex: 1;
-  word-break: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .game-previews {
-  margin-top: 30px;
+  width: 100%;
+  margin-top: 28px;
 }
 
 .game-previews h3 {
-  font-size: 18px;
-  color: #2c3e50;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #409eff;
+  margin: 0 0 16px;
   padding-bottom: 8px;
+  border-bottom: 2px solid #409eff;
+  color: #2c3e50;
+  font-size: 18px;
+  line-height: 1.4;
 }
 
 .preview-images {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
 }
 
@@ -948,103 +976,74 @@ ul li:hover .game-title {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.modal-footer {
-  padding: 20px 30px;
-  border-top: 1px solid #e9ecef;
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-  background-color: #f8f9fa;
-  border-radius: 0 0 12px 12px;
-}
-
-.btn-primary {
-  background-color: #409eff;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.btn-primary:hover {
-  background-color: #337ab7;
-}
-
-.btn-secondary {
-  background-color: transparent;
-  color: #6c757d;
-  border: 1px solid #dee2e6;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-secondary:hover {
-  background-color: #e9ecef;
-  border-color: #adb5bd;
-}
-
 /* 图片预览弹出框 */
 .image-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
+  height: 100dvh;
+  --image-modal-gutter: clamp(12px, 3vw, 24px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1100;
-  padding: 20px;
+  background-color: rgba(10, 14, 20, 0);
+  backdrop-filter: blur(5px);
+  padding: var(--image-modal-gutter);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .image-modal-content {
   position: relative;
-  max-width: 90vw;
-  max-height: 90vh;
-  border: 1px solid #ffffff4d;
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  height: fit-content;
+  max-width: calc(100vw - var(--image-modal-gutter) - var(--image-modal-gutter));
+  max-height: calc(100dvh - var(--image-modal-gutter) - var(--image-modal-gutter));
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid rgba(51, 62, 72, 0.24);
+  border-radius: 10px;
+  background-color: #ffffff;
+  box-shadow: 0 16px 48px rgba(31, 42, 52, 0.28);
 }
 
 .image-modal-content img {
-  max-width: 100%;
-  max-height: 100%;
-  height: 90vh;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: calc(100vw - var(--image-modal-gutter) - var(--image-modal-gutter));
+  max-height: calc(100dvh - var(--image-modal-gutter) - var(--image-modal-gutter));
   object-fit: contain;
   border-radius: 8px;
-  display: block;
 }
 
 .image-close-btn {
   position: absolute;
-  top: -40px;
-  right: 0;
-  background: none;
-  border: none;
-  color: white;
-  font-size: 32px;
-  cursor: pointer;
-  padding: 0;
+  top: 10px;
+  right: 10px;
+  z-index: 1102;
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: rgba(20, 26, 34, 0.76);
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .image-close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
+  background-color: rgba(20, 26, 34, 0.92);
 }
 
 /* 图片导航按钮 */
@@ -1052,22 +1051,22 @@ ul li:hover .game-title {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  color: white;
+  z-index: 1102;
   width: 50px;
   height: 50px;
+  border: 0;
   border-radius: 50%;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(20, 26, 34, 0.76);
+  color: #ffffff;
+  cursor: pointer;
   transition: all 0.3s ease;
-  z-index: 1101;
 }
 
 .image-nav-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(20, 26, 34, 0.92);
   transform: translateY(-50%) scale(1.1);
 }
 
@@ -1091,13 +1090,13 @@ ul li:hover .game-title {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
+  z-index: 1102;
+  background: rgba(20, 26, 34, 0.78);
+  color: #ffffff;
   padding: 8px 16px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
-  z-index: 1101;
 }
 
 @media (max-width: 767px) {
@@ -1116,6 +1115,82 @@ ul li:hover .game-title {
   .submit-title-search {
     padding: 0 14px;
     font-size: 13px;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-body {
+    padding: 28px 16px 20px;
+  }
+
+  .game-detail-container {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .game-thumbnail {
+    width: min(280px, 100%);
+    height: auto;
+    aspect-ratio: 2 / 3;
+    justify-self: center;
+  }
+
+  .game-basic-info {
+    padding-top: 0;
+  }
+
+  .game-heading {
+    padding-right: 42px;
+  }
+
+  .game-heading h2 {
+    font-size: 22px;
+  }
+
+  .preview-images {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .preview-item img {
+    height: 160px;
+  }
+
+  .image-modal-overlay {
+    --image-modal-gutter: 10px;
+  }
+
+  .image-close-btn {
+    top: 8px;
+    right: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 24px;
+  }
+
+  .image-nav-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .image-nav-btn .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .prev-btn {
+    left: 8px;
+  }
+
+  .next-btn {
+    right: 8px;
+  }
+
+  .image-counter {
+    bottom: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
   }
 }
 
