@@ -84,7 +84,7 @@ export default {
 
       server.get('/illustration/getRandomArtwork')
         .then(res => {
-          random.url = res.data?.originalUrl || backgroundImage;
+          random.url = res.data?.url || backgroundImage;
         })
         .catch(() => {
           random.url = backgroundImage;

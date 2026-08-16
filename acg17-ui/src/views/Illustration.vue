@@ -21,7 +21,7 @@
              @drop="handleDrop($event, illustration.list.indexOf(item))"
              @dragend="handleDragend"
         >
-          <img :src="item.thumbnailUrl" class="gallery-img" :style="{ width: row.height * item.ratio + 'px' }" loading="lazy" @click="openPreview(illustration.list.indexOf(item))">
+          <img :src="withMediaStyle(item.url, 'small')" class="gallery-img" :style="{ width: row.height * item.ratio + 'px' }" loading="lazy" @click="openPreview(illustration.list.indexOf(item))">
           
           <div class="item-action-overlay">
             <div class="overlay-left" v-show="!drag.isDrag">
@@ -47,7 +47,7 @@
   <acg17-footer v-if="illustration.disabled"></acg17-footer>
   <div v-show="preview.show">
     <div @click="preview.show = false" class="preview-shade"></div>
-    <img class="preview-artwork" :src="preview.show ? illustration.list[preview.index].originalUrl : ''" alt=""
+    <img class="preview-artwork" :src="preview.show ? illustration.list[preview.index].url : ''" alt=""
          @touchstart.stop="touchstart" @touchmove.stop="touchmove" @touchend.stop="touchend">
     <div @click="preview.show = false" class="close-shade-btn hvr-grow">
       <icon icon="#icon-close"></icon>
@@ -68,6 +68,7 @@ import server from '@/util/request';
 import LoadingHeart from "../components/LoadingHeart";
 import Acg17Footer from "../components/Acg17Footer";
 import { useRecycleState, loadData } from '@/composables/useRecycleState';
+import { withMediaStyle } from '@/util/media';
 
 export default {
   name: "Illustration",
@@ -369,7 +370,7 @@ export default {
       preview, openPreview, lastPage, nextPage, touchstart, touchmove, touchend,
       deleteArtwork, restoreArtwork,
       drag, handleDragStart, handleDragover, handleDragenter, handleDragleave, handleDrop, handleDragend,
-      containerWidth, randomArtwork, scrollToTop, showBackToTop
+      containerWidth, randomArtwork, scrollToTop, showBackToTop, withMediaStyle
     }
   }
 }

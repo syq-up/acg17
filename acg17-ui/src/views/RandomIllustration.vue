@@ -22,8 +22,8 @@ export default {
 
       server.get('/illustration/getRandomArtwork')
         .then(res => {
-          if (res.data?.originalUrl) {
-            random.url = res.data.originalUrl
+          if (res.data?.url) {
+            random.url = res.data.url
             return
           }
           random.url = ''

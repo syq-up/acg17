@@ -40,6 +40,7 @@
 <script setup>
 import { ref } from 'vue'
 import server from '@/util/request'
+import { withMediaStyle } from '@/util/media'
 import uploadLoadingUrl from '@/assets/icon/upload/loading.svg'
 
 const images = ref([])
@@ -64,7 +65,7 @@ async function uploadIllustration({ file }) {
     const image = images.value.find(item => item.id === temporaryId)
     if (image) {
       image.id = res.data.id
-      image.url = res.data.thumbnailUrl
+      image.url = withMediaStyle(res.data.url, 'small')
     }
   } catch (error) {
     images.value = images.value.filter(item => item.id !== temporaryId)

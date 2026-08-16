@@ -237,12 +237,10 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
 
     private IllustrationVO toVO(Illustration illustration) {
         IllustrationVO vo = IllustrationConvert.INSTANCE.toVO(illustration);
-        String originalUrl = generateOriginalUrl(illustration.getPath());
-        return vo.setOriginalUrl(originalUrl)
-                .setThumbnailUrl(originalUrl == null ? null : originalUrl + "&style=small");
+        return vo.setUrl(generateAccessUrl(illustration.getPath()));
     }
 
-    private String generateOriginalUrl(String path) {
+    private String generateAccessUrl(String path) {
         if (path == null || path.trim().isEmpty()) {
             return null;
         }

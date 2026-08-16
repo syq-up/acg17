@@ -13,8 +13,7 @@ public interface IllustrationConvert {
     /**
      * 插画DO --> 插画VO
      */
-    @Mapping(target = "thumbnailUrl", ignore = true)
-    @Mapping(target = "originalUrl", ignore = true)
+    @Mapping(target = "url", ignore = true)
     IllustrationVO toVO(Illustration illustration);
 
 }

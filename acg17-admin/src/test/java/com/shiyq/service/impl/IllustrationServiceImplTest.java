@@ -94,7 +94,7 @@ class IllustrationServiceImplTest {
     }
 
     @Test
-    void listReturnsOriginalAndSmallStyleUrlsFromTheOriginalFile() {
+    void listReturnsSignedOriginalFileUrl() {
         Illustration illustration = illustration(11, 3);
         illustration.setPath("image.png");
         when(illustrationMapper.getListByCondition(USER_ID, 1L, 36L, false))
@@ -104,8 +104,7 @@ class IllustrationServiceImplTest {
         PageVO<IllustrationVO> page = service.getList(1L, false);
 
         IllustrationVO result = page.getRecords().getFirst();
-        assertEquals("/api/media?path=signed", result.getOriginalUrl());
-        assertEquals("/api/media?path=signed&style=small", result.getThumbnailUrl());
+        assertEquals("/api/media?path=signed", result.getUrl());
     }
 
     private Illustration illustration(int id, int sortOrder) {

@@ -70,7 +70,7 @@ class FileOperationConsistencyServiceTest {
     }
 
     @Test
-    void illustrationUploadPublishesOnlyOriginalAndReturnsDerivedThumbnailUrl() throws Exception {
+    void illustrationUploadPublishesOnlyOriginalAndReturnsSignedUrl() throws Exception {
         IllustrationMapper illustrationMapper = mock(IllustrationMapper.class);
         UserMapper userMapper = mock(UserMapper.class);
         AtomicReference<Illustration> savedIllustration = new AtomicReference<>();
@@ -98,8 +98,7 @@ class FileOperationConsistencyServiceTest {
         assertTrue(savedIllustration.get().getPath().endsWith(".png"));
         assertTrue(Files.isRegularFile(uploadFolder.resolve("illustrations/upload")
                 .resolve(savedIllustration.get().getPath())));
-        assertEquals("/api/media?signed=test", result.getOriginalUrl());
-        assertEquals("/api/media?signed=test&style=small", result.getThumbnailUrl());
+        assertEquals("/api/media?signed=test", result.getUrl());
         assertEquals(0L, childCount(uploadFolder.resolve(".staging")));
     }
 
