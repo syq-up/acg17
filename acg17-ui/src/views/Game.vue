@@ -52,7 +52,7 @@
     <ul class="game-container unselectable">
       <li v-for="(game) in gameData.list" :key="game.id" @click="showGameDetail(game)">
         <div class="game-img-container">
-          <img class="game-img" :src="game.cover" :alt="game.title">
+          <img class="game-img" :src="withMediaStyle(game.cover, 'small')" :alt="game.title">
         </div>
         <div class="game-info">
           <div class="game-title">{{ game.chineseTitle || game.title }}</div>
@@ -77,7 +77,7 @@
         <div class="game-detail-container">
           <!-- 游戏缩略图 -->
           <div class="game-thumbnail unselectable">
-            <img :src="selectedGame.cover" :alt="selectedGame.title" />
+            <img :src="withMediaStyle(selectedGame.cover, 'medium')" :alt="selectedGame.title" />
           </div>
 
           <!-- 游戏基本信息 -->
@@ -114,7 +114,7 @@
           <h3>游戏预览</h3>
           <div class="preview-images">
             <div v-for="(image, index) in selectedGame.previewImages" :key="index" class="preview-item">
-              <img :src="image" :alt="`预览图 ${index + 1}`" @click="showImagePreview(index)" />
+              <img :src="withMediaStyle(image, 'small')" :alt="`预览图 ${index + 1}`" loading="lazy" decoding="async" @click="showImagePreview(index)" />
             </div>
           </div>
         </div>
@@ -157,6 +157,7 @@ import server from '@/util/request'
 import Acg17Footer from "../components/Acg17Footer"
 import Icon from "../components/Icon"
 import { useRecycleState } from '@/composables/useRecycleState'
+import { withMediaStyle } from '@/util/media'
 
 function normalizeTitle(value) {
   const queryValue = Array.isArray(value) ? value[0] : value
@@ -447,7 +448,8 @@ export default {
       closeTitleSearch,
       handleFilterPanelTransitionEnd,
       commitTitleSearch,
-      clearTitleSearch
+      clearTitleSearch,
+      withMediaStyle
     }
   }
 }
