@@ -2,8 +2,8 @@
   <div class="index-page">
     <div class="background-container"></div>
     <div class="logo unselectable font-blueaka">
-      <img src="../assets/logo.png" alt="ACGN LOGO" />
-      <h1>ACGN</h1>
+      <img src="../assets/logo.png" alt="ACG17 LOGO" />
+      <h1>ACG17</h1>
     </div>
     <!-- 背景气泡（装饰元素） -->
     <div v-for="n in 20" :key="n" class="bubble" :style="getBubbleStyle(n)"></div>

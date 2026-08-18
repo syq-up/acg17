@@ -2,8 +2,8 @@
   <div class="login-page">
     <div class="background-container"></div>
     <div class="logo unselectable font-blueaka">
-      <img src="../assets/logo.png" alt="ACGN LOGO" />
-      <h1 @click="goToHome">ACGN</h1>
+      <img src="../assets/logo.png" alt="ACG17 LOGO" />
+      <h1 @click="goToHome">ACG17</h1>
     </div>
     <!-- 背景气泡（装饰元素） -->
     <div v-for="(style, index) in bubbles" :key="index" class="bubble" :style="style"></div>

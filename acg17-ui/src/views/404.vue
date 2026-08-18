@@ -2,8 +2,8 @@
   <div class="page-404" >
     <div class="background-container"></div>
     <div class="logo unselectable font-blueaka">
-      <img src="../assets/logo.png" alt="ACGN LOGO" @click="getRandomImage" />
-      <h1 @click="goToHome">ACGN</h1>
+      <img src="../assets/logo.png" alt="ACG17 LOGO" @click="getRandomImage" />
+      <h1 @click="goToHome">ACG17</h1>
     </div>
     <!-- 背景气泡（装饰元素） -->
     <div v-for="(style, index) in bubbles" :key="index" class="bubble" :style="style"></div>
@@ -43,7 +43,7 @@
 
     <div class="footer font-blueaka">
       Copyright © 2022&nbsp;
-      <div class="hide"><a href="https://acg17.shiyq.top">ACGN</a>&nbsp;</div>
+      <div class="hide"><a href="https://acg17.shiyq.top">ACG17</a>&nbsp;</div>
       <div class="hide">All Rights Reserved&nbsp;</div>
       <a href="http://www.beian.gov.cn/" target="_blank" style="color: #409effd0">豫ICP备2021006771号</a>
     </div>

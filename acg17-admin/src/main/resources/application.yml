@@ -33,7 +33,7 @@ mybatis-plus:
       update-strategy: NOT_EMPTY
 
 file:
-  illustrationFolder: illustrations/upload/
+  illustrationFolder: illustrations/
   mangaFolder: manga/
   novelFolder: novels/
   gameFolder: games/
