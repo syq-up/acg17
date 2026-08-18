@@ -11,10 +11,6 @@ import org.springframework.util.unit.DataSize;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import jakarta.servlet.MultipartConfigElement;
 
@@ -35,10 +31,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
      */
     @Value("${file.uploadFolder}")
     private String uploadFolder;
-    @Value("${file.publicAssetFolder:illustrations/web-img/}")
-    private String publicAssetFolder;
-    @Value("${file.publicAssetAccessPath:/public-assets/**}")
-    private String publicAssetAccessPath;
     @Value("${file.maxFileSize}")
     private String maxFileSize;
     @Value("${file.maxRequestSize}")
@@ -67,8 +59,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/user/login",
                         "/illustration/getRandomArtwork",
-                        "/media",
-                        publicAssetAccessPath
+                        "/media"
                 )  // 不拦截
         ;
     }
@@ -90,21 +81,4 @@ public class WebMvcConfig implements WebMvcConfigurer {
         return factory.createMultipartConfig();
     }
 
-    /**
-     * 只公开站点装饰素材。用户上传内容统一通过带短期签名的 /media 接口访问。
-     */
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        Path uploadRoot = Paths.get(uploadFolder).toAbsolutePath().normalize();
-        Path publicAssetRoot = uploadRoot.resolve(publicAssetFolder).normalize();
-        if (!publicAssetRoot.startsWith(uploadRoot)) {
-            throw new IllegalArgumentException("Public asset folder must stay inside upload folder");
-        }
-        String publicAssetLocation = publicAssetRoot.toUri().toString();
-        if (!publicAssetLocation.endsWith("/")) {
-            publicAssetLocation += "/";
-        }
-        registry.addResourceHandler(publicAssetAccessPath)
-                .addResourceLocations(publicAssetLocation);
-    }
 }

@@ -1,5 +1,4 @@
 <template>
-  <!-- <div class="page-404" :style="{ backgroundImage: `url(${backgroundImage})` }"> -->
   <div class="page-404" >
     <div class="background-container"></div>
     <div class="logo unselectable font-blueaka">
@@ -68,9 +67,6 @@ export default {
       return store.state.userInfo.username && store.state.userInfo.username.length > 0;
     });
 
-    // 随机背景图片
-    const backgroundImage = `/api/public-assets/bg/00${Math.floor(Math.random() * 9) + 1}.jpg`;
-
     // 随机图片状态
     const random = reactive({
       url: '',
@@ -84,10 +80,16 @@ export default {
 
       server.get('/illustration/getRandomArtwork')
         .then(res => {
-          random.url = res.data?.url || backgroundImage;
+          if (res.data?.url) {
+            random.url = res.data.url;
+            return;
+          }
+          random.url = '';
+          random.error = '暂无可用插画';
         })
         .catch(() => {
-          random.url = backgroundImage;
+          random.url = '';
+          random.error = '随机插画加载失败';
         });
     };
 
@@ -123,7 +125,7 @@ export default {
       router.push('/')
     }
 
-    return { isLoggedIn, backgroundImage, random, bubbles, getRandomImage, goBack, goToHome };
+    return { isLoggedIn, random, bubbles, getRandomImage, goBack, goToHome };
   }
 }
 </script>

@@ -157,7 +157,7 @@ npm run build
 npm run preview
 ```
 
-生产构建产物位于 `acg17-ui/dist`。部署时需要让前端站点将 `/api` 整体转发到后端，其中包括 `/api/media` 签名媒体接口和 `/api/public-assets/**` 公开装饰素材路径。
+生产构建产物位于 `acg17-ui/dist`。部署时需要让前端站点将 `/api` 整体转发到后端，其中包括 `/api/media` 签名媒体接口。
 
 ## 配置说明
 
@@ -178,9 +178,8 @@ npm run preview
 | `/api/novel-tag` | 小说标签 |
 | `/api/game` | 游戏信息、文件、收藏和回收站 |
 | `/api/media` | 校验短期签名后读取用户上传的媒体文件 |
-| `/api/public-assets/**` | 无需登录的站点装饰素材 |
 
-> 除登录、随机插画、签名媒体和公开装饰素材接口外，业务接口默认需要在请求头中携带 `Authorization: Bearer <token>`。前端会在登录后自动添加该请求头。
+> 除登录、随机插画和签名媒体接口外，业务接口默认需要在请求头中携带 `Authorization: Bearer <token>`。前端会在登录后自动添加该请求头。
 
 ### API 约定
 
@@ -252,8 +251,6 @@ PUT    /api/game/{id}/restore
 | `file.novelFolder` | `novels/` | 小说目录 |
 | `file.gameFolder` | `games/` | 游戏目录 |
 | `{file.uploadFolder}/media-cache/` | 自动创建 | 实时图片派生缓存，不允许作为签名源文件直接访问 |
-| `file.publicAssetFolder` | `illustrations/web-img/` | 允许公开访问的站点装饰素材目录 |
-| `file.publicAssetAccessPath` | `/public-assets/**` | 公开装饰素材的访问路径 |
 
 上传限制和 ZIP 解压保护在公共 `application.yml` 中配置：单文件默认 512 MB、单次请求默认 1 GB、单张插画默认 100 MB、单张游戏图片默认 20 MB，一个游戏最多上传 20 张预览图；漫画 ZIP 默认最多 5,000 个条目、单个条目 100 MB、解压后总大小 1 GB。前端上传提示可能比后端限制更严格，以后端配置为准。
 

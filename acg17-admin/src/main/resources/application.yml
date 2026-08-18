@@ -37,8 +37,6 @@ file:
   mangaFolder: manga/
   novelFolder: novels/
   gameFolder: games/
-  publicAssetFolder: illustrations/web-img/
-  publicAssetAccessPath: /public-assets/**
   avatarFolder: avatar/
   maxFileSize: 512MB
   maxRequestSize: 1024MB

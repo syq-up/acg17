@@ -2,7 +2,7 @@
   <div class="index-page">
     <div class="background-container"></div>
     <div class="logo unselectable font-blueaka">
-      <img src="../assets/logo.png" alt="ACGN LOGO" @click="refreshCategoryBg" />
+      <img src="../assets/logo.png" alt="ACGN LOGO" />
       <h1>ACGN</h1>
     </div>
     <!-- 背景气泡（装饰元素） -->
@@ -13,7 +13,7 @@
         <div class="card" :class="`card-${index + 1}`">
           <!-- Clipper for background and art -->
           <div class="card-clipper">
-            <div class="char-art" :style="item.bgUrl ? { backgroundImage: 'url(' + item.bgUrl + ')' } : {}">
+            <div class="char-art" :style="{ backgroundImage: 'url(' + item.bgUrl + ')' }">
               <!-- 卡片装饰元素（CSS 形状） -->
               <div class="decoration" style="top: 10%; left: 10%; width: 50px; height: 50px;"></div>
               <div class="decoration" style="bottom: 30%; right: -20px; width: 100px; height: 100px;"></div>
@@ -38,34 +38,26 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
+import illustrationBackground from '../assets/image/bg_category/1.webp'
+import mangaBackground from '../assets/image/bg_category/2.webp'
+import gameBackground from '../assets/image/bg_category/3.webp'
+import novelBackground from '../assets/image/bg_category/4.webp'
+import jellyfinBackground from '../assets/image/bg_category/5.webp'
 
 export default {
   name: 'Index',
   setup() {
-    const store = useStore()
     const router = useRouter()
 
     // 分类目录
-    const bgImgPrefix = ref('')
-    // 初始化背景前缀
-    const initBgImgPrefix = () => {
-      bgImgPrefix.value = store.state.userInfo.username
-        ? `/api/public-assets/bg_category_r18/${Math.floor(Math.random()*1)+3}/`
-        : `/api/public-assets/bg_category_r17/${Math.floor(Math.random()*1)+1}/`
-    }
-    // 页面加载时初始化
-    initBgImgPrefix()
-    
-    const catalogList = computed(() => [
-      {index: '01', title: 'Illustration', path: '/acg/illustration', bgUrl: bgImgPrefix.value + '1.jpg',},
-      {index: '02', title: 'Manga', path: '/acg/manga', bgUrl: bgImgPrefix.value + '2.jpg',},
-      {index: '03', title: 'Game', path: '/acg/game', bgUrl: bgImgPrefix.value + '3.jpg',},
-      {index: '04', title: 'Novel', path: '/acg/novel', bgUrl: bgImgPrefix.value + '4.jpg',},
-      {index: '05', title: 'Jellyfin', path: '/acg/anime', bgUrl: bgImgPrefix.value + '5.jpg',},
-    ])
+    const catalogList = [
+      { index: '01', title: 'Illustration', path: '/acg/illustration', bgUrl: illustrationBackground },
+      { index: '02', title: 'Manga', path: '/acg/manga', bgUrl: mangaBackground },
+      { index: '03', title: 'Game', path: '/acg/game', bgUrl: gameBackground },
+      { index: '04', title: 'Novel', path: '/acg/novel', bgUrl: novelBackground },
+      { index: '05', title: 'Jellyfin', path: '/acg/anime', bgUrl: jellyfinBackground },
+    ]
     
     // 路由跳转
     function toRoute(path) {
@@ -87,12 +79,7 @@ export default {
       };
     }
 
-    // 刷新分类背景
-    const refreshCategoryBg = () => {
-      initBgImgPrefix()
-    }
-
-    return { catalogList, toRoute, getBubbleStyle, refreshCategoryBg }
+    return { catalogList, toRoute, getBubbleStyle }
   }
 }
 </script>
@@ -149,7 +136,6 @@ export default {
   border-radius: 8px;
   box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
-  cursor: pointer;
 }
 
 .logo img:hover {
