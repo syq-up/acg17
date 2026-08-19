@@ -1,11 +1,16 @@
 <template>
-  <header id="header" :class="$store.state.acg17Header.show ? 'header' : 'header header-hidden'">
+  <header
+    id="header"
+    ref="headerRef"
+    class="header"
+    :class="headerLayoutClasses"
+  >
     <div class="left">
       <acg17-side-menu></acg17-side-menu>
       <h1 class="title unselectable" @click="goToHome" style="cursor: pointer;">Acg 17</h1>
     </div>
-    <div class="center">
-      <div class="nav-left unselectable">
+    <div ref="centerRef" class="center">
+      <div ref="navLeftRef" class="nav-left unselectable">
         <nav class="nav">
           <router-link v-for="item in navi.list" :key="item.index" :to="item.path"
             :class="{ 'active-navi': isRouteActive(item.path) }">
@@ -13,12 +18,24 @@
           </router-link>
         </nav>
       </div>
-      <div v-if="!isAccountRoute" class="nav-right unselectable">
+      <div v-if="!isAccountRoute" ref="navRightRef" class="nav-right unselectable">
         <div class="btn-group">
-          <button :class="isRecycle ? 'active' : ''" @click="toggleRecycle">
+          <button
+            type="button"
+            class="recycle-button"
+            :class="{ active: isRecycle }"
+            :aria-pressed="isRecycle"
+            @click="toggleRecycle"
+          >
             回收站
           </button>
-          <button :class="!isRecycle ? 'active' : ''" @click="() => setRecycle(false)">
+          <button
+            type="button"
+            class="all-button"
+            :class="{ active: !isRecycle }"
+            :aria-pressed="!isRecycle"
+            @click="setRecycle(false)"
+          >
             全部
           </button>
         </div>
@@ -26,7 +43,7 @@
 
     </div>
     <div class="right unselectable">
-      <div class="welcome" style="white-space: nowrap;">
+      <div class="welcome">
         Hi, <span style="color: #409eff;" v-text="displayName"></span>~
       </div>
       <acg17-upload></acg17-upload>
@@ -59,13 +76,23 @@
 </template>
 
 <script>
-import { computed } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Acg17SideMenu from './Acg17SideMenu';
 import Acg17Upload from "./Acg17Upload";
 import { useRecycleState } from '@/composables/useRecycleState';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import server from '@/util/request';
+
+const HEADER_LAYOUT_MODE = Object.freeze({
+  FULL: 0,
+  NO_WELCOME: 1,
+  TIGHT: 2,
+  CURRENT_NAV: 3,
+  DENSE: 4,
+  RECYCLE_ONLY: 5,
+  ULTRA: 6,
+})
 
 export default {
   name: "Acg17Header",
@@ -77,11 +104,28 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const store = useStore()
+    const headerRef = ref(null)
+    const centerRef = ref(null)
+    const navLeftRef = ref(null)
+    const navRightRef = ref(null)
+    const headerLayoutMode = ref(HEADER_LAYOUT_MODE.FULL)
+    let headerResizeObserver = null
+    let layoutFrame = 0
+    let layoutRequest = 0
 
     const displayName = computed(() =>
       store.state.userInfo.nickname || store.state.userInfo.username || '用户'
     )
     const isAccountRoute = computed(() => route.path.startsWith('/account'))
+    const headerLayoutClasses = computed(() => ({
+      'header-hidden': !store.state.acg17Header.show,
+      'layout-no-welcome': headerLayoutMode.value >= HEADER_LAYOUT_MODE.NO_WELCOME,
+      'layout-tight': headerLayoutMode.value >= HEADER_LAYOUT_MODE.TIGHT,
+      'layout-current-nav': headerLayoutMode.value >= HEADER_LAYOUT_MODE.CURRENT_NAV,
+      'layout-dense': headerLayoutMode.value >= HEADER_LAYOUT_MODE.DENSE,
+      'layout-recycle-only': headerLayoutMode.value >= HEADER_LAYOUT_MODE.RECYCLE_ONLY,
+      'layout-ultra': headerLayoutMode.value >= HEADER_LAYOUT_MODE.ULTRA,
+    }))
 
     // 导航菜单navi
     const navi = {
@@ -107,6 +151,66 @@ export default {
 
     // 使用回收站状态管理，传入响应式的页面名称
     const { isRecycle, toggleRecycle, setRecycle } = useRecycleState(currentPageName)
+
+    function headerLayoutFits() {
+      const header = headerRef.value
+      const center = centerRef.value
+      if (!header || !center) return true
+
+      const visibleGroups = [navLeftRef.value, navRightRef.value]
+        .filter(element => element && element.getBoundingClientRect().width > 0)
+      const centerGap = Number.parseFloat(window.getComputedStyle(center).columnGap) || 0
+      const requiredCenterWidth = visibleGroups.reduce(
+        (width, element) => width + element.scrollWidth,
+        0,
+      ) + Math.max(0, visibleGroups.length - 1) * centerGap
+
+      return requiredCenterWidth <= center.clientWidth + 0.5
+        && header.scrollWidth <= header.clientWidth + 0.5
+    }
+
+    async function updateHeaderLayout(requestId) {
+      for (let mode = HEADER_LAYOUT_MODE.FULL; mode <= HEADER_LAYOUT_MODE.ULTRA; mode += 1) {
+        if (requestId !== layoutRequest) return
+        headerLayoutMode.value = mode
+        await nextTick()
+        if (requestId !== layoutRequest) return
+        if (headerLayoutFits()) return
+      }
+    }
+
+    function scheduleHeaderLayout() {
+      if (!headerRef.value) return
+      layoutRequest += 1
+      const requestId = layoutRequest
+      if (layoutFrame) window.cancelAnimationFrame(layoutFrame)
+      layoutFrame = window.requestAnimationFrame(() => {
+        layoutFrame = 0
+        updateHeaderLayout(requestId)
+      })
+    }
+
+    onMounted(() => {
+      headerResizeObserver = new ResizeObserver(scheduleHeaderLayout)
+      headerResizeObserver.observe(headerRef.value)
+      scheduleHeaderLayout()
+      document.fonts?.ready.then(scheduleHeaderLayout)
+    })
+
+    onUnmounted(() => {
+      layoutRequest += 1
+      headerResizeObserver?.disconnect()
+      if (layoutFrame) window.cancelAnimationFrame(layoutFrame)
+    })
+
+    watch(
+      [() => route.path, displayName, isAccountRoute, isRecycle],
+      async () => {
+        await nextTick()
+        scheduleHeaderLayout()
+      },
+      { flush: 'post' },
+    )
 
     // 退出登录函数
     const logout = async () => {
@@ -142,6 +246,11 @@ export default {
       isRouteActive,
       displayName,
       isAccountRoute,
+      headerRef,
+      centerRef,
+      navLeftRef,
+      navRightRef,
+      headerLayoutClasses,
     }
   }
 }
@@ -149,11 +258,27 @@ export default {
 
 <style scoped>
 .header {
+  --header-padding-x: 24px;
+  --header-section-gap: 20px;
+  --center-group-gap: 20px;
+  --brand-gap: 20px;
+  --right-gap: 16px;
+  --nav-padding-x: 16px;
+  --filter-padding-x: 14px;
+  --upload-padding-x: 24px;
+  --title-font-size: 1.3rem;
+  --avatar-size: 40px;
+  --nav-height: 40px;
+  --filter-height: 32px;
+  --filter-group-padding: 4px;
+  --filter-group-radius: 12px;
   box-sizing: border-box;
   width: 100vw;
   height: 64px;
-  padding: 12px 24px;
-  display: flex;
+  padding: 12px var(--header-padding-x);
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  column-gap: var(--header-section-gap);
   align-items: center;
   position: fixed;
   top: 0;
@@ -168,106 +293,74 @@ export default {
   transform: translateY(-100%);
 }
 
-.header .left,
-.header .right {
-  flex: 1;
-}
-
-.header .right {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.header .right ::v-deep(.btn-upload) {
-  padding: 6px 24px;
-  border-radius: 8px;
-}
-
-.header .right ::v-deep(.btn-upload-content) {
-  font-family: 'Blueaka', sans-serif;
-}
-
 .header .left {
-  display: -webkit-flex;
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
 .header .left .title {
-  margin: 0 0 0 20px;
+  margin: 0 0 0 var(--brand-gap);
   font-weight: 600;
-  font-size: 1.3rem;
+  font-size: var(--title-font-size);
   color: #409eff;
   white-space: nowrap;
 }
 
-/* 中间区域样式 */
 .header .center {
-  width: 1380px;
-  margin: 0 10px;
+  width: 100%;
+  max-width: 1380px;
+  min-width: 0;
+  justify-self: center;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--center-group-gap);
 }
 
-.header .center .nav-left {
-  flex: 1;
+.header .nav-left,
+.header .nav-right {
+  flex: 0 0 auto;
   display: flex;
-  justify-content: flex-start;
+  min-width: 0;
 }
 
-.header .center .nav-right {
-  flex: 1;
-  display: flex;
+.header .nav-right {
   justify-content: flex-end;
-}
-
-.header .center .nav-right .btn-group {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.header .center .nav-right .btn-group button {
-  font-family: 'Blueaka', sans-serif;
-}
-
-.header .center .nav-right .btn-group button {
-  font-family: 'Blueaka', sans-serif;
-  line-height: 1;
-}
-
-@media screen and (max-width:715px) {
-  .header .center .nav-right {
-    display: none;
-  }
-}
-
-@media screen and (max-width:499px) {
-  .header .center .nav {
-    display: none;
-  }
-
-  .header .center .btn-group {
-    display: none;
-  }
 }
 
 .header .right {
   display: flex;
-  gap: 16px;
-  justify-content: flex-end;
   align-items: center;
+  justify-content: flex-end;
+  gap: var(--right-gap);
+  min-width: 0;
 }
 
-@media screen and (max-width:1100px) {
-  .header .right .welcome {
-    display: none;
-  }
+.header .right ::v-deep(.btn-upload) {
+  padding: 6px var(--upload-padding-x);
+  border-radius: 8px;
 }
 
-/* 用户头像 start */
+.header .right ::v-deep(.btn-upload-content),
+.header .center .nav-right .btn-group button {
+  font-family: 'Blueaka', sans-serif;
+}
+
+.header .center .nav-right .btn-group button {
+  line-height: 1;
+}
+
+.header .right .welcome {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .header .right .avatar {
-  width: 40px;
-  height: 40px;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
   cursor: pointer;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -278,9 +371,7 @@ export default {
   height: 100%;
   border-radius: 8px;
 }
-/* 用户头像 end */
 
-/* 导航菜单 nav start */
 .header .nav {
   display: flex;
   gap: 4px;
@@ -288,8 +379,8 @@ export default {
 
 .header .nav a {
   box-sizing: border-box;
-  height: 40px;
-  padding: 0 16px;
+  height: var(--nav-height);
+  padding: 0 var(--nav-padding-x);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -326,28 +417,19 @@ export default {
   border-radius: 2px;
 }
 
-@media screen and (max-width:940px) {
-  .header .nav {
-    display: none;
-  }
-}
-
-/* 导航菜单 nav end */
-
-/* 按钮组 btn-group start */
 .header .btn-group {
   display: flex;
   gap: 6px;
   background-color: #f8fafc;
-  padding: 4px;
-  border-radius: 12px;
+  padding: var(--filter-group-padding);
+  border-radius: var(--filter-group-radius);
   border: 1px solid #e2e8f0;
 }
 
 .header .btn-group button {
   box-sizing: border-box;
-  height: 32px;
-  padding: 6px 14px;
+  height: var(--filter-height);
+  padding: 0 var(--filter-padding-x);
   border: none;
   border-radius: 8px;
   font-size: 13px;
@@ -377,7 +459,60 @@ export default {
   color: #1e293b;
 }
 
-/* 按钮组 btn-group end */
+.header.layout-no-welcome .welcome {
+  display: none;
+}
+
+.header.layout-tight {
+  --header-padding-x: 16px;
+  --header-section-gap: 14px;
+  --center-group-gap: 12px;
+  --brand-gap: 16px;
+  --right-gap: 12px;
+  --nav-padding-x: 12px;
+  --filter-padding-x: 12px;
+  --upload-padding-x: 20px;
+}
+
+.header.layout-current-nav .nav a:not(.active-navi) {
+  display: none;
+}
+
+.header.layout-dense {
+  --header-padding-x: 12px;
+  --header-section-gap: 8px;
+  --center-group-gap: 8px;
+  --brand-gap: 12px;
+  --right-gap: 8px;
+  --nav-padding-x: 10px;
+  --filter-padding-x: 10px;
+  --upload-padding-x: 16px;
+}
+
+.header.layout-recycle-only .all-button {
+  display: none;
+}
+
+.header.layout-recycle-only .btn-group {
+  gap: 0;
+}
+
+.header.layout-ultra {
+  --header-padding-x: 8px;
+  --header-section-gap: 4px;
+  --center-group-gap: 4px;
+  --brand-gap: 8px;
+  --right-gap: 6px;
+  --nav-padding-x: 8px;
+  --filter-padding-x: 8px;
+  --upload-padding-x: 12px;
+  --title-font-size: 1.05rem;
+  --avatar-size: 36px;
+  --nav-height: 36px;
+  --filter-height: 30px;
+  --filter-group-padding: 3px;
+  --filter-group-radius: 10px;
+}
 
 .el-dropdown-menu__item a {
   display: grid;
