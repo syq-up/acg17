@@ -1,11 +1,9 @@
 <template>
-  <section class="manga-reader unselectable" :class="{ 'fullscreen-mode': isFullscreen }">
-    <!-- 顶部菜单栏 -->
-    <div class="top-menu" :class="{ 'hidden': isFullscreen }">
+  <section class="manga-reader unselectable" :class="{ 'immersive-mode': isImmersive }">
+    <div class="top-menu" :class="{ hidden: isImmersive }">
       <div class="menu-left">
-        <button class="back-btn" @click="goBack">
+        <button type="button" class="back-btn" aria-label="返回漫画详情" @click="goBack">
           <icon icon="#icon-left"></icon>
-          返回
         </button>
         <span class="manga-title">{{ manga.chineseTitle || manga.title }}</span>
       </div>
@@ -15,30 +13,23 @@
       </div>
 
       <div class="menu-right">
-        <div class="settings-menu" ref="settingsMenuRef">
-          <button class="menu-btn" @click="toggleSettings">
+        <div ref="settingsMenuRef" class="settings-menu">
+          <button type="button" class="menu-btn" aria-label="阅读设置" @click="toggleSettings">
             <icon icon="#icon-setting"></icon>
           </button>
-          <div v-show="showSettings" class="settings-panel" ref="settingsPanelRef">
+          <div v-show="showSettings" ref="settingsPanelRef" class="settings-panel">
             <div class="panel-header">
               <span>阅读设置</span>
-              <button class="close-btn" @click="closeSettings">×</button>
+              <button type="button" class="close-btn" aria-label="关闭阅读设置" @click="closeSettings">×</button>
             </div>
             <div class="panel-content">
               <div class="setting-item">
-                <label>阅读模式:</label>
-                <select v-model="readingMode">
-                  <option value="single">单页模式</option>
-                  <option value="double">双页模式</option>
-                </select>
+                <label for="auto-play">自动播放:</label>
+                <input id="auto-play" v-model="autoPlay" type="checkbox" />
               </div>
-              <div class="setting-item">
-                <label>自动播放:</label>
-                <input type="checkbox" v-model="autoPlay" />
-              </div>
-              <div class="setting-item" v-if="autoPlay">
-                <label>播放间隔:</label>
-                <input type="range" v-model="autoPlayInterval" min="1" max="10" step="1" />
+              <div v-if="autoPlay" class="setting-item">
+                <label for="auto-play-interval">播放间隔:</label>
+                <input id="auto-play-interval" v-model="autoPlayInterval" type="range" min="1" max="10" step="1" />
                 <span>{{ autoPlayInterval }}秒</span>
               </div>
             </div>
@@ -47,34 +38,51 @@
       </div>
     </div>
 
-    <!-- 漫画显示区域 -->
-    <div class="manga-display" ref="mangaDisplay" :class="{ 'fullscreen': isFullscreen }">
+    <div class="manga-display" :class="{ immersive: isImmersive }">
       <div class="manga-container">
-        <!-- 图片显示 -->
-        <img v-if="currentPageImage && !error" :src="currentPageImage" :alt="`第${currentPage}页`" class="manga-image"
-          @load="onImageLoad" @error="onImageError" />
+        <img
+          v-if="currentPageImage && !error"
+          :key="imageKey"
+          :src="currentPageImage"
+          :data-image-key="imageKey"
+          :alt="`第${currentPage}页`"
+          class="manga-image"
+          @load="onImageLoad"
+          @error="onImageError"
+        />
 
-        <!-- 加载状态 -->
-        <div v-if="loading" class="loading">
+        <div v-if="loading" class="loading" role="status" aria-live="polite">
           <div class="loading-spinner"></div>
           <p>加载中...</p>
         </div>
       </div>
 
-      <!-- 点击蒙版 -->
-      <div class="click-overlay">
-        <div class="click-zone left-zone" @click="previousPage"><icon icon="#icon-left"></icon></div>
-        <div class="click-zone center-zone" @click="toggleFullscreen"></div>
-        <div class="click-zone right-zone" @click="nextPage"><icon icon="#icon-right"></icon></div>
+      <div class="click-overlay" aria-label="翻页区域">
+        <div class="click-zone left-zone" role="button" aria-label="上一页" @click="previousPage">
+          <icon icon="#icon-left"></icon>
+        </div>
+        <div class="click-zone center-zone" role="button" aria-label="切换沉浸模式" @click="toggleImmersive"></div>
+        <div class="click-zone right-zone" role="button" aria-label="下一页" @click="nextPage">
+          <icon icon="#icon-right"></icon>
+        </div>
       </div>
 
-      <!-- 错误状态 -->
-      <div v-if="error" class="error">
+      <div v-if="error" class="error" role="alert">
         <p>{{ error }}</p>
-        <button @click="retryLoad">重试</button>
+        <button type="button" @click="retryLoad">重试</button>
+      </div>
+
+      <div v-if="showEndPanel" class="end-panel" role="dialog" aria-modal="true" aria-labelledby="reader-end-title">
+        <h2 id="reader-end-title">{{ nextChapter ? '本章阅读完毕' : '整本漫画已读完' }}</h2>
+        <p>{{ nextChapter ? '可以继续阅读下一章。' : '感谢阅读。' }}</p>
+        <div class="end-actions">
+          <button v-if="nextChapter" type="button" class="next-chapter-btn" @click="goToNextChapter">
+            阅读下一章
+          </button>
+          <button type="button" class="return-detail-btn" @click="goBack">返回详情</button>
+        </div>
       </div>
     </div>
-
   </section>
 </template>
 
@@ -90,144 +98,267 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const store = useStore()
-    const mangaDisplay = ref(null)
 
+    const settingsMenuRef = ref(null)
+    const settingsPanelRef = ref(null)
     const manga = reactive({
       id: null,
       title: '',
-      pages: [],
-      currentChapter: 1,
+      chineseTitle: '',
+      currentChapter: null,
     })
-
     const mangaPages = reactive([])
-
     const mangaChapters = reactive([])
-
     const currentPage = ref(1)
     const totalPages = ref(0)
     const loading = ref(false)
     const error = ref('')
     const showSettings = ref(false)
-    const settingsMenuRef = ref(null)
-    const settingsPanelRef = ref(null)
-    const readingMode = ref('single')
     const autoPlay = ref(false)
     const autoPlayInterval = ref(6)
-    const isFullscreen = ref(false)
-    let autoPlayTimer = null
+    const isImmersive = ref(false)
+    const showEndPanel = ref(false)
+    const imageKey = ref(0)
 
-    // 计算当前页面图片URL
+    let autoPlayTimer = null
+    let dataRequestVersion = 0
+    let preloadImages = []
+    let headerVisibilityCaptured = false
+    let headerVisibilityBeforeImmersive = true
+
     const currentPageImage = computed(() => {
-      if (!mangaPages.length || !currentPage.value) return ''
-      const currentPageData = mangaPages.find(page => page.page === currentPage.value)
-      return currentPageData ? currentPageData.path : ''
+      const page = mangaPages[currentPage.value - 1]
+      return page?.path || ''
     })
 
-    // 从后端加载漫画详情数据
+    const nextChapter = computed(() => {
+      const currentIndex = mangaChapters.findIndex(chapter => chapter.chapter === manga.currentChapter)
+      if (currentIndex < 0) return null
+      return mangaChapters.slice(currentIndex + 1).find(chapter => chapter.pagelist.length > 0) || null
+    })
+
+    function parsePositiveInteger(value) {
+      const rawValue = Array.isArray(value) ? value[0] : value
+      if (rawValue === undefined || rawValue === null || !/^[1-9]\d*$/.test(String(rawValue))) {
+        return null
+      }
+      const parsed = Number(rawValue)
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+    }
+
+    function getRouteMangaId() {
+      return parsePositiveInteger(route.params.id)
+    }
+
+    function normalizePages(pagelist) {
+      if (!Array.isArray(pagelist)) return []
+      return pagelist.map((page, index) => ({
+        ...page,
+        page: index + 1,
+      }))
+    }
+
+    function normalizeChapters(pages) {
+      if (!Array.isArray(pages)) return []
+      return pages.map((chapter, index) => ({
+        ...chapter,
+        chapter: parsePositiveInteger(chapter?.chapter) || index + 1,
+        title: chapter?.title || '',
+        pagelist: normalizePages(chapter?.pagelist),
+      }))
+    }
+
+    function routePath(chapter, page) {
+      return `/acg/manga/${manga.id}/${chapter}/${page}`
+    }
+
+    function replaceRoute(chapter, page) {
+      const path = routePath(chapter, page)
+      if (route.path !== path) {
+        router.replace(path)
+      }
+    }
+
+    function clearPreloads() {
+      preloadImages.forEach(image => {
+        image.onload = null
+        image.onerror = null
+        image.removeAttribute('src')
+      })
+      preloadImages = []
+    }
+
+    function getNextPagesForPreload() {
+      const currentIndex = mangaChapters.findIndex(chapter => chapter.chapter === manga.currentChapter)
+      if (currentIndex < 0) return []
+
+      const pages = []
+      const currentChapterPages = mangaChapters[currentIndex].pagelist
+      for (let pageIndex = currentPage.value; pageIndex < currentChapterPages.length && pages.length < 3; pageIndex += 1) {
+        const page = currentChapterPages[pageIndex]
+        if (page?.path) pages.push(page)
+      }
+
+      for (let chapterIndex = currentIndex + 1; chapterIndex < mangaChapters.length && pages.length < 3; chapterIndex += 1) {
+        const chapterPages = mangaChapters[chapterIndex].pagelist
+        for (const page of chapterPages) {
+          if (page?.path) pages.push(page)
+          if (pages.length >= 3) break
+        }
+      }
+      return pages
+    }
+
+    function preloadNextPages() {
+      clearPreloads()
+      getNextPagesForPreload().forEach(page => {
+        const image = new Image()
+        image.src = page.path
+        preloadImages.push(image)
+      })
+    }
+
+    function setCurrentChapter(chapter, pageNumber) {
+      const page = Math.min(Math.max(pageNumber, 1), chapter.pagelist.length)
+      const chapterChanged = manga.currentChapter !== chapter.chapter || mangaPages.length !== chapter.pagelist.length
+      const pageChanged = currentPage.value !== page
+      if (!chapterChanged && !pageChanged && currentPageImage.value) {
+        return
+      }
+
+      manga.currentChapter = chapter.chapter
+      mangaPages.splice(0, mangaPages.length, ...chapter.pagelist)
+      totalPages.value = chapter.pagelist.length
+      currentPage.value = page
+      showEndPanel.value = false
+      error.value = currentPageImage.value ? '' : '当前页没有可用图片'
+      loading.value = Boolean(currentPageImage.value)
+      imageKey.value += 1
+      preloadNextPages()
+    }
+
+    function syncRoutePosition() {
+      if (!mangaChapters.length) return
+      const chapterNumber = parsePositiveInteger(route.params.chapterNum)
+      if (!chapterNumber) {
+        error.value = '章节参数无效'
+        loading.value = false
+        return
+      }
+
+      const chapter = mangaChapters.find(item => item.chapter === chapterNumber)
+      if (!chapter || chapter.pagelist.length === 0) {
+        error.value = '章节不存在或没有可阅读页面'
+        loading.value = false
+        clearPreloads()
+        return
+      }
+
+      const requestedPage = parsePositiveInteger(route.params.pageNum) || 1
+      const page = Math.min(requestedPage, chapter.pagelist.length)
+      setCurrentChapter(chapter, page)
+      replaceRoute(chapter.chapter, page)
+    }
+
     async function loadMangaData() {
+      const mangaId = getRouteMangaId()
+      const requestVersion = ++dataRequestVersion
+      clearPreloads()
+      loading.value = true
+      error.value = ''
+      showEndPanel.value = false
+      mangaPages.splice(0, mangaPages.length)
+      mangaChapters.splice(0, mangaChapters.length)
+      totalPages.value = 0
+
+      if (!mangaId) {
+        loading.value = false
+        if (route.path !== '/404') router.push('/404')
+        return
+      }
+
       try {
-        const mangaId = parseInt(route.params.id)
-        const chapterNum = parseInt(route.params.chapterNum) || 1
-        const pageNum = parseInt(route.params.pageNum)
-
-        // 更新当前章节
-        manga.currentChapter = chapterNum
-        manga.id = mangaId
-
-        // 如果没有pageNum参数，自动重定向到第1页
-        if (!pageNum) {
-          router.replace(`/acg/manga/${mangaId}/${chapterNum}/1`)
-          return
-        }
-
-        // 检查是否从MangaDetail页面跳转过来，如果有缓存数据则使用
-        const cachedMangaData = history.state?.mangaData
-        if (cachedMangaData && cachedMangaData.pages && cachedMangaData.pages.length > 0) {
-          Object.assign(manga, cachedMangaData)
-          mangaPages.length = 0
-          mangaPages.push(...cachedMangaData.pages)
-          totalPages.value = cachedMangaData.pages.length
-          currentPage.value = Math.min(Math.max(pageNum, 1), cachedMangaData.pages.length)
-          return
-        }
-
-        // 从后端API获取数据
         const res = await server.get(`/manga/${mangaId}`)
-
-        if (res.code === 200 && res.data) {
-          // 如果res.data为空，则进入404页面
-          if (!res.data) {
-            router.push('/404')
-            return
-          }
-          const mangaData = res.data
-          Object.assign(manga, mangaData)
-
-          // 设置漫画章节数据
-          mangaChapters.length = 0
-          if (mangaData.pages && mangaData.pages.length > 0) {
-            mangaChapters.push(...mangaData.pages)
-
-            // 找到对应的章节
-            const targetChapter = mangaChapters.find(c => c.chapter === chapterNum)
-
-            if (targetChapter && targetChapter.pagelist && targetChapter.pagelist.length > 0) {
-              // 设置漫画页面数据
-              mangaPages.length = 0
-              mangaPages.push(...targetChapter.pagelist)
-              totalPages.value = targetChapter.pagelist.length
-              currentPage.value = Math.min(Math.max(pageNum, 1), totalPages.value)
-              manga.currentChapter = chapterNum
-            } else {
-              console.error('章节不存在或没有页面数据')
-              error.value = '章节不存在'
-            }
-          }
-        } else {
-          console.error('获取漫画详情失败:', res.message)
-          error.value = '加载漫画数据失败'
+        if (requestVersion !== dataRequestVersion || getRouteMangaId() !== mangaId) return
+        if (res?.code === 404 || (res?.code === 200 && !res.data)) {
+          if (route.path !== '/404') router.push('/404')
+          return
         }
-      } catch (err) {
-        console.error('加载漫画详情时发生错误:', err)
-        error.value = '加载漫画数据失败'
+        if (res?.code !== 200 || !res.data) {
+          throw new Error(res?.message || '漫画详情请求失败')
+        }
+
+        const mangaData = res.data
+        const chapters = normalizeChapters(mangaData.pages)
+        Object.assign(manga, mangaData, { id: mangaId })
+        mangaChapters.push(...chapters)
+        syncRoutePosition()
+        if (!mangaPages.length && !error.value) {
+          throw new Error('漫画没有可阅读页面')
+        }
+      } catch (requestError) {
+        if (requestVersion !== dataRequestVersion) return
+        console.error('加载漫画详情时发生错误:', requestError)
+        loading.value = false
+        error.value = requestError?.message === '漫画没有可阅读页面'
+          ? '漫画没有可阅读页面'
+          : '加载漫画数据失败'
       }
     }
 
     function goBack() {
-      router.push(`/acg/manga/${manga.id}`)
+      const mangaId = manga.id || getRouteMangaId()
+      router.push(mangaId ? `/acg/manga/${mangaId}` : '/acg/manga')
     }
 
     function previousPage() {
-      if (currentPage.value > 1) {
-        currentPage.value--
-        updateRoute()
-      }
+      if (currentPage.value <= 1) return
+      showEndPanel.value = false
+      currentPage.value -= 1
+      loading.value = Boolean(currentPageImage.value)
+      error.value = ''
+      imageKey.value += 1
+      preloadNextPages()
+      replaceRoute(manga.currentChapter, currentPage.value)
     }
 
     function nextPage() {
+      showEndPanel.value = false
       if (currentPage.value < totalPages.value) {
-        currentPage.value++
-        updateRoute()
+        currentPage.value += 1
+        loading.value = Boolean(currentPageImage.value)
+        error.value = ''
+        imageKey.value += 1
+        preloadNextPages()
+        replaceRoute(manga.currentChapter, currentPage.value)
+        return
       }
+
+      showEndPanel.value = true
+      stopAutoPlay()
+      autoPlay.value = false
     }
 
-    function updateRoute() {
-      router.replace(`/acg/manga/${manga.id}/${manga.currentChapter}/${currentPage.value}`)
+    function goToNextChapter() {
+      if (!nextChapter.value) return
+      setCurrentChapter(nextChapter.value, 1)
+      replaceRoute(nextChapter.value.chapter, 1)
     }
 
-    function onImageLoad() {
+    function onImageLoad(event) {
+      if (String(event?.target?.dataset?.imageKey) !== String(imageKey.value)) return
       loading.value = false
       error.value = ''
     }
 
-    function onImageError() {
+    function onImageError(event) {
+      if (String(event?.target?.dataset?.imageKey) !== String(imageKey.value)) return
       loading.value = false
       error.value = '图片加载失败'
     }
 
-    function retryLoad() {
-      loading.value = true
-      error.value = ''
+    async function retryLoad() {
+      await loadMangaData()
     }
 
     function toggleSettings() {
@@ -240,33 +371,34 @@ export default {
 
     function handleClickOutside(event) {
       if (!showSettings.value) return
-      const settingsPanel = settingsPanelRef.value
-      const settingsMenu = settingsMenuRef.value
-      const isClickInsidePanel = settingsPanel && settingsPanel.contains(event.target)
-      const isClickInsideMenu = settingsMenu && settingsMenu.contains(event.target)
-
-      if (!isClickInsidePanel && !isClickInsideMenu) {
-        showSettings.value = false
+      const panel = settingsPanelRef.value
+      const menu = settingsMenuRef.value
+      if (!panel?.contains(event.target) && !menu?.contains(event.target)) {
+        closeSettings()
       }
     }
 
-    function toggleFullscreen() {
-      isFullscreen.value = !isFullscreen.value
-      // 切换全局顶栏显示状态
-      store.commit('toggleAcg17Header')
+    function toggleImmersive() {
+      if (isImmersive.value) {
+        isImmersive.value = false
+        if (headerVisibilityCaptured) {
+          store.commit('setAcg17HeaderVisible', headerVisibilityBeforeImmersive)
+          headerVisibilityCaptured = false
+        }
+        return
+      }
+
+      headerVisibilityBeforeImmersive = Boolean(store.state.acg17Header?.show)
+      headerVisibilityCaptured = true
+      isImmersive.value = true
+      store.commit('setAcg17HeaderVisible', false)
     }
 
     function startAutoPlay() {
-      if (autoPlayTimer) {
-        clearInterval(autoPlayTimer)
-      }
+      stopAutoPlay()
       autoPlayTimer = setInterval(() => {
-        if (currentPage.value < totalPages.value) {
-          nextPage()
-        } else {
-          stopAutoPlay()
-        }
-      }, autoPlayInterval.value * 1000)
+        nextPage()
+      }, Number(autoPlayInterval.value) * 1000)
     }
 
     function stopAutoPlay() {
@@ -276,61 +408,67 @@ export default {
       }
     }
 
-    // 键盘导航
     function handleKeydown(event) {
-      switch (event.key) {
-        case 'ArrowLeft':
-        case 'a':
-        case 'A':
-          previousPage()
-          break
-        case 'ArrowRight':
-        case 'd':
-        case 'D':
-        case ' ':
-          nextPage()
-          break
-        case 'Escape':
+      if (event.key === 'Escape') {
+        if (showSettings.value) {
+          closeSettings()
+        } else if (isImmersive.value) {
+          toggleImmersive()
+        } else {
           goBack()
-          break
+        }
+        return
+      }
+
+      const target = event.target
+      const isFormElement = target?.isContentEditable
+        || ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(target?.tagName)
+      if (isFormElement) return
+
+      if (event.key === ' ') {
+        event.preventDefault()
+        nextPage()
+        return
+      }
+      if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
+        previousPage()
+      } else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
+        nextPage()
       }
     }
 
-    // 监听自动播放设置变化
-    watch(autoPlay, (newValue) => {
-      if (newValue) {
-        startAutoPlay()
-      } else {
-        stopAutoPlay()
-      }
+    watch(autoPlay, value => {
+      if (value) startAutoPlay()
+      else stopAutoPlay()
     })
 
     watch(autoPlayInterval, () => {
-      if (autoPlay.value) {
-        stopAutoPlay()
-        startAutoPlay()
-      }
+      if (autoPlay.value) startAutoPlay()
     })
 
-    // 监听路由变化，重新加载数据
-    watch(() => route.params, (newParams, oldParams) => {
-      if (newParams.id !== oldParams?.id ||
-        newParams.chapterNum !== oldParams?.chapterNum ||
-        newParams.pageNum !== oldParams?.pageNum) {
-        loadMangaData()
-      }
-    }, { immediate: false })
+    watch(() => route.params.id, (newId, oldId) => {
+      if (newId !== oldId) loadMangaData()
+    }, { immediate: true })
+
+    watch(() => [route.params.chapterNum, route.params.pageNum], () => {
+      if (mangaChapters.length) syncRoutePosition()
+    })
 
     onMounted(() => {
-      loadMangaData()
       document.addEventListener('keydown', handleKeydown)
       document.addEventListener('click', handleClickOutside)
     })
 
     onUnmounted(() => {
+      dataRequestVersion += 1
       document.removeEventListener('keydown', handleKeydown)
       document.removeEventListener('click', handleClickOutside)
       stopAutoPlay()
+      clearPreloads()
+      if (headerVisibilityCaptured) {
+        store.commit('setAcg17HeaderVisible', headerVisibilityBeforeImmersive)
+        headerVisibilityCaptured = false
+      }
     })
 
     return {
@@ -342,23 +480,25 @@ export default {
       showSettings,
       settingsMenuRef,
       settingsPanelRef,
-      readingMode,
       autoPlay,
       autoPlayInterval,
       currentPageImage,
-      mangaDisplay,
-      isFullscreen,
+      isImmersive,
+      showEndPanel,
+      nextChapter,
+      imageKey,
       goBack,
       previousPage,
       nextPage,
+      goToNextChapter,
       onImageLoad,
       onImageError,
       retryLoad,
       toggleSettings,
       closeSettings,
-      toggleFullscreen
+      toggleImmersive,
     }
-  }
+  },
 }
 </script>
 
@@ -366,75 +506,47 @@ export default {
 .manga-reader {
   width: 100%;
   height: 100vh;
-  /* background-color: #1a1a1a; */
-  color: #ffffff;
+  height: 100dvh;
   overflow: hidden;
   position: relative;
+  color: #fff;
 }
-
-.manga-reader.fullscreen-mode {
+.manga-reader.immersive-mode {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9999;
 }
 
-/* 顶部菜单栏 */
 .top-menu {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 64px;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 20px;
   z-index: 1000;
-  transition: transform 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 20px;
+  color: #303133;
+  background: rgba(255, 255, 255, .95);
+  backdrop-filter: blur(10px);
+  transition: transform .3s ease-in-out;
 }
 
 .top-menu.hidden {
   transform: translateY(-64px);
 }
 
-.menu-left {
+.menu-left,
+.menu-right {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 15px;
 }
 
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: #606266;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-}
-
-.back-btn .icon {
-  font-size: 16px;
-}
-
-.back-btn:hover {
-  background-color: #ecf5ff;
-  transform: scale(1.2);
-}
-
-.manga-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
+.menu-right {
+  justify-content: flex-end;
 }
 
 .menu-center {
@@ -442,191 +554,81 @@ export default {
   align-items: center;
 }
 
-.page-info {
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
-  background-color: rgba(0, 0, 0, 0.06);
-  padding: 6px 12px;
-  border-radius: 20px;
+.back-btn,
+.menu-btn,
+.close-btn {
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-.menu-right {
+.back-btn {
   display: flex;
-  flex: 1;
-  justify-content: flex-end;
   align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: #606266;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: color .2s ease, background-color .2s ease, border-color .2s ease, transform .15s ease;
+}
+
+.back-btn .icon {
+  position: relative;
+  top: 1px;
+  width: 20px;
+  height: 20px;
+}
+
+.back-btn:hover {
+  color: #409eff;
+  background: #ecf5ff;
+  border-color: #d9ecff;
+}
+
+.back-btn:active {
+  transform: scale(.94);
+}
+
+.back-btn:focus-visible {
+  outline: 2px solid rgba(64, 158, 255, .45);
+  outline-offset: 2px;
+}
+
+.menu-btn:hover {
+  background: #ecf5ff;
+}
+
+.manga-title {
+  max-width: 45vw;
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-info {
+  padding: 6px 12px;
+  border-radius: 20px;
+  color: #303133;
+  background: rgba(0, 0, 0, .06);
 }
 
 .menu-btn {
-  background: none;
-  border: none;
-  color: #303133;
-  cursor: pointer;
   padding: 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  color: #303133;
+  background: none;
 }
 
 .menu-btn .icon {
   font-size: 24px;
 }
 
-.menu-btn:hover {
-  background-color: #ecf5ff;
-  transform: scale(1.2);
-}
-
-/* 漫画显示区域 */
-.manga-display {
-  width: 100%;
-  height: calc(100vh - 64px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  top: 64px;
-  left: 0;
-  right: 0;
-  box-sizing: border-box;
-}
-
-.manga-display.fullscreen {
-  height: 100vh;
-  top: 0;
-}
-
-.manga-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.manga-image {
-  width: auto;
-  height: 100%;
-  max-width: 100%;
-  object-fit: contain;
-  /* border-radius: 8px; */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}
-
-/* 点击蒙版 */
-.click-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  z-index: 100;
-}
-
-.click-zone {
-  height: 100%;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.click-zone:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.left-zone {
-  flex: 0 0 35%;
-}
-
-.center-zone {
-  flex: 0 0 30%;
-}
-
-.right-zone {
-  flex: 0 0 35%;
-}
-
-.left-zone .icon, .right-zone .icon  {
-  width: 35%;
-  height: 35%;
-  position: relative;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  fill: #00000000;
-  pointer-events: none;
-  transition: transform 0.2s ease, fill 0.2s ease;
-}
-.left-zone:hover .icon, .right-zone:hover .icon  {
-  transform: translate(-50%, -50%) scale(1.1);
-  fill: #00000008;
-}
-
-/* 加载状态 */
-.loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  width: 100%;
-  height: 100%;
-  min-height: 300px;
-  background-color: rgba(0, 0, 0, 0.8);
-  border-radius: 8px;
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-}
-
-/* 错误状态 */
-.error {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  padding: 40px;
-  z-index: 200;
-  min-width: 300px;
-  max-width: 500px;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid #ffffff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.error button {
-  background-color: #409eff;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.error button:hover {
-  background-color: #337ab7;
-}
-
-/* 设置面板 */
 .settings-menu {
   position: relative;
   display: flex;
@@ -637,66 +639,41 @@ export default {
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
+  z-index: 1100;
   width: 320px;
   max-height: 70vh;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(15px);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  z-index: 1100;
   overflow: hidden;
-  animation: slideInDown 0.2s ease-out;
-}
-
-@keyframes slideInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  color: #606266;
+  background: rgba(255, 255, 255, .98);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .15);
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #409eff 0%, #409effdd 100%);
-  color: white;
+  color: #fff;
+  background: #409eff;
   font-weight: 600;
-  font-size: 14px;
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0;
   width: 24px;
   height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.3s ease;
-}
-
-.close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  padding: 0;
+  color: #fff;
+  background: none;
+  font-size: 18px;
 }
 
 .panel-content {
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  padding: 16px;
 }
 
 .setting-item {
@@ -706,49 +683,193 @@ export default {
   gap: 12px;
 }
 
-.setting-item label {
-  color: #606266;
+.setting-item label,
+.setting-item span {
   font-size: 13px;
   white-space: nowrap;
 }
 
 .setting-item span {
   color: #409eff;
-  font-size: 12px;
-  white-space: nowrap;
 }
 
-.setting-item select,
-.setting-item input[type="range"] {
-  background-color: #f5f7fa;
-  border: 1px solid #e4e7ed;
-  color: #606266;
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-
-.setting-item select {
-  min-width: 120px;
-}
-
-.setting-item input[type="range"] {
+.setting-item input[type='range'] {
   flex: 1;
 }
 
-.setting-item input[type="checkbox"] {
+.setting-item input[type='checkbox'] {
   width: 18px;
   height: 18px;
   accent-color: #409eff;
 }
 
-/* 响应式设计 */
+.manga-display {
+  position: absolute;
+  top: 64px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: calc(100vh - 64px);
+  height: calc(100dvh - 64px);
+  box-sizing: border-box;
+}
+
+.manga-display.immersive {
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.manga-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.manga-image {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .5);
+}
+
+.click-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+}
+
+.click-zone {
+  height: 100%;
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+
+.click-zone:hover {
+  background: rgba(255, 255, 255, .05);
+}
+
+.left-zone,
+.right-zone {
+  flex: 0 0 35%;
+}
+
+.center-zone {
+  flex: 0 0 30%;
+}
+
+.left-zone .icon,
+.right-zone .icon {
+  position: relative;
+  top: 50%;
+  left: 50%;
+  width: 35%;
+  height: 35%;
+  fill: #00000000;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: transform .2s ease, fill .2s ease;
+}
+
+.left-zone:hover .icon,
+.right-zone:hover .icon {
+  fill: #00000008;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: rgba(0, 0, 0, .8);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, .3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.error,
+.end-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 300px;
+  max-width: min(500px, calc(100vw - 32px));
+  padding: 32px;
+  color: #fff;
+  text-align: center;
+  background: rgba(0, 0, 0, .85);
+  border-radius: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.error button,
+.end-panel button {
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  background: #409eff;
+  cursor: pointer;
+}
+
+.end-panel .return-detail-btn {
+  background: #606266;
+}
+
+.end-panel h2,
+.end-panel p {
+  margin: 0;
+}
+
+.end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media screen and (max-width: 768px) {
   .top-menu {
     padding: 0 15px;
   }
 
   .manga-title {
-    max-width: 200px;
+    max-width: 35vw;
     font-size: 16px;
   }
 
@@ -765,13 +886,13 @@ export default {
   }
 
   .manga-title {
-    max-width: 150px;
+    max-width: 28vw;
     font-size: 14px;
   }
 
   .page-info {
-    font-size: 14px;
     padding: 4px 8px;
+    font-size: 14px;
   }
 }
 </style>

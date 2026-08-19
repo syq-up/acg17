@@ -562,36 +562,14 @@ export default {
       if (!canStartReading.value) {
         return
       }
-      // 传递漫画数据到MangaReader页面，避免重复请求
-      router.push({
-        path: `/acg/manga/${manga.id}/${manga.currentChapter}/1`,
-        state: {
-          mangaData: {
-            id: manga.id,
-            title: manga.title,
-            currentChapter: manga.currentChapter,
-            pages: [...mangaPages]
-          }
-        }
-      })
+      router.push(`/acg/manga/${manga.id}/${manga.currentChapter}/1`)
     }
 
     function goToPage(pageNumber) {
       if (!canStartReading.value || !mangaPages.some(page => page.page === pageNumber)) {
         return
       }
-      // 传递漫画数据到MangaReader页面，避免重复请求
-      router.push({
-        path: `/acg/manga/${manga.id}/${manga.currentChapter}/${pageNumber}`,
-        state: {
-          mangaData: {
-            id: manga.id,
-            currentChapter: manga.currentChapter,
-            title: manga.title,
-            pages: [...mangaPages]
-          }
-        }
-      })
+      router.push(`/acg/manga/${manga.id}/${manga.currentChapter}/${pageNumber}`)
     }
 
     onMounted(() => {

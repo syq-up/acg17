@@ -85,9 +85,9 @@ export default createStore({
     closeUploadDrawer(state) {
       state.uploadDrawer.show = false
     },
-    // 显示&隐藏顶栏
-    toggleAcg17Header(state) {
-      state.acg17Header.show = !state.acg17Header.show
+    // 设置顶栏显示状态
+    setAcg17HeaderVisible(state, visible) {
+      state.acg17Header.show = Boolean(visible)
     },
     // 切换页面回收站状态
     togglePageRecycleState(state, pageName) {
