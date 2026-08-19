@@ -40,8 +40,8 @@
       <div class="manga-info">
         <h1 class="manga-title">{{ manga.title }} ✨ {{ manga.chineseTitle }}</h1>
 
-        <div v-for="group in tagGroups" :key="group.category" class="info-row unselectable">
-          <span class="label">{{ group.name }}:</span>
+        <div v-for="group in tagGroups" :key="group.key" class="info-row unselectable">
+          <span class="label">{{ group.label }}:</span>
           <div class="tags-container">
             <span
               v-for="tag in group.tags"
@@ -55,9 +55,9 @@
               v-if="isTagManagementMode"
               class="edit-tag-btn"
               type="button"
-              :title="`编辑${group.name}标签`"
+              :title="`编辑${group.label}标签`"
               :disabled="!manga.id"
-              @click="openTagEditor(group.category)"
+              @click="openTagEditor(group.key)"
             >
               <icon icon="#icon-edit" class="edit-icon"></icon>
             </button>
@@ -174,18 +174,8 @@ import { useRoute, useRouter } from 'vue-router'
 import Acg17Footer from '../components/Acg17Footer'
 import MangaTagEditor from '../components/manga-detail/MangaTagEditor.vue'
 import { withMediaStyle } from '@/util/media'
-import server from '@/util/request';
-
-const TAG_CATEGORIES = [
-  { category: 'group', key: 'groupTags', name: '团队' },
-  { category: 'artist', key: 'artistTags', name: '艺术家' },
-  { category: 'character', key: 'characterTags', name: '角色' },
-  { category: 'male', key: 'maleTags', name: '男性' },
-  { category: 'female', key: 'femaleTags', name: '女性' },
-  { category: 'mixed', key: 'mixedTags', name: '混合' },
-  { category: 'other', key: 'otherTags', name: '其他' },
-  { category: 'original', key: 'originalTags', name: '原作' },
-]
+import server from '@/util/request'
+import { MANGA_TAG_CATEGORIES } from '@/constants/mangaTagCategories'
 
 const INITIAL_MANGA_PAGE_COUNT = 18
 const MANGA_PAGE_BATCH_SIZE = 6
@@ -207,14 +197,7 @@ export default {
       cover: '',
       description: '',
       pages: [],
-      characterTags: [],
-      maleTags: [],
-      femaleTags: [],
-      mixedTags: [],
-      otherTags: [],
-      originalTags: [],
-      artistTags: [],
-      groupTags: [],
+      ...Object.fromEntries(MANGA_TAG_CATEGORIES.map(category => [category.field, []])),
       favorite: false,
       deleted: false,
       updateTime: '',
@@ -237,9 +220,9 @@ export default {
 
     const activeTagCategory = ref('')
     const isTagManagementMode = ref(false)
-    const allTagGroups = computed(() => TAG_CATEGORIES.map(group => ({
+    const allTagGroups = computed(() => MANGA_TAG_CATEGORIES.map(group => ({
       ...group,
-      tags: [...(manga[group.key] || [])]
+      tags: [...(manga[group.field] || [])]
         .sort((a, b) => (b.tagCount || 0) - (a.tagCount || 0)),
     })))
     const tagGroups = computed(() => (
@@ -251,7 +234,7 @@ export default {
       isTagManagementMode.value ? '退出标签管理' : '进入标签管理'
     ))
     const activeTagEditorTags = computed(() => (
-      allTagGroups.value.find(group => group.category === activeTagCategory.value)?.tags || []
+      allTagGroups.value.find(group => group.key === activeTagCategory.value)?.tags || []
     ))
 
     const showBackToTopLeft = ref(false)

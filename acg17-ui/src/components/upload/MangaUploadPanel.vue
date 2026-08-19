@@ -261,19 +261,20 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import server from '@/util/request'
+import { MANGA_TAG_CATEGORIES } from '@/constants/mangaTagCategories'
 
 const emit = defineEmits(['completed'])
 
-const TAG_CATEGORIES = [
-  { key: 'group', category: 8, label: '团队', placeholder: '输入团队名后按回车添加' },
-  { key: 'artist', category: 7, label: '艺术家', placeholder: '输入艺术家名后按回车添加' },
-  { key: 'character', category: 1, label: '角色', placeholder: '输入角色名后按回车添加' },
-  { key: 'male', category: 2, label: '男性', placeholder: '输入男性标签后按回车添加' },
-  { key: 'female', category: 3, label: '女性', placeholder: '输入女性标签后按回车添加' },
-  { key: 'mixed', category: 4, label: '混合', placeholder: '输入混合标签后按回车添加' },
-  { key: 'other', category: 5, label: '其他', placeholder: '输入其他标签后按回车添加' },
-  { key: 'original', category: 6, label: '原作', placeholder: '输入原作名后按回车添加' },
-]
+const tagPlaceholders = {
+  group: '输入团队名后按回车添加',
+  artist: '输入艺术家名后按回车添加',
+  character: '输入角色名后按回车添加',
+  male: '输入男性标签后按回车添加',
+  female: '输入女性标签后按回车添加',
+  mixed: '输入混合标签后按回车添加',
+  other: '输入其他标签后按回车添加',
+  original: '输入原作名后按回车添加',
+}
 
 const mode = ref('manga')
 const mangaTitleInput = ref(null)
@@ -304,8 +305,9 @@ const chapter = reactive({
   uploading: false,
 })
 
-const tagGroups = reactive(TAG_CATEGORIES.map(category => ({
+const tagGroups = reactive(MANGA_TAG_CATEGORIES.map(category => ({
   ...category,
+  placeholder: tagPlaceholders[category.key],
   input: '',
   available: [],
   selected: [],
@@ -320,7 +322,7 @@ async function loadMangaTags() {
   try {
     const res = await server.get('/manga-tag/list')
     for (const group of tagGroups) {
-      group.available = (res.data?.[`${group.key}Tags`] || [])
+      group.available = (res.data?.[group.field] || [])
         .slice()
         .sort((a, b) => (b.tagCount || 0) - (a.tagCount || 0))
     }
@@ -417,7 +419,7 @@ async function addManga() {
   formData.append('title', title)
   formData.append('chineseTitle', manga.chineseTitle.trim())
   formData.append('tags', JSON.stringify(tagGroups.flatMap(group => (
-    group.selected.map(tag => serializeTag(tag, group.category))
+    group.selected.map(tag => serializeTag(tag, group.categoryId))
   ))))
   formData.append('file', manga.selectedFile)
 

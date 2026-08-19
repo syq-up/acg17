@@ -154,17 +154,22 @@
 <script setup>
 import { computed, nextTick, onActivated, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import server from '@/util/request'
+import { MANGA_TAG_CATEGORIES } from '@/constants/mangaTagCategories'
 
-const TAG_CATEGORIES = [
-  { key: 'group', field: 'groupTags', label: '团队', visibleLimit: 16 },
-  { key: 'artist', field: 'artistTags', label: '艺术家', visibleLimit: 16 },
-  { key: 'character', field: 'characterTags', label: '角色', visibleLimit: 16 },
-  { key: 'male', field: 'maleTags', label: '男性', visibleLimit: 20 },
-  { key: 'female', field: 'femaleTags', label: '女性', visibleLimit: 36 },
-  { key: 'mixed', field: 'mixedTags', label: '混合', visibleLimit: 10 },
-  { key: 'other', field: 'otherTags', label: '其他', visibleLimit: 10 },
-  { key: 'original', field: 'originalTags', label: '原作', visibleLimit: 10 },
-]
+const visibleLimits = {
+  group: 16,
+  artist: 16,
+  character: 16,
+  male: 20,
+  female: 36,
+  mixed: 10,
+  other: 10,
+  original: 10,
+}
+const tagCategories = MANGA_TAG_CATEGORIES.map(category => ({
+  ...category,
+  visibleLimit: visibleLimits[category.key],
+}))
 
 const props = defineProps({
   editor: {
@@ -210,16 +215,9 @@ let pendingFilterClose = ''
 let pendingFilterFocus = ''
 
 const tag = reactive({
-  groupTags: [],
-  artistTags: [],
-  characterTags: [],
-  maleTags: [],
-  femaleTags: [],
-  mixedTags: [],
-  otherTags: [],
-  originalTags: [],
+  ...Object.fromEntries(tagCategories.map(category => [category.field, []])),
   loading: false,
-  expandedCategories: Object.fromEntries(TAG_CATEGORIES.map(category => [category.key, false])),
+  expandedCategories: Object.fromEntries(tagCategories.map(category => [category.key, false])),
 })
 
 const normalizedSelectedTagIds = computed(() => [...new Set(props.selectedTagIds
@@ -241,7 +239,7 @@ const filterPanelTitle = computed(() => {
 })
 const normalizedTagSearch = computed(() => normalizeTagName(tagSearch.value))
 const isTagSearching = computed(() => normalizedTagSearch.value.length > 0)
-const tagGroups = computed(() => TAG_CATEGORIES.map(category => ({
+const tagGroups = computed(() => tagCategories.map(category => ({
   ...category,
   tags: tag[category.field],
 })))
@@ -392,7 +390,7 @@ function loadTagList(force = false) {
   })
     .then(res => {
       if (requestVersion !== tagListRequestVersion) return
-      for (const category of TAG_CATEGORIES) {
+      for (const category of tagCategories) {
         tag[category.field] = res.data[category.field] || []
       }
       tagListLoaded = true

@@ -72,17 +72,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import server from '@/util/request'
-
-const CATEGORY_NAMES = {
-  group: '团队',
-  artist: '艺术家',
-  character: '角色',
-  male: '男性',
-  female: '女性',
-  mixed: '混合',
-  other: '其他',
-  original: '原作',
-}
+import { getMangaTagCategory } from '@/constants/mangaTagCategories'
 
 const props = defineProps({
   mangaId: {
@@ -92,6 +82,7 @@ const props = defineProps({
   category: {
     type: String,
     required: true,
+    validator: value => Boolean(getMangaTagCategory(value)),
   },
   currentTags: {
     type: Array,
@@ -106,7 +97,8 @@ const localCurrentTags = ref([])
 const newTagName = ref('')
 const creatingTag = ref(false)
 const updatingTagIds = ref(new Set())
-const categoryName = computed(() => CATEGORY_NAMES[props.category] || '')
+const categoryConfig = computed(() => getMangaTagCategory(props.category))
+const categoryName = computed(() => categoryConfig.value?.label || '')
 
 watch(
   () => props.category,
@@ -126,8 +118,11 @@ watch(
 )
 
 async function loadAvailableTags(category) {
+  const config = getMangaTagCategory(category)
+  if (!config) return
+
   try {
-    const res = await server.get(`/manga-tag/category/${category}`)
+    const res = await server.get(`/manga-tag/category/${config.categoryId}`)
     if (res.code === 200 && props.category === category) {
       availableTags.value = (res.data || [])
         .slice()
@@ -186,14 +181,15 @@ async function removeTagFromManga(tagId) {
 
 async function createAndAddTag() {
   const tagName = newTagName.value.trim()
-  if (!tagName || creatingTag.value) return
+  const config = categoryConfig.value
+  if (!tagName || !config || creatingTag.value) return
 
   creatingTag.value = true
   try {
     const res = await server.post('/manga-tag/get-or-create-by-category', null, {
       params: {
         tagName,
-        category: props.category,
+        category: config.categoryId,
       },
     })
 
