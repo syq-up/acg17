@@ -1,24 +1,52 @@
 <template>
   <section>
-    <div class="side-btn-group left-btn-group" :style="{ right: '50%', marginRight: (containerWidth / 2 + 30) + 'px' }">
-      <div class="side-btn" @click="randomManga">
+    <div class="side-btn-group left-btn-group">
+      <button type="button" class="side-btn" aria-label="随机漫画" title="随机漫画" @click="randomManga">
         <icon icon="#icon-random"></icon>
-      </div>
-      <div class="side-btn" :class="{ 'active': showTitleSearch || hasTitleFilter }" @click="toggleTitleSearch">
+      </button>
+      <button
+        type="button"
+        class="side-btn"
+        :class="{ 'active': showTitleSearch || hasTitleFilter }"
+        aria-label="标题搜索"
+        title="标题搜索"
+        @click="toggleTitleSearch"
+      >
         <icon icon="#icon-search"></icon>
         <span v-if="hasTitleFilter" class="side-btn-status" aria-hidden="true"></span>
-      </div>
-      <div class="side-btn" :class="{ 'active': tag.showTagList || hasActiveTags }" @click="openTagList">
+      </button>
+      <button
+        type="button"
+        class="side-btn"
+        :class="{ 'active': tag.showTagList || hasActiveTags }"
+        aria-label="标签筛选"
+        title="标签筛选"
+        @click="openTagList"
+      >
         <icon icon="#icon-tag"></icon>
         <span v-if="hasActiveTags" class="side-btn-badge">{{ selectedTagIds.length }}</span>
-      </div>
-      <div class="side-btn" v-show="showBackToTop" @click="scrollToTop">
+      </button>
+      <button
+        v-show="showBackToTop"
+        type="button"
+        class="side-btn mobile-back-to-top"
+        aria-label="返回顶部"
+        title="返回顶部"
+        @click="scrollToTop"
+      >
         <icon icon="#icon-sort-asc"></icon>
-      </div>
+      </button>
     </div>
-    <div class="side-btn right-btn" v-show="showBackToTop" @click="scrollToTop" :style="{ left: '50%', marginLeft: (containerWidth / 2 + 30) + 'px' }">
+    <button
+      v-show="showBackToTop"
+      type="button"
+      class="side-btn right-btn"
+      aria-label="返回顶部"
+      title="返回顶部"
+      @click="scrollToTop"
+    >
       <icon icon="#icon-sort-asc"></icon>
-    </div>
+    </button>
 
     <div
       class="filter-container"
@@ -273,7 +301,6 @@ export default {
       router.push(`/acg/manga/${id}`)
     }
 
-    const containerWidth = ref(1380)
     const showBackToTop = ref(false)
     const filterPanelOpen = ref(false)
     const showTitleSearch = ref(false)
@@ -305,7 +332,6 @@ export default {
       if (hasActiveTags.value) return '没有同时包含这些标签的漫画'
       return '暂无漫画'
     })
-    let resizeObserver = null
     const pageActive = ref(false)
     let loadedFilterKey = activeFilterKey.value
     let mangaRequestVersion = 0
@@ -317,13 +343,6 @@ export default {
 
     const handleScroll = () => {
       showBackToTop.value = window.scrollY > 500
-    }
-
-    const updateWidth = () => {
-      const container = document.querySelector('.manga-container')
-      if (container) {
-        containerWidth.value = container.clientWidth
-      }
     }
 
     // 分页加载漫画，用于无限滚动
@@ -773,23 +792,11 @@ export default {
       pageActive.value = true
       window.addEventListener('scroll', handleScroll)
       handleScroll()
-      nextTick(() => {
-        if (!pageActive.value) return
-        updateWidth()
-        window.addEventListener('resize', updateWidth)
-        if (!resizeObserver) {
-          resizeObserver = new ResizeObserver(() => updateWidth())
-        }
-        const container = document.querySelector('.manga-container')
-        if (container) resizeObserver.observe(container)
-      })
     }
 
     function deactivatePageListeners() {
       pageActive.value = false
       window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', updateWidth)
-      if (resizeObserver) resizeObserver.disconnect()
     }
 
     // 组件挂载时获取数据
@@ -824,7 +831,6 @@ export default {
       randomManga,
       scrollToTop,
       showBackToTop,
-      containerWidth,
       showTitleSearch,
       showFilterPanel,
       filterPanelTitle,
@@ -1330,9 +1336,16 @@ section {
 .left-btn-group {
   position: fixed;
   top: 84px;
+  left: max(12px, calc(50% - 768px));
   display: flex;
   flex-direction: column;
   gap: 10px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.left-btn-group .side-btn {
+  pointer-events: auto;
 }
 
 ul {
@@ -1352,6 +1365,8 @@ ul {
   position: relative;
   width: 48px;
   height: 48px;
+  padding: 0;
+  border: 0;
   border-radius: 4px;
   background-color: #fff;
   display: flex;
@@ -1360,8 +1375,8 @@ ul {
   cursor: pointer;
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
   transition: all 0.3s;
-  z-index: 8;
   color: #409eff;
+  font: inherit;
 }
 
 .side-btn-badge {
@@ -1411,14 +1426,15 @@ ul {
   fill: currentColor;
 }
 
-.left-btn {
-  position: fixed;
-  top: 84px;
-}
-
 .right-btn {
   position: fixed;
+  right: max(12px, calc(50% - 768px));
   bottom: 50px;
+  z-index: 20;
+}
+
+.mobile-back-to-top {
+  display: none;
 }
 
 .empty-manga {
@@ -1588,6 +1604,37 @@ ul li:hover .manga-title {
 
   section {
     margin: 64px auto 20px;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .left-btn-group {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    flex-direction: row;
+    gap: 8px;
+    padding: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+    transform: translateX(-50%);
+    backdrop-filter: blur(8px);
+  }
+
+  .left-btn-group .side-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .mobile-back-to-top {
+    display: flex;
+  }
+
+  .right-btn {
+    display: none;
   }
 
   .filter-panel {
@@ -1711,6 +1758,11 @@ ul li:hover .manga-title {
 
 /* 打印样式 */
 @media print {
+  .left-btn-group,
+  .right-btn {
+    display: none;
+  }
+
   section {
     margin: 0;
     padding: 0;
