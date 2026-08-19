@@ -200,7 +200,7 @@
       <li v-for="(manga) in manga.list" :key="manga.id" @click="goToMangaDetail(manga.id)">
         <img class="manga-img" :src="withMediaStyle(manga.cover, 'small')" alt="manga">
         <div class="manga-info">
-          <div class="manga-title">{{ manga.chineseTitle || manga.title }}</div>
+          <div class="manga-title" :title="manga.chineseTitle || manga.title">{{ manga.chineseTitle || manga.title }}</div>
         </div>
       </li>
     </ul>
@@ -872,22 +872,13 @@ export default {
 </script>
 
 <style scoped>
-/* 响应式CSS变量 */
-* {
+/* 列表布局变量 */
+section {
   --column: 6;
-  --width: 220px;
-  --height: calc(var(--width) * 1.41 + var(--title-height));
+  --card-max-width: 220px;
   --gap: 12px;
   --container-padding: 20px;
   --title-height: 50px;
-}
-
-.page-header ::v-deep(.navi-menu) {
-  max-width: 100%;
-  width: auto;
-}
-
-section {
   margin: 84px auto 20px;
   max-width: 100%;
   padding: 0 var(--container-padding);
@@ -1348,15 +1339,15 @@ section {
   pointer-events: auto;
 }
 
-ul {
+.manga-container {
   width: 100%;
   max-width: 1380px;
   padding: 0;
   margin: 0 auto;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(var(--column), 1fr);
-  grid-auto-rows: var(--height);
+  grid-template-columns: repeat(var(--column), minmax(0, var(--card-max-width)));
+  grid-auto-rows: auto;
   gap: var(--gap);
   justify-content: center;
 }
@@ -1469,10 +1460,13 @@ ul {
   background: #ecf5ff;
 }
 
-ul li {
+.manga-container > li {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   width: 100%;
-  height: var(--height);
+  height: auto;
   overflow: visible;
   border-radius: 10px;
   transition: all 0.3s ease;
@@ -1483,26 +1477,29 @@ ul li {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-ul li:hover {
+.manga-container > li:hover {
   transform: translateY(-8px) scale(1.02);
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
-  height: auto;
-  min-height: var(--height);
   z-index: 10;
 }
 
-ul li .manga-img {
+.manga-container > li .manga-img {
   box-sizing: border-box;
   width: 100%;
-  height: calc(var(--width) * 1.41);
+  height: auto;
+  aspect-ratio: 1 / 1.41;
   border-radius: 10px 10px 0 0;
+  background-color: #f5f7fa;
   object-fit: contain;
   object-position: center;
   display: block;
 }
 
-ul li .manga-info {
-  padding: 8px 12px;
+.manga-container > li .manga-info {
+  flex: 0 0 var(--title-height);
+  display: flex;
+  align-items: center;
+  padding: 5px 12px;
   background-color: #ffffff;
   border-radius: 0 0 10px 10px;
   overflow: hidden;
@@ -1511,12 +1508,8 @@ ul li .manga-info {
   box-sizing: border-box;
 }
 
-ul li:hover .manga-info {
+.manga-container > li:hover .manga-info {
   background-color: #f8f9fa;
-  overflow: visible;
-  height: auto;
-  min-height: var(--title-height);
-  padding: 12px;
 }
 
 .manga-title {
@@ -1534,52 +1527,35 @@ ul li:hover .manga-info {
   word-break: break-word;
 }
 
-ul li:hover .manga-title {
-  line-clamp: unset;
-  -webkit-line-clamp: unset;
-  overflow: visible;
-}
-
-/* 超大屏幕 (≥1400px) - 6列 */
-@media (min-width: 1400px) {
-  * {
-    --column: 6;
-    --width: 220px;
-    --gap: 12px;
-    --container-padding: 20px;
-  }
-}
-
-/* 大屏幕 (1200px - 1399px) - 5列 */
-@media (max-width: 1399px) and (min-width: 1200px) {
-  * {
+/* 卡片以 180px 左右为换列下限，宽屏最多 6 列 */
+@media (max-width: 1169px) {
+  section {
     --column: 5;
-    --width: 200px;
-    --gap: 12px;
-    --container-padding: 20px;
   }
 }
 
-/* 桌面 (992px - 1199px) - 4列 */
-@media (max-width: 1199px) and (min-width: 992px) {
-  * {
+@media (max-width: 979px) {
+  section {
     --column: 4;
-    --width: 180px;
-    --gap: 10px;
-    --container-padding: 20px;
   }
 }
 
-/* 平板横屏 (768px - 991px) - 3列 */
-@media (max-width: 991px) and (min-width: 768px) {
-  * {
+@media (max-width: 779px) {
+  section {
     --column: 3;
-    --width: 160px;
+  }
+}
+
+@media (max-width: 579px) {
+  section {
+    --column: 2;
+  }
+}
+
+@media (max-width: 991px) and (min-width: 768px) {
+  section {
     --gap: 10px;
     --container-padding: 16px;
-  }
-
-  section {
     margin: 74px auto 20px;
   }
 
@@ -1593,16 +1569,12 @@ ul li:hover .manga-title {
   }
 }
 
-/* 小屏幕设备 (≤767px) - 2列 */
+/* 小屏幕设备 */
 @media (max-width: 767px) {
-  * {
-    --column: 2;
-    --width: 140px;
+  section {
     --gap: 10px;
     --container-padding: 12px;
-  }
-
-  section {
+    --title-height: 40px;
     margin: 64px auto 20px;
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
@@ -1698,41 +1670,27 @@ ul li:hover .manga-title {
     line-height: 16px;
   }
 
-  ul li .manga-info {
-    padding: 6px 8px;
-    height: 40px;
+  .manga-container > li .manga-info {
+    padding: 4px 8px;
   }
 
-  ul li:hover .manga-info {
-    padding: 8px;
-  }
-
-  ul li:hover {
+  .manga-container > li:hover {
     transform: translateY(-4px) scale(1.01);
   }
 }
 
 /* 触摸设备优化 */
 @media (hover: none) and (pointer: coarse) {
-  ul li:hover {
+  .manga-container > li:hover {
     transform: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: var(--height);
   }
 
-  ul li:hover .manga-info {
+  .manga-container > li:hover .manga-info {
     background-color: #ffffff;
-    overflow: hidden;
-    height: 50px;
   }
 
-  ul li:hover .manga-title {
-    line-clamp: 2;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-  }
-
-  ul li:active {
+  .manga-container > li:active {
     transform: scale(0.98);
     transition: transform 0.1s ease;
   }
@@ -1741,11 +1699,11 @@ ul li:hover .manga-title {
 /* 高分辨率屏幕优化 */
 @media (-webkit-min-device-pixel-ratio: 2),
 (min-resolution: 192dpi) {
-  ul li {
+  .manga-container > li {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   }
 
-  ul li:hover {
+  .manga-container > li:hover {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
   }
 }
@@ -1768,13 +1726,13 @@ ul li:hover .manga-title {
     padding: 0;
   }
 
-  ul li {
+  .manga-container > li {
     break-inside: avoid;
     box-shadow: none;
     border: 1px solid #ddd;
   }
 
-  ul li:hover {
+  .manga-container > li:hover {
     transform: none;
     box-shadow: none;
   }
