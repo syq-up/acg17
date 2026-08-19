@@ -30,130 +30,177 @@
       <icon icon="#icon-sort-asc"></icon>
     </button>
 
-    <div class="manga-container">
-      <!-- 漫画封面 -->
-      <div class="manga-cover unselectable">
-        <img :src="withMediaStyle(manga.cover, 'medium')" :alt="manga.title" />
-      </div>
+    <div v-if="isLoading" class="detail-state" role="status" aria-live="polite">
+      正在加载漫画详情…
+    </div>
 
-      <!-- 漫画信息 -->
-      <div class="manga-info">
-        <h1 class="manga-title">{{ manga.title }} ✨ {{ manga.chineseTitle }}</h1>
+    <div v-else-if="loadError" class="detail-state detail-state-error" role="alert">
+      <p>{{ loadError }}</p>
+      <button type="button" class="state-retry-btn" @click="loadMangaDetail">重试</button>
+    </div>
 
-        <div v-for="group in tagGroups" :key="group.key" class="info-row unselectable">
-          <span class="label">{{ group.label }}:</span>
-          <div class="tags-container">
-            <span
-              v-for="tag in group.tags"
-              :key="tag.tagId"
-              class="tag"
-              @click="searchByTag(tag.tagId)"
-            >
-              {{ tag.tagName }} <span class="tag-count">{{ tag.tagCount }}</span>
-            </span>
+    <template v-else-if="hasLoaded">
+      <div class="manga-container">
+        <!-- 漫画封面 -->
+        <div class="manga-cover unselectable">
+          <img :src="withMediaStyle(manga.cover, 'medium')" :alt="displayTitle" />
+        </div>
+
+        <!-- 漫画信息 -->
+        <div class="manga-info">
+          <h1 class="manga-title">{{ displayTitle }}</h1>
+          <p v-if="showOriginalSubtitle" class="manga-original-title">{{ originalTitle }}</p>
+
+          <div class="manga-meta" aria-label="漫画信息">
+            <span>{{ mangaChapters.length }}章</span>
+            <span class="meta-separator" aria-hidden="true">·</span>
+            <span>{{ manga.pageCount }}页</span>
+            <template v-if="updateTimeText">
+              <span class="meta-separator" aria-hidden="true">·</span>
+              <span>更新于 {{ updateTimeText }}</span>
+            </template>
+          </div>
+
+          <div v-for="group in tagGroups" :key="group.key" class="info-row unselectable">
+            <span class="label">{{ group.label }}:</span>
+            <div class="tags-container">
+              <button
+                v-for="tag in group.tags"
+                :key="tag.tagId"
+                type="button"
+                class="tag"
+                :title="`按${tag.tagName}筛选`"
+                @click="searchByTag(tag.tagId)"
+              >
+                {{ tag.tagName }} <span class="tag-count">{{ tag.tagCount }}</span>
+              </button>
+              <button
+                v-if="isTagManagementMode"
+                class="edit-tag-btn"
+                type="button"
+                :title="`编辑${group.label}标签`"
+                :aria-label="`编辑${group.label}标签`"
+                :disabled="!manga.id"
+                @click="openTagEditor(group.key)"
+              >
+                <icon icon="#icon-edit" class="edit-icon"></icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="action-buttons unselectable">
             <button
-              v-if="isTagManagementMode"
-              class="edit-tag-btn"
               type="button"
-              :title="`编辑${group.label}标签`"
-              :disabled="!manga.id"
-              @click="openTagEditor(group.key)"
+              class="btn-primary"
+              :disabled="!canStartReading"
+              @click="startReading"
             >
-              <icon icon="#icon-edit" class="edit-icon"></icon>
+              开始阅读
+            </button>
+            <button
+              type="button"
+              :class="manga.favorite ? 'btn-icon favorite' : 'btn-icon'"
+              :disabled="isFavoritePending"
+              :aria-label="manga.favorite ? '取消喜欢' : '添加喜欢'"
+              :title="manga.favorite ? '取消喜欢' : '添加喜欢'"
+              @click="toggleFavorite"
+            >
+              <icon :icon="manga.favorite ? '#icon-favorite-y' : '#icon-favorite-n'" class="icon-svg"></icon>
+            </button>
+            <button
+              type="button"
+              :class="manga.deleted ? 'btn-icon restore' : 'btn-icon'"
+              :disabled="isDeletePending"
+              :aria-label="manga.deleted ? '恢复漫画' : '删除漫画'"
+              :title="manga.deleted ? '恢复漫画' : '删除漫画'"
+              @click="toggleDeleteStatus"
+            >
+              <icon :icon="manga.deleted ? '#icon-restore' : '#icon-delete'" class="icon-svg"></icon>
+            </button>
+            <button
+              :class="['btn-icon', { 'tag-management-active': isTagManagementMode }]"
+              type="button"
+              :title="tagManagementToggleLabel"
+              :aria-label="tagManagementToggleLabel"
+              :aria-pressed="isTagManagementMode"
+              @click="toggleTagManagement"
+            >
+              <icon icon="#icon-tag" class="icon-svg"></icon>
             </button>
           </div>
         </div>
+      </div>
 
-        <div class="info-row unselectable">
-          <span class="label">页数:</span>
-          <span class="value">{{ manga.pageCount || 0 }}</span>
-        </div>
+      <div
+        v-if="typeof manga.description === 'string' && manga.description.trim()"
+        class="manga-description"
+      >
+        <h3>简介</h3>
+        <p>{{ manga.description }}</p>
+      </div>
 
-        <div class="info-row unselectable" v-if="manga.updateTime">
-          <span class="label">更新时间:</span>
-          <span class="value">{{ manga.updateTime }}</span>
-        </div>
-
-        <!-- 操作按钮 -->
-        <div class="action-buttons unselectable">
-          <button class="btn-primary" @click="startReading">
-            开始阅读
-          </button>
-          <button :class="manga.favorite ? 'btn-icon favorite' : 'btn-icon'" @click="toggleFavorite"
-            :title="manga.favorite ? '取消喜欢' : '添加喜欢'">
-            <icon :icon="manga.favorite ? '#icon-favorite-y' : '#icon-favorite-n'" class="icon-svg"></icon>
-          </button>
-          <button :class="manga.deleted ? 'btn-icon restore' : 'btn-icon'" @click="toggleDeleteStatus"
-            :title="manga.deleted ? '恢复漫画' : '删除漫画'">
-            <icon :icon="manga.deleted ? '#icon-restore' : '#icon-delete'" class="icon-svg"></icon>
-          </button>
+      <!-- 漫画章节列表 -->
+      <div v-if="mangaChapters.length !== 1" class="manga-chapters unselectable">
+        <h3>章节列表</h3>
+        <div v-if="mangaChapters.length === 0" class="empty-state">暂无章节</div>
+        <div v-else class="chapters-simple-list">
           <button
-            :class="['btn-icon', { 'tag-management-active': isTagManagementMode }]"
+            v-for="chapterItem in mangaChapters"
+            :key="'c' + chapterItem.chapter"
             type="button"
-            :title="tagManagementToggleLabel"
-            :aria-label="tagManagementToggleLabel"
-            :aria-pressed="isTagManagementMode"
-            @click="toggleTagManagement"
+            :class="['chapter-simple-item', { active: manga.currentChapter === chapterItem.chapter }]"
+            :aria-pressed="manga.currentChapter === chapterItem.chapter"
+            @click="goToChapter(chapterItem.chapter)"
           >
-            <icon icon="#icon-tag" class="icon-svg"></icon>
-          </button>
-          <button class="btn-icon" title="下载">
-            <icon icon="#icon-download" class="icon-svg"></icon>
+            <span>{{ chapterItem.title || `第${chapterItem.chapter}话` }}</span>
+            <span class="chapter-page-count">{{ chapterItem.pageCount }}页</span>
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- 漫画描述 -->
-    <!-- <div class="manga-description">
-      <h3>简介</h3>
-      <p>{{ manga.description || '这是一部精彩的漫画作品，讲述了一个引人入胜的故事...' }}</p>
-    </div> -->
+      <!-- 漫画页面缩略图 -->
+      <div class="manga-pages unselectable">
+        <h3 ref="pagesHeading" tabindex="-1">漫画页面</h3>
+        <div v-if="mangaChapters.length === 0" class="empty-state">暂无可阅读页面</div>
+        <div v-else-if="mangaPages.length === 0" class="empty-state">当前章节暂无页面</div>
+        <ul v-else class="pages-list">
+          <li v-for="pageItem in visibleMangaPages" :key="'p' + pageItem.page" class="page-item"
+            @click="goToPage(pageItem.page)">
+            <img :src="withMediaStyle(pageItem.path, 'small')" :alt="`第${pageItem.page}页`" loading="lazy" decoding="async" />
+            <button
+              type="button"
+              class="page-remove"
+              :disabled="isRemovingPage(pageItem.page)"
+              :aria-label="`删除第${pageItem.page}页`"
+              :title="`删除第${pageItem.page}页`"
+              @click.stop="removeMangaPage(pageItem.page)"
+            >×</button>
+            <div class="page-number">{{ pageItem.page }}</div>
+          </li>
+          <li
+            v-if="hasMoreMangaPages"
+            ref="mangaPagesSentinel"
+            class="manga-pages-sentinel"
+            role="status"
+            aria-live="polite"
+          >
+            正在加载更多页面…
+          </li>
+        </ul>
+      </div>
 
-    <!-- 漫画章节列表 -->
-    <div class="manga-chapters unselectable" v-if="mangaChapters.length > 1">
-      <h3>章节列表</h3>
-      <div class="chapters-simple-list">
-        <div v-for="chapterItem in mangaChapters" :key="'c' + chapterItem.chapter"
-          :class="['chapter-simple-item', { 'active': manga.currentChapter === chapterItem.chapter }]"
-          @click="goToChapter(chapterItem.chapter)">
-          {{ chapterItem.title || `第${chapterItem.chapter}话` }}
+      <!-- 相关推荐 -->
+      <div class="related-manga unselectable">
+        <h3>相关推荐</h3>
+        <div class="related-list">
+          <div v-for="item in relatedManga" :key="item.id" class="related-item" @click="goToManga(item.id)">
+            <img :src="withMediaStyle(item.cover, 'small')" :alt="item.title" />
+            <div class="related-title">{{ item.title }}</div>
+          </div>
         </div>
       </div>
-    </div>
-
-    <!-- 漫画页面缩略图 -->
-    <div class="manga-pages unselectable">
-      <h3>漫画页面</h3>
-      <ul class="pages-list">
-        <li v-for="pageItem in visibleMangaPages" :key="'p' + pageItem.page" class="page-item"
-          @click="goToPage(pageItem.page)">
-          <img :src="withMediaStyle(pageItem.path, 'small')" :alt="`第${pageItem.page}页`" loading="lazy" decoding="async" />
-          <div class="page-remove" @click.stop="removeMangaPage(pageItem.page)">×</div>
-          <div class="page-number">{{ pageItem.page }}</div>
-        </li>
-        <li
-          v-if="hasMoreMangaPages"
-          ref="mangaPagesSentinel"
-          class="manga-pages-sentinel"
-          role="status"
-          aria-live="polite"
-        >
-          正在加载更多页面…
-        </li>
-      </ul>
-    </div>
-
-    <!-- 相关推荐 -->
-    <div class="related-manga unselectable">
-      <h3>相关推荐</h3>
-      <div class="related-list">
-        <div v-for="item in relatedManga" :key="item.id" class="related-item" @click="goToManga(item.id)">
-          <img :src="withMediaStyle(item.cover, 'small')" :alt="item.title" />
-          <div class="related-title">{{ item.title }}</div>
-        </div>
-      </div>
-    </div>
+    </template>
   </section>
 
   <manga-tag-editor
@@ -162,7 +209,7 @@
     :category="activeTagCategory"
     :current-tags="activeTagEditorTags"
     @close="closeTagEditor"
-    @updated="loadMangaDetail"
+    @updated="refreshMangaTags"
   />
 
   <acg17-footer></acg17-footer>
@@ -190,22 +237,35 @@ export default {
     const route = useRoute()
     const router = useRouter()
 
-    const manga = reactive({
-      id: null,
-      title: '',
-      chineseTitle: '',
-      cover: '',
-      description: '',
-      pages: [],
-      ...Object.fromEntries(MANGA_TAG_CATEGORIES.map(category => [category.field, []])),
-      favorite: false,
-      deleted: false,
-      updateTime: '',
-      pageCount: 0,
-      currentChapter: 0,
-    })
+    function createEmptyManga() {
+      return {
+        id: null,
+        title: '',
+        chineseTitle: '',
+        cover: '',
+        description: '',
+        pages: [],
+        ...Object.fromEntries(MANGA_TAG_CATEGORIES.map(category => [category.field, []])),
+        favorite: false,
+        deleted: false,
+        updateTime: '',
+        pageCount: 0,
+        currentChapter: 0,
+      }
+    }
+
+    const manga = reactive(createEmptyManga())
 
     const relatedManga = reactive([])
+
+    const isLoading = ref(false)
+    const loadError = ref('')
+    const hasLoaded = ref(false)
+    const isFavoritePending = ref(false)
+    const isDeletePending = ref(false)
+    const pendingPageDeletes = reactive(new Set())
+    const pagesHeading = ref(null)
+    let latestRequestVersion = 0
 
     // 漫画页面数据直接使用后端返回的pages
     const mangaPages = reactive([])
@@ -239,6 +299,31 @@ export default {
 
     const showBackToTopLeft = ref(false)
     const showBackToTopRight = ref(false)
+    const displayTitle = computed(() => (
+      typeof manga.chineseTitle === 'string' && manga.chineseTitle.trim()
+        ? manga.chineseTitle.trim()
+        : (typeof manga.title === 'string' ? manga.title.trim() : '')
+    ))
+    const originalTitle = computed(() => (
+      typeof manga.title === 'string' ? manga.title.trim() : ''
+    ))
+    const updateTimeText = computed(() => (
+      typeof manga.updateTime === 'string' ? manga.updateTime.trim() : ''
+    ))
+    const showOriginalSubtitle = computed(() => (
+      Boolean(originalTitle.value)
+      && Boolean(typeof manga.chineseTitle === 'string' && manga.chineseTitle.trim())
+      && originalTitle.value !== manga.chineseTitle.trim()
+    ))
+    const hasCurrentChapterPages = computed(() => (
+      mangaChapters.length > 0 && mangaPages.length > 0
+    ))
+    const canStartReading = computed(() => (
+      hasLoaded.value
+      && Number.isInteger(manga.id)
+      && manga.id > 0
+      && hasCurrentChapterPages.value
+    ))
 
     const handleScroll = () => {
       showBackToTopLeft.value = window.scrollY > 50
@@ -294,6 +379,14 @@ export default {
       nextTick(observeMangaPagesSentinel)
     }
 
+    function clearMangaDetail() {
+      Object.assign(manga, createEmptyManga())
+      mangaChapters.length = 0
+      mangaPages.length = 0
+      pendingPageDeletes.clear()
+      resetMangaPageVisibility()
+    }
+
     watch(
       [() => mangaPages.length, visiblePageCount],
       () => {
@@ -302,54 +395,145 @@ export default {
       { flush: 'post' }
     )
 
+    function getRouteMangaId() {
+      const routeId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+      const normalizedId = String(routeId || '')
+      if (!/^\d+$/.test(normalizedId)) {
+        return null
+      }
+
+      const mangaId = Number(normalizedId)
+      return Number.isSafeInteger(mangaId) && mangaId > 0 ? mangaId : null
+    }
+
+    function isNotFoundError(error) {
+      const status = error?.response?.status || error?.status || error?.code
+      return status === 404 || (
+        typeof error === 'string'
+        && (/\b404\b/.test(error) || error.includes('不存在'))
+      )
+    }
+
+    function normalizeChapters(pages) {
+      if (!Array.isArray(pages)) {
+        return []
+      }
+
+      return pages.map((chapter, index) => {
+        const pagelist = Array.isArray(chapter?.pagelist) ? [...chapter.pagelist] : []
+        return {
+          ...chapter,
+          chapter: chapter?.chapter ?? index + 1,
+          title: chapter?.title || '',
+          pagelist,
+          pageCount: pagelist.length,
+        }
+      })
+    }
+
+    function syncPageMetrics() {
+      mangaChapters.forEach(chapter => {
+        chapter.pagelist = Array.isArray(chapter.pagelist) ? chapter.pagelist : []
+        chapter.pageCount = chapter.pagelist.length
+      })
+      manga.pageCount = mangaChapters.reduce((total, chapter) => total + chapter.pageCount, 0)
+
+      const currentChapter = mangaChapters.find(chapter => chapter.chapter === manga.currentChapter)
+      const currentPages = currentChapter?.pagelist || []
+      mangaPages.splice(0, mangaPages.length, ...currentPages)
+      visiblePageCount.value = Math.min(Math.max(visiblePageCount.value, 0), mangaPages.length)
+      nextTick(observeMangaPagesSentinel)
+    }
+
+    function applyMangaData(mangaData, mangaId) {
+      const chapters = normalizeChapters(mangaData.pages)
+      Object.assign(manga, mangaData, { id: mangaData.id ?? mangaId, pages: chapters })
+      manga.id = Number(manga.id)
+      mangaChapters.push(...chapters)
+      manga.currentChapter = chapters[0]?.chapter ?? 0
+      mangaPages.push(...(chapters[0]?.pagelist || []))
+      syncPageMetrics()
+      resetMangaPageVisibility()
+    }
+
     // 从后端加载漫画详情数据
     async function loadMangaDetail() {
-      resetMangaPageVisibility()
+      const requestVersion = ++latestRequestVersion
+      const mangaId = getRouteMangaId()
+      isLoading.value = true
+      loadError.value = ''
+      hasLoaded.value = false
+      clearMangaDetail()
+
+      if (!mangaId) {
+        isLoading.value = false
+        router.push('/404')
+        return
+      }
+
       try {
-        const mangaId = parseInt(route.params.id)
         const res = await server.get(`/manga/${mangaId}`)
-
-        if (res.code === 200) {
-          // 如果res.data为空，则进入404页面
-          if (!res.data) {
-            router.push('/404')
-            return
-          }
-          const mangaData = res.data
-          Object.assign(manga, mangaData)
-
-          // 计数页数
-          let pageCount = 0
-          if (mangaData.pages && mangaData.pages.length > 0) {
-            mangaData.pages.forEach(chapter => {
-              if (chapter.pagelist && chapter.pagelist.length > 0) {
-                chapter.pageCount = chapter.pagelist.length
-                pageCount += chapter.pageCount
-              }
-            })
-          }
-          manga.pageCount = pageCount
-
-          // 设置漫画章节数据
-          mangaChapters.length = 0
-          mangaPages.length = 0
-          if (mangaData.pages && mangaData.pages.length > 0) {
-            mangaChapters.push(...mangaData.pages)
-
-            // 设置漫画页面数据
-            if (mangaChapters[0].pagelist && mangaChapters[0].pagelist.length > 0) {
-              mangaPages.push(...mangaChapters[0].pagelist)
-              manga.currentChapter = mangaChapters[0].chapter
-            }
-          }
-
-          resetMangaPageVisibility()
-
-        } else {
-          console.error('获取漫画详情失败:', res.message)
+        if (requestVersion !== latestRequestVersion) {
+          return
         }
+        if (res?.code === 404 || (res?.code === 200 && !res.data)) {
+          router.push('/404')
+          return
+        }
+        if (res?.code !== 200 || !res.data) {
+          throw new Error(res?.message || '漫画详情请求失败')
+        }
+
+        applyMangaData(res.data, mangaId)
+        hasLoaded.value = true
       } catch (error) {
+        if (requestVersion !== latestRequestVersion) {
+          return
+        }
+        if (isNotFoundError(error)) {
+          router.push('/404')
+          return
+        }
         console.error('加载漫画详情时发生错误:', error)
+        loadError.value = '漫画详情加载失败，请稍后重试。'
+      } finally {
+        if (requestVersion === latestRequestVersion) {
+          isLoading.value = false
+        }
+      }
+    }
+
+    async function refreshMangaTags() {
+      const mangaId = Number(manga.id)
+      const routeMangaId = getRouteMangaId()
+      const requestVersion = latestRequestVersion
+      if (!Number.isSafeInteger(mangaId) || mangaId <= 0 || mangaId !== routeMangaId) {
+        return
+      }
+
+      try {
+        const res = await server.get(`/manga/${mangaId}`)
+        const refreshedManga = res?.data
+        if (
+          res?.code !== 200
+          || !refreshedManga
+          || Number(refreshedManga.id) !== mangaId
+          || getRouteMangaId() !== mangaId
+          || Number(manga.id) !== mangaId
+          || latestRequestVersion !== requestVersion
+        ) {
+          throw new Error('漫画标签刷新结果已失效')
+        }
+
+        MANGA_TAG_CATEGORIES.forEach(category => {
+          if (Object.prototype.hasOwnProperty.call(refreshedManga, category.field)) {
+            manga[category.field] = Array.isArray(refreshedManga[category.field])
+              ? refreshedManga[category.field]
+              : []
+          }
+        })
+      } catch (error) {
+        console.error('刷新漫画标签失败:', error)
       }
     }
 
@@ -375,6 +559,9 @@ export default {
     }
 
     function startReading() {
+      if (!canStartReading.value) {
+        return
+      }
       // 传递漫画数据到MangaReader页面，避免重复请求
       router.push({
         path: `/acg/manga/${manga.id}/${manga.currentChapter}/1`,
@@ -390,6 +577,9 @@ export default {
     }
 
     function goToPage(pageNumber) {
+      if (!canStartReading.value || !mangaPages.some(page => page.page === pageNumber)) {
+        return
+      }
       // 传递漫画数据到MangaReader页面，避免重复请求
       router.push({
         path: `/acg/manga/${manga.id}/${manga.currentChapter}/${pageNumber}`,
@@ -407,60 +597,92 @@ export default {
     onMounted(() => {
       window.addEventListener('scroll', handleScroll)
       handleScroll()
-      loadMangaDetail()
-      loadRelatedManga()
     })
 
     watch(() => route.params.id, () => {
       isTagManagementMode.value = false
       closeTagEditor()
-      resetMangaPageVisibility()
       loadMangaDetail()
       loadRelatedManga()
-    })
+    }, { immediate: true })
 
     onUnmounted(() => {
+      latestRequestVersion += 1
       window.removeEventListener('scroll', handleScroll)
       disconnectMangaPagesObserver()
     })
 
     async function toggleFavorite() {
+      if (!hasLoaded.value || !manga.id || isFavoritePending.value) {
+        return
+      }
+
+      isFavoritePending.value = true
+      const newFavoriteStatus = !manga.favorite
       try {
-        const newFavoriteStatus = !manga.favorite
         const res = await server.put(`/manga/${manga.id}/favorite?favorite=${newFavoriteStatus}`)
-        if (res.code === 200) {
-          manga.favorite = !manga.favorite
+        if (res?.code !== 200) {
+          throw new Error('收藏操作失败')
         }
+        manga.favorite = newFavoriteStatus
+        ElMessage.success(newFavoriteStatus ? '已添加喜欢' : '已取消喜欢')
       } catch (error) {
         console.error('收藏操作失败:', error)
+        if (error instanceof Error) {
+          ElMessage.error('喜欢操作失败')
+        }
+      } finally {
+        isFavoritePending.value = false
       }
     }
 
     async function toggleDeleteStatus() {
+      if (!hasLoaded.value || !manga.id || isDeletePending.value) {
+        return
+      }
+
+      isDeletePending.value = true
       try {
         if (manga.deleted) {
           // 恢复漫画
           const res = await server.put(`/manga/${manga.id}/restore`)
-          if (res.code === 200) {
-            manga.deleted = false
-            ElMessage.success('漫画已恢复')
-          } else {
-            ElMessage.error('恢复漫画失败')
+          if (res?.code !== 200) {
+            throw new Error('恢复漫画失败')
           }
+          manga.deleted = false
+          ElMessage.success('漫画已恢复')
         } else {
           // 删除漫画
+          await ElMessageBox.confirm(
+            '确定删除这本漫画吗？删除后可以恢复。',
+            '删除漫画',
+            {
+              confirmButtonText: '删除',
+              cancelButtonText: '取消',
+              type: 'warning'
+            }
+          )
           const res = await server.delete(`/manga/${manga.id}`)
-          if (res.code === 200) {
-            manga.deleted = true
-            ElMessage.success('漫画已删除')
-          } else {
-            ElMessage.error('删除漫画失败')
+          if (res?.code !== 200) {
+            throw new Error('删除漫画失败')
           }
+          manga.deleted = true
+          ElMessage.success('漫画已删除')
         }
       } catch (error) {
-
-        console.error('删除/恢复操作失败:', error)
+        if (!isMessageCancelled(error)) {
+          console.error('删除/恢复操作失败:', error)
+          if (error instanceof Error) {
+            ElMessage.error(manga.deleted ? '恢复漫画失败' : '删除漫画失败')
+          }
+        }
+      } finally {
+        isDeletePending.value = false
       }
+    }
+
+    function isMessageCancelled(error) {
+      return error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close'
     }
 
     // 随机打开一个漫画
@@ -488,23 +710,13 @@ export default {
     function goToChapter(chapterNum) {
       const chapterItem = mangaChapters.find(c => c.chapter === chapterNum)
 
-      if (chapterItem && chapterItem.pagelist && chapterItem.pagelist.length > 0) {
+      if (chapterItem) {
         manga.currentChapter = chapterItem.chapter
-        mangaPages.length = 0
-        mangaPages.push(...chapterItem.pagelist)
+        mangaPages.splice(0, mangaPages.length, ...(chapterItem.pagelist || []))
         resetMangaPageVisibility()
-        // 跳转到章节的第一页
-        // router.push({
-        //   path: `/acg/manga/${manga.id}/${manga.currentChapter}/1`,
-        //   state: {
-        //     mangaData: {
-        //       id: manga.id,
-        //       currentChapter: manga.currentChapter,
-        //       title: manga.title,
-        //       pages: [...mangaPages]
-        //     }
-        //   }
-        // })
+        nextTick(() => {
+          pagesHeading.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
       }
     }
 
@@ -534,6 +746,11 @@ export default {
 
     // 删除漫画页
     async function removeMangaPage(pageNum) {
+      if (!hasLoaded.value || !manga.id || pendingPageDeletes.has(pageNum)) {
+        return
+      }
+
+      pendingPageDeletes.add(pageNum)
       try {
         await ElMessageBox.confirm(
           `确定删除第 ${pageNum} 页吗？删除后无法恢复。`,
@@ -552,24 +769,43 @@ export default {
             pageNum: pageNum
           }
         })
-        if (res.code === 200) {
-          const index = mangaPages.findIndex(page => page.page === pageNum)
-          if (index !== -1) {
-            mangaPages.splice(index, 1)
+        if (res?.code !== 200) {
+          throw new Error('删除漫画页失败')
+        }
+        const currentChapter = mangaChapters.find(chapter => chapter.chapter === manga.currentChapter)
+        if (currentChapter) {
+          currentChapter.pagelist = currentChapter.pagelist.filter(page => page.page !== pageNum)
+        }
+        syncPageMetrics()
+        ElMessage.success(`第 ${pageNum} 页已删除`)
+      } catch (error) {
+        if (!isMessageCancelled(error)) {
+          console.error('删除漫画页失败:', error)
+          if (error instanceof Error) {
+            ElMessage.error(`删除第 ${pageNum} 页失败`)
           }
         }
-      } catch (error) {
-        if (error === 'cancel' || error === 'close') {
-          return
-        }
-        console.error('删除漫画页失败:', error)
+      } finally {
+        pendingPageDeletes.delete(pageNum)
       }
+    }
+
+    function isRemovingPage(pageNum) {
+      return pendingPageDeletes.has(pageNum)
     }
 
     return {
       manga,
       withMediaStyle,
       relatedManga,
+      isLoading,
+      loadError,
+      hasLoaded,
+      displayTitle,
+      originalTitle,
+      updateTimeText,
+      showOriginalSubtitle,
+      canStartReading,
       mangaPages,
       visibleMangaPages,
       hasMoreMangaPages,
@@ -580,6 +816,10 @@ export default {
       tagManagementToggleLabel,
       activeTagCategory,
       activeTagEditorTags,
+      pagesHeading,
+      isFavoritePending,
+      isDeletePending,
+      isRemovingPage,
       goBack,
       goToManga,
       startReading,
@@ -596,6 +836,7 @@ export default {
       toggleTagManagement,
       closeTagEditor,
       loadMangaDetail,
+      refreshMangaTags,
       removeMangaPage
     }
   }
@@ -617,6 +858,35 @@ export default {
   min-height: calc(100vh - 140px - 20px - 200px);
 }
 
+.detail-state {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #495057;
+  text-align: center;
+}
+
+.detail-state p {
+  margin: 0;
+}
+
+.detail-state-error {
+  color: #b42318;
+}
+
+.state-retry-btn {
+  border: 1px solid #409eff;
+  border-radius: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  color: #337ab7;
+  cursor: pointer;
+  font: inherit;
+}
+
 .manga-container {
   display: flex;
   gap: 30px;
@@ -630,26 +900,51 @@ export default {
 }
 
 .manga-cover img {
-  width: 350px;
+  display: block;
+  width: min(350px, 30vw);
   height: auto;
-  object-fit: cover;
+  aspect-ratio: 1 / 1.41;
+  object-fit: contain;
+  background-color: #f5f7fa;
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .manga-info {
   flex: 1;
-  padding-bottom: 70px;
+  min-width: 0;
   height: auto;
-  position: relative;
 }
 
 .manga-title {
   font-size: 28px;
   font-weight: bold;
   color: #2c3e50;
-  margin-bottom: 20px;
+  margin: 0 0 6px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.manga-original-title {
+  margin: 0 0 14px;
+  color: #6c757d;
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.manga-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.meta-separator {
+  color: #adb5bd;
 }
 
 .info-row {
@@ -663,11 +958,6 @@ export default {
   margin-right: 12px;
 }
 
-.value {
-  color: #495057;
-  flex: 1;
-}
-
 .tags-container {
   display: flex;
   flex-wrap: wrap;
@@ -676,6 +966,8 @@ export default {
 }
 
 .tag {
+  appearance: none;
+  font: inherit;
   display: inline-flex;
   align-items: center;
   background-color: #f8f9fa;
@@ -706,30 +998,12 @@ export default {
   text-align: center;
 }
 
-.category {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  padding: 4px 12px;
-  border-radius: 15px;
-  font-size: 14px;
-  display: inline-block;
-}
-
-.status.completed {
-  color: #4caf50;
-  font-weight: 600;
-}
-
-.status.ongoing {
-  color: #ff9800;
-  font-weight: 600;
-}
-
 .action-buttons {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 15px;
-  bottom: 10px;
-  position: absolute;
+  margin-top: 24px;
 }
 
 .btn-primary {
@@ -748,24 +1022,11 @@ export default {
   background-color: #337ab7;
 }
 
-.btn-secondary {
-  background-color: transparent;
-  color: #409eff;
-  border: 2px solid #409eff;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-secondary:hover {
-  background-color: #409eff;
-  color: white;
+.btn-primary:disabled {
+  background-color: #b8c2cc;
+  color: #f8f9fa;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-icon {
@@ -828,7 +1089,15 @@ export default {
   fill: white;
 }
 
-/* .manga-description {
+.btn-icon:disabled,
+.page-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
+.manga-description {
   margin-bottom: 40px;
 }
 
@@ -844,7 +1113,11 @@ export default {
   line-height: 1.6;
   color: #555;
   font-size: 16px;
-} */
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 
 .manga-pages {
   margin-bottom: 40px;
@@ -856,6 +1129,7 @@ export default {
   margin-bottom: 20px;
   border-bottom: 2px solid #409eff;
   padding-bottom: 8px;
+  scroll-margin-top: 84px;
 }
 
 .pages-list {
@@ -894,6 +1168,7 @@ export default {
 }
 
 .page-remove {
+  appearance: none;
   position: absolute;
   top: 8px;
   right: 8px;
@@ -904,6 +1179,9 @@ export default {
   border: 1px solid #f56565;
   font-size: 12px;
   font-weight: 600;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
   display: none;
 }
 
@@ -1025,12 +1303,16 @@ export default {
     gap: 20px;
   }
 
+  .manga-cover {
+    width: 100%;
+  }
+
   .manga-cover img {
     width: 100%;
-    max-width: 250px;
-    height: 350px;
+    max-width: 350px;
+    aspect-ratio: 1 / 1.41;
+    height: auto;
     margin: 0 auto;
-    display: block;
   }
 
   .manga-title {
@@ -1039,6 +1321,7 @@ export default {
 
   .action-buttons {
     flex-wrap: wrap;
+    gap: 10px;
   }
 
   .related-list {
@@ -1074,6 +1357,15 @@ export default {
   padding-bottom: 8px;
 }
 
+.empty-state {
+  padding: 28px 16px;
+  border: 1px dashed #ced4da;
+  border-radius: 8px;
+  color: #6c757d;
+  text-align: center;
+  background: #f8f9fa;
+}
+
 .chapters-simple-list {
   display: flex;
   flex-wrap: wrap;
@@ -1081,6 +1373,8 @@ export default {
 }
 
 .chapter-simple-item {
+  appearance: none;
+  font: inherit;
   padding: 8px 16px;
   border: 1px solid #e9ecef;
   border-radius: 6px;
@@ -1090,6 +1384,16 @@ export default {
   font-size: 14px;
   color: #333;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.chapter-page-count {
+  color: #6c757d;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .chapter-simple-item:hover {
@@ -1106,11 +1410,15 @@ export default {
   font-weight: 600;
 }
 
+.chapter-simple-item.active .chapter-page-count {
+  color: #eaf4ff;
+}
+
 .chapter-simple-item.active:hover {
-    background-color: #337ab7;
-    border-color: #337ab7;
-    color: white;
-  }
+  background-color: #337ab7;
+  border-color: #337ab7;
+  color: white;
+}
 
 /* 编辑按钮样式 */
 .edit-tag-btn {
@@ -1143,6 +1451,12 @@ export default {
 
 .edit-tag-btn:hover .edit-icon {
   fill: #409eff;
+}
+
+.manga-detail button:focus-visible,
+.manga-detail h3:focus-visible {
+  outline: 3px solid rgba(64, 158, 255, 0.55);
+  outline-offset: 3px;
 }
 
 </style>
