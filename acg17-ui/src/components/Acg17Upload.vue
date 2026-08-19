@@ -23,6 +23,7 @@
     :title="activeUpload?.title || '上传作品'"
     width="1000px"
     class="upload-dialog"
+    append-to-body
     destroy-on-close
     @closed="resetDialog"
   >
