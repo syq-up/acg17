@@ -1,6 +1,6 @@
 const DEFAULT_GAP = 4
-const DEFAULT_MIN_ROW_HEIGHT = 150
-const DEFAULT_MAX_ROW_HEIGHT = 280
+const DEFAULT_MIN_ROW_HEIGHT = 220
+const DEFAULT_MAX_ROW_HEIGHT = 270
 
 export function normalizeRatio(value) {
   const ratio = Number(value)
@@ -19,7 +19,7 @@ export function getTargetRowHeight(containerWidth, options = {}) {
     : DEFAULT_MAX_ROW_HEIGHT
   const preferredRowHeight = Number.isFinite(options.targetRowHeight)
     ? options.targetRowHeight
-    : width * 0.22
+    : width * 0.3
 
   return Math.min(maxRowHeight, Math.max(minRowHeight, preferredRowHeight))
 }
