@@ -1,15 +1,39 @@
 <template>
   <section>
-    <div class="gallery-container" v-infinite-scroll="loadArtworks" :infinite-scroll-disabled="illustration.disabled">
-      <!-- Random Button -->
-      <div class="side-btn left-btn" @click="randomArtwork" :style="{ right: '50%', marginRight: (containerWidth / 2 + 30) + 'px' }">
+    <div class="side-btn-group left-btn-group">
+      <button
+        type="button"
+        class="side-btn"
+        :disabled="illustration.list.length === 0"
+        aria-label="随机插画"
+        title="随机插画"
+        @click="randomArtwork"
+      >
         <icon icon="#icon-random"></icon>
-      </div>
-      <!-- Back to Top Button -->
-      <div class="side-btn right-btn" v-show="showBackToTop" @click="scrollToTop" :style="{ left: '50%', marginLeft: (containerWidth / 2 + 30) + 'px' }">
+      </button>
+      <button
+        v-show="showBackToTop"
+        type="button"
+        class="side-btn mobile-back-to-top"
+        aria-label="返回顶部"
+        title="返回顶部"
+        @click="scrollToTop"
+      >
         <icon icon="#icon-sort-asc"></icon>
-      </div>
+      </button>
+    </div>
+    <button
+      v-show="showBackToTop"
+      type="button"
+      class="side-btn right-btn"
+      aria-label="返回顶部"
+      title="返回顶部"
+      @click="scrollToTop"
+    >
+      <icon icon="#icon-sort-asc"></icon>
+    </button>
 
+    <div class="gallery-container" v-infinite-scroll="loadArtworks" :infinite-scroll-disabled="illustration.disabled">
       <div v-for="(row, rowIndex) in layoutRows" :key="rowIndex" class="gallery-row" :style="{ height: row.height + 'px', gap: row.gap + 'px', marginBottom: row.gap + 'px' }">
         <div v-for="item in row.items" :key="item.id" class="gallery-item"
              :id="illustration.list.indexOf(item)"
@@ -353,6 +377,8 @@ export default {
 
     // 随机打开一个插画
     function randomArtwork() {
+      if (illustration.list.length === 0) return
+
       const randomIndex = Math.floor(Math.random() * illustration.list.length)
       openPreview(randomIndex)
     }
@@ -390,9 +416,27 @@ section {
     position: relative;
 }
 
+.left-btn-group {
+    position: fixed;
+    top: 84px;
+    left: max(12px, calc(50% - 768px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 8;
+    pointer-events: none;
+}
+
+.left-btn-group .side-btn {
+    pointer-events: auto;
+}
+
 .side-btn {
+    position: relative;
     width: 48px;
     height: 48px;
+    padding: 0;
+    border: 0;
     border-radius: 4px;
     background-color: #fff;
     display: flex;
@@ -401,13 +445,20 @@ section {
     cursor: pointer;
     box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
     transition: all 0.3s;
-    z-index: 8;
     color: #409eff;
+    font: inherit;
 }
 
 .side-btn:hover {
     background-color: #f2f6fc;
     color: #409eff;
+}
+
+.side-btn:disabled {
+    cursor: not-allowed;
+    color: #a8abb2;
+    background-color: #f5f7fa;
+    opacity: 0.7;
 }
 
 .side-btn svg, .side-btn .icon {
@@ -416,16 +467,15 @@ section {
     fill: currentColor;
 }
 
-.left-btn {
-    position: fixed;
-    top: 84px;
-    /* right is handled by inline style */
-}
-
 .right-btn {
     position: fixed;
+    right: max(12px, calc(50% - 768px));
     bottom: 50px;
-    /* left is handled by inline style */
+    z-index: 8;
+}
+
+.mobile-back-to-top {
+    display: none;
 }
 
 .gallery-row {
@@ -578,5 +628,48 @@ section {
 .hvr-grow:hover, .hvr-grow:focus, .hvr-grow:active {
   -webkit-transform: scale(1.4);
   transform: scale(1.4);
+}
+
+@media (max-width: 767px) {
+  section {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .left-btn-group {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    flex-direction: row;
+    gap: 8px;
+    padding: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+    transform: translateX(-50%);
+    backdrop-filter: blur(8px);
+  }
+
+  .left-btn-group .side-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .mobile-back-to-top {
+    display: flex;
+  }
+
+  .right-btn {
+    display: none;
+  }
+}
+
+@media print {
+  .left-btn-group,
+  .right-btn {
+    display: none;
+  }
 }
 </style>
