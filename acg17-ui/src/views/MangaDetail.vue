@@ -1,20 +1,34 @@
 <template>
   <section class="manga-detail">
-    <div class="side-btn-group left-btn-group" :style="{ right: '50%', marginRight: (containerWidth / 2 + 30) + 'px' }">
-      <div class="side-btn" @click="randomManga">
+    <div class="side-btn-group left-btn-group">
+      <button type="button" class="side-btn" aria-label="随机漫画" title="随机漫画" @click="randomManga">
         <icon icon="#icon-random"></icon>
-      </div>
-      <div class="side-btn" @click="goBack">
+      </button>
+      <button type="button" class="side-btn" aria-label="返回上一页" title="返回上一页" @click="goBack">
         <icon icon="#icon-left"></icon>
-      </div>
-      <div class="side-btn" v-show="showBackToTopLeft" @click="scrollToTop">
+      </button>
+      <button
+        v-show="showBackToTopLeft"
+        type="button"
+        class="side-btn"
+        aria-label="返回顶部"
+        title="返回顶部"
+        @click="scrollToTop"
+      >
         <icon icon="#icon-sort-asc"></icon>
-      </div>
+      </button>
     </div>
 
-    <div class="side-btn right-btn" v-show="showBackToTopRight" @click="scrollToTop" :style="{ left: '50%', marginLeft: (containerWidth / 2 + 30) + 'px' }">
+    <button
+      v-show="showBackToTopRight"
+      type="button"
+      class="side-btn right-btn"
+      aria-label="返回顶部"
+      title="返回顶部"
+      @click="scrollToTop"
+    >
       <icon icon="#icon-sort-asc"></icon>
-    </div>
+    </button>
 
     <div class="manga-container">
       <!-- 漫画封面 -->
@@ -240,21 +254,12 @@ export default {
       allTagGroups.value.find(group => group.category === activeTagCategory.value)?.tags || []
     ))
 
-    const containerWidth = ref(1380)
     const showBackToTopLeft = ref(false)
     const showBackToTopRight = ref(false)
-    let resizeObserver = null
 
     const handleScroll = () => {
       showBackToTopLeft.value = window.scrollY > 50
       showBackToTopRight.value = window.scrollY > 500
-    }
-
-    const updateWidth = () => {
-      const container = document.querySelector('.manga-container')
-      if (container) {
-        containerWidth.value = container.clientWidth
-      }
     }
 
     function supportsIntersectionObserver() {
@@ -418,15 +423,9 @@ export default {
 
     onMounted(() => {
       window.addEventListener('scroll', handleScroll)
+      handleScroll()
       loadMangaDetail()
       loadRelatedManga()
-      nextTick(() => {
-        updateWidth()
-        window.addEventListener('resize', updateWidth)
-        resizeObserver = new ResizeObserver(() => updateWidth())
-        const container = document.querySelector('.manga-container')
-        if (container) resizeObserver.observe(container)
-      })
     })
 
     watch(() => route.params.id, () => {
@@ -439,8 +438,6 @@ export default {
 
     onUnmounted(() => {
       window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', updateWidth)
-      if (resizeObserver) resizeObserver.disconnect()
       disconnectMangaPagesObserver()
     })
 
@@ -612,7 +609,6 @@ export default {
       scrollToTop,
       showBackToTopLeft,
       showBackToTopRight,
-      containerWidth,
       openTagEditor,
       toggleTagManagement,
       closeTagEditor,
@@ -625,16 +621,25 @@ export default {
 
 <style scoped>
 .manga-detail {
-  max-width: 1380px;
-  margin: 80px auto 20px;
-  padding: 20px;
+  --column: 6;
+  --page-max-width: 220px;
+  --gap: 12px;
+  --container-padding: 20px;
+  width: 100%;
+  max-width: 1420px;
+  margin: 84px auto 20px;
+  padding: var(--container-padding);
+  box-sizing: border-box;
   background-color: #ffffff;
   min-height: calc(100vh - 140px - 20px - 200px);
 }
 
 .side-btn {
+  position: relative;
   width: 48px;
   height: 48px;
+  padding: 0;
+  border: 0;
   border-radius: 4px;
   background-color: #fff;
   display: flex;
@@ -643,8 +648,8 @@ export default {
   cursor: pointer;
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
   transition: all 0.3s;
-  z-index: 8;
   color: #409eff;
+  font: inherit;
 }
 
 .side-btn:hover {
@@ -661,14 +666,23 @@ export default {
 .left-btn-group {
   position: fixed;
   top: 84px;
+  left: max(12px, calc(50% - 768px));
   display: flex;
   flex-direction: column;
   gap: 10px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.left-btn-group .side-btn {
+  pointer-events: auto;
 }
 
 .right-btn {
   position: fixed;
+  right: max(12px, calc(50% - 768px));
   bottom: 50px;
+  z-index: 20;
 }
 
 .manga-container {
@@ -913,9 +927,12 @@ export default {
 }
 
 .pages-list {
+  width: 100%;
+  max-width: 1380px;
   display: grid;
-  grid-template-columns: repeat(6, 220px);
-  gap: 12px;
+  grid-template-columns: repeat(var(--column), minmax(0, var(--page-max-width)));
+  gap: var(--gap);
+  justify-content: center;
   list-style: none;
   padding: 0;
   margin: 0;
@@ -923,6 +940,7 @@ export default {
 
 .page-item {
   position: relative;
+  min-width: 0;
   cursor: pointer;
   transition: transform 0.3s ease;
 }
@@ -932,9 +950,13 @@ export default {
 }
 
 .page-item img {
-  width: 220px;
-  height: 310px;
-  object-fit: cover;
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1.41;
+  object-fit: contain;
+  object-position: center;
+  background-color: #f5f7fa;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
@@ -955,6 +977,12 @@ export default {
 
 .page-item:hover .page-remove {
   display: block;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .page-remove {
+    display: block;
+  }
 }
 
 .page-number {
@@ -1026,11 +1054,39 @@ export default {
 }
 
 /* 响应式设计 */
-@media screen and (max-width: 768px) {
+@media (max-width: 1169px) {
   .manga-detail {
-    margin: 20px auto;
-    padding: 15px;
+    --column: 5;
   }
+}
+
+@media (max-width: 979px) {
+  .manga-detail {
+    --column: 4;
+  }
+}
+
+@media (max-width: 779px) {
+  .manga-detail {
+    --column: 3;
+  }
+}
+
+@media (max-width: 579px) {
+  .manga-detail {
+    --column: 2;
+  }
+}
+
+@media (max-width: 991px) and (min-width: 768px) {
+  .manga-detail {
+    --gap: 10px;
+    --container-padding: 16px;
+    margin: 74px auto 20px;
+  }
+}
+
+@media screen and (max-width: 768px) {
 
   .manga-container {
     flex-direction: column;
@@ -1061,25 +1117,40 @@ export default {
   .related-item img {
     height: 160px;
   }
-
-  .pages-list {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-
-  .page-item img {
-    width: 100%;
-    height: 200px;
-  }
 }
 
-@media screen and (max-width: 480px) {
-  .pages-list {
-    grid-template-columns: repeat(2, 1fr);
+@media (max-width: 767px) {
+  .manga-detail {
+    --gap: 10px;
+    --container-padding: 12px;
+    margin: 64px auto 20px;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 
-  .page-item img {
-    height: 180px;
+  .left-btn-group {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    flex-direction: row;
+    gap: 8px;
+    padding: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+    transform: translateX(-50%);
+    backdrop-filter: blur(8px);
+  }
+
+  .left-btn-group .side-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .right-btn {
+    display: none;
   }
 }
 
