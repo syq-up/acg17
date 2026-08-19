@@ -33,19 +33,21 @@
       <icon icon="#icon-sort-asc"></icon>
     </button>
 
-    <div class="gallery-container" v-infinite-scroll="loadArtworks" :infinite-scroll-disabled="illustration.disabled">
+    <div ref="galleryContainer" class="gallery-container" v-infinite-scroll="loadArtworks" :infinite-scroll-disabled="illustration.disabled">
       <div v-for="(row, rowIndex) in layoutRows" :key="rowIndex" class="gallery-row" :style="{ height: row.height + 'px', gap: row.gap + 'px', marginBottom: row.gap + 'px' }">
-        <div v-for="item in row.items" :key="item.id" class="gallery-item"
-             :id="illustration.list.indexOf(item)"
+        <div v-for="entry in row.items" :key="entry.item.id ?? entry.index" class="gallery-item"
+             :class="{
+               'is-dragging': drag.isDrag && entry.item === drag.sourceItem,
+             }"
+             :style="{ width: entry.width + 'px' }"
              draggable="true"
-             @dragstart="handleDragStart($event, illustration.list.indexOf(item))"
+             @dragstart="handleDragStart($event, entry.index)"
              @dragover="handleDragover"
-             @dragenter="handleDragenter($event, illustration.list.indexOf(item))"
-             @dragleave="handleDragleave($event, illustration.list.indexOf(item))"
-             @drop="handleDrop($event, illustration.list.indexOf(item))"
+             @dragenter="handleDragenter($event, entry.index)"
+             @drop="handleDrop($event, entry.index)"
              @dragend="handleDragend"
         >
-          <img :src="withMediaStyle(item.url, 'small')" class="gallery-img" :style="{ width: row.height * item.ratio + 'px' }" loading="lazy" @click="openPreview(illustration.list.indexOf(item))">
+          <img :src="withMediaStyle(entry.item.url, 'small')" class="gallery-img" loading="lazy" @click="openPreview(entry.index)">
           
           <div class="item-action-overlay">
             <div class="overlay-left" v-show="!drag.isDrag">
@@ -54,10 +56,10 @@
                </div>
             </div>
             <div class="overlay-right" v-show="!drag.isDrag">
-               <div class="action delete" v-show="!isRecycle" @click.stop="deleteArtwork(illustration.list.indexOf(item))">
+               <div class="action delete" v-show="!isRecycle" @click.stop="deleteArtwork(entry.index)">
                   <icon icon="#icon-delete"></icon>
                </div>
-               <div class="action restore" v-show="isRecycle" @click.stop="restoreArtwork(illustration.list.indexOf(item))">
+               <div class="action restore" v-show="isRecycle" @click.stop="restoreArtwork(entry.index)">
                   <icon icon="#icon-restore"></icon>
                </div>
             </div>
@@ -86,13 +88,14 @@
 </template>
 
 <script>
-import { reactive, watch, ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { reactive, watch, ref, computed, onMounted, onUnmounted } from 'vue'
 import server from '@/util/request';
 
 import LoadingHeart from "../components/LoadingHeart";
 import Acg17Footer from "../components/Acg17Footer";
 import { useRecycleState, loadData } from '@/composables/useRecycleState';
 import { withMediaStyle } from '@/util/media';
+import { createJustifiedRows } from '@/utils/justifiedGallery.mjs';
 
 export default {
   name: "Illustration",
@@ -113,8 +116,8 @@ export default {
     })
 
     // --- 布局逻辑 Start ---
-    const containerWidth = ref(1380);
-    const targetRowHeight = 250; 
+    const galleryContainer = ref(null)
+    const containerWidth = ref(0)
     let resizeObserver = null;
 
     const showBackToTop = ref(false);
@@ -122,80 +125,23 @@ export default {
       showBackToTop.value = window.scrollY > 500;
     };
 
-    const layoutRows = computed(() => {
-        const rows = [];
-        let currentRow = [];
-        let currentWeight = 0;
-        const gap = 4; 
-
-        illustration.list.forEach(item => {
-            const ratio = item.ratio || 1;
-            // 规则：若宽高比<=1（竖向），每行约7个 -> 权重 1/7
-            // 规则：若宽高比>1（横向），每行约5个 -> 权重 1/5
-            const isVertical = ratio <= 1;
-            const itemWeight = isVertical ? 1/7 : 1/5;
-
-            // 如果当前行已满（权重>=1），先结算上一行
-            if (currentWeight >= 1 - 0.01) {
-                const totalGap = (currentRow.length - 1) * gap;
-                const totalRatio = currentRow.reduce((sum, it) => sum + (it.ratio || 1), 0);
-                const rowHeight = (containerWidth.value - totalGap) / totalRatio;
-                
-                rows.push({ items: [...currentRow], height: rowHeight, gap: gap });
-                
-                currentRow = [];
-                currentWeight = 0;
-            }
-
-            currentRow.push(item);
-            currentWeight += itemWeight;
-        });
-        
-        // 处理最后一行
-        if (currentRow.length > 0) {
-            // 如果最后一行刚好满了
-            if (currentWeight >= 1 - 0.01) {
-                const totalGap = (currentRow.length - 1) * gap;
-                const totalRatio = currentRow.reduce((sum, it) => sum + (it.ratio || 1), 0);
-                const rowHeight = (containerWidth.value - totalGap) / totalRatio;
-                rows.push({ items: currentRow, height: rowHeight, gap: gap });
-            } else {
-                // 不满，保持目标高度
-                rows.push({
-                    items: currentRow,
-                    height: targetRowHeight,
-                    gap: gap,
-                });
-            }
-        }
-        
-        return rows;
-    });
+    const layoutRows = computed(() => createJustifiedRows(illustration.list, containerWidth.value));
 
     const updateWidth = () => {
-        // 使用 .gallery-container 或 .gallery-scroll-area
-        const container = document.querySelector('.gallery-container');
-        if (container) {
-            // containerWidth.value = Math.min(container.clientWidth, 1380);
-            // 实际上我们想要的是容器的宽度
-             containerWidth.value = container.clientWidth;
-        }
+      if (galleryContainer.value) {
+        containerWidth.value = galleryContainer.value.clientWidth
+      }
     };
 
     onMounted(() => {
         window.addEventListener('scroll', handleScroll);
-        nextTick(() => {
-           updateWidth();
-           window.addEventListener('resize', updateWidth);
-           resizeObserver = new ResizeObserver(() => updateWidth());
-           const container = document.querySelector('.gallery-container');
-           if (container) resizeObserver.observe(container);
-        })
+        updateWidth()
+        resizeObserver = new ResizeObserver(updateWidth)
+        resizeObserver.observe(galleryContainer.value)
     });
 
     onUnmounted(() => {
         window.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('resize', updateWidth);
         if (resizeObserver) resizeObserver.disconnect();
     });
     // --- 布局逻辑 End ---
@@ -215,13 +161,7 @@ export default {
         // records.length!==0：当前页非空页，可能存在下一页，对当前页图像数据进行下一步处理
         // records.length===0：当前页为空页，不存在下一页，置disabled=true，不再请求下一页
         if (res.data.records.length!==0) {
-          // 处理宽高比 ratio
-          const records = res.data.records.map(item => {
-            if (!item.ratio)
-                item.ratio = 1 // 默认正方形
-            return item
-          })
-          illustration.list.push(...records)
+          illustration.list.push(...res.data.records)
           illustration.disabled = false
         } else {
           illustration.disabled = true
@@ -313,15 +253,16 @@ export default {
       dragIndex: -1,  // 当前拖拽元素的位置（原list中的下标）
       dragenterIndex: -1, // 当前拖拽元素进入的位置（原list中的下标）
       dropIndex: -1,  // 拖拽释放的位置（原list中的下标）
+      sourceItem: null, // 当前拖拽的插画
     })
     function handleDragStart(e, i) {
       drag.isDrag = true
       drag.originalList = [...illustration.list]
       drag.dragIndex = i
       drag.dragenterIndex = i
+      drag.sourceItem = illustration.list[i]
 
       e.dataTransfer.effectAllowed = 'move'
-      document.getElementById(i).style.opacity = '0.01'
     }
 
     function handleDragover(e) {
@@ -329,20 +270,16 @@ export default {
       e.dataTransfer.dropEffect = 'move'
     }
     function handleDragenter(e, i) {
+      e.preventDefault()
+      if (!drag.isDrag || i === drag.dragenterIndex) return
+
       illustration.list.splice(drag.dragenterIndex, 1)
       illustration.list.splice(i, 0, drag.originalList[drag.dragIndex])
       drag.dragenterIndex = i
-
-      document.getElementById(i).style.opacity = '0.01'
-    }
-    function handleDragleave(e, i) {
-      document.getElementById(i).style.opacity = '1'
     }
     function handleDrop(e, i) {
       e.preventDefault();
       drag.dropIndex = i
-
-      document.getElementById(i).style.opacity = '1'
     }
     function handleDragend(e) {
       e.preventDefault();
@@ -373,6 +310,7 @@ export default {
       }
       // 拖拽结束
       drag.isDrag = false
+      drag.sourceItem = null
     }
 
     // 随机打开一个插画
@@ -395,8 +333,8 @@ export default {
       isRecycle, toggleRecycle, setRecycle,
       preview, openPreview, lastPage, nextPage, touchstart, touchmove, touchend,
       deleteArtwork, restoreArtwork,
-      drag, handleDragStart, handleDragover, handleDragenter, handleDragleave, handleDrop, handleDragend,
-      containerWidth, randomArtwork, scrollToTop, showBackToTop, withMediaStyle
+      drag, handleDragStart, handleDragover, handleDragenter, handleDrop, handleDragend,
+      galleryContainer, containerWidth, randomArtwork, scrollToTop, showBackToTop, withMediaStyle
     }
   }
 }
@@ -483,6 +421,7 @@ section {
 }
 
 .gallery-item {
+    flex: 0 0 auto;
     height: 100%;
     position: relative;
     border-radius: 4px;
@@ -492,11 +431,16 @@ section {
     transition: filter 0.2s;
 }
 
+.gallery-item.is-dragging {
+    opacity: 0.01;
+}
+
 .gallery-item:hover {
     filter: brightness(0.9);
 }
 
 .gallery-img {
+    width: 100%;
     height: 100%;
     display: block;
     object-fit: cover;
