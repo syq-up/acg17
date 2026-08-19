@@ -1,0 +1,113 @@
+.left-btn-group {
+  position: fixed;
+  top: 84px;
+  left: max(12px, calc(50% - 768px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: var(--page-side-actions-z-index, 20);
+  pointer-events: none;
+}
+
+.left-btn-group .side-btn {
+  pointer-events: auto;
+}
+
+.side-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #409eff;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  font: inherit;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.side-btn:hover {
+  background-color: #f2f6fc;
+  color: #409eff;
+}
+
+.side-btn:disabled {
+  background-color: #f5f7fa;
+  color: #a8abb2;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.side-btn svg,
+.side-btn .icon {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.side-btn-status {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #f56c6c;
+}
+
+.right-btn {
+  position: fixed;
+  right: max(12px, calc(50% - 768px));
+  bottom: 50px;
+  z-index: var(--page-side-actions-z-index, 20);
+}
+
+.mobile-back-to-top {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .left-btn-group {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    flex-direction: row;
+    gap: 8px;
+    padding: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+    transform: translateX(-50%);
+    backdrop-filter: blur(8px);
+  }
+
+  .left-btn-group .side-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .mobile-back-to-top {
+    display: flex;
+  }
+
+  .right-btn {
+    display: none;
+  }
+}
+
+@media print {
+  .left-btn-group,
+  .right-btn {
+    display: none;
+  }
+}

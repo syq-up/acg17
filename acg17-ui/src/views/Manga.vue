@@ -87,6 +87,7 @@ import server from '@/util/request';
 import LoadingHeart from "../components/LoadingHeart";
 import Acg17Footer from "../components/Acg17Footer";
 import MangaFilterPanel from '@/components/manga/MangaFilterPanel.vue'
+import { useBackToTop } from '@/composables/useBackToTop'
 import { useRecycleState } from '@/composables/useRecycleState';
 
 function parseTagIds(queryValue) {
@@ -129,7 +130,7 @@ export default {
       router.push(`/acg/manga/${id}`)
     }
 
-    const showBackToTop = ref(false)
+    const { showBackToTop, scrollToTop } = useBackToTop()
     const filterEditor = ref('')
     const activeTitle = computed(() => normalizeTitle(route.query.title))
     const selectedTagIds = computed(() => parseTagIds(route.query.tagIds))
@@ -149,10 +150,6 @@ export default {
     const pageActive = ref(false)
     let loadedFilterKey = activeFilterKey.value
     let mangaRequestVersion = 0
-
-    const handleScroll = () => {
-      showBackToTop.value = window.scrollY > 500
-    }
 
     // 分页加载漫画，用于无限滚动
     function loadManga() {
@@ -247,13 +244,6 @@ export default {
       updateFilters({ tagIds: [] })
     }
 
-    function scrollToTop() {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-      })
-    }
-
     function resetMangaList() {
       mangaRequestVersion += 1
       loadedFilterKey = activeFilterKey.value
@@ -277,15 +267,12 @@ export default {
       }
     })
 
-    function activatePageListeners() {
+    function activatePage() {
       pageActive.value = true
-      window.addEventListener('scroll', handleScroll)
-      handleScroll()
     }
 
-    function deactivatePageListeners() {
+    function deactivatePage() {
       pageActive.value = false
-      window.removeEventListener('scroll', handleScroll)
     }
 
     // 组件挂载时获取数据
@@ -297,11 +284,11 @@ export default {
       if (activeFilterKey.value !== loadedFilterKey) {
         resetMangaList()
       }
-      activatePageListeners()
+      activatePage()
     })
 
-    onDeactivated(deactivatePageListeners)
-    onUnmounted(deactivatePageListeners)
+    onDeactivated(deactivatePage)
+    onUnmounted(deactivatePage)
 
     return {
       manga,
@@ -345,21 +332,6 @@ section {
   min-height: calc(100vh - 104px - 200px);
 }
 
-.left-btn-group {
-  position: fixed;
-  top: 84px;
-  left: max(12px, calc(50% - 768px));
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.left-btn-group .side-btn {
-  pointer-events: auto;
-}
-
 .manga-container {
   width: 100%;
   max-width: 1380px;
@@ -371,24 +343,6 @@ section {
   grid-auto-rows: auto;
   gap: var(--gap);
   justify-content: center;
-}
-
-.side-btn {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background-color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
-  transition: all 0.3s;
-  color: #409eff;
-  font: inherit;
 }
 
 .side-btn-badge {
@@ -411,42 +365,9 @@ section {
   line-height: 1;
 }
 
-.side-btn-status {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  box-sizing: border-box;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  background: #f56c6c;
-}
-
-.side-btn:hover {
-  background-color: #f2f6fc;
-  color: #409eff;
-}
 .side-btn.active {
   background-color: #d9ecff;
   color: #409eff;
-}
-
-.side-btn svg, .side-btn .icon {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-}
-
-.right-btn {
-  position: fixed;
-  right: max(12px, calc(50% - 768px));
-  bottom: 50px;
-  z-index: 20;
-}
-
-.mobile-back-to-top {
-  display: none;
 }
 
 .empty-manga {
@@ -596,36 +517,6 @@ section {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 
-  .left-btn-group {
-    top: auto;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    flex-direction: row;
-    gap: 8px;
-    padding: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
-    transform: translateX(-50%);
-    backdrop-filter: blur(8px);
-  }
-
-  .left-btn-group .side-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    box-shadow: none;
-  }
-
-  .mobile-back-to-top {
-    display: flex;
-  }
-
-  .right-btn {
-    display: none;
-  }
-
   .manga-title {
     font-size: 12px;
     line-height: 16px;
@@ -671,11 +562,6 @@ section {
 
 /* 打印样式 */
 @media print {
-  .left-btn-group,
-  .right-btn {
-    display: none;
-  }
-
   section {
     margin: 0;
     padding: 0;

@@ -7,6 +7,7 @@ import './assets/iconfont/iconfont.js'
 // Blueaka字体
 import './assets/fonts/Blueaka/Blueaka.css'
 import './assets/fonts/Blueaka_Bold/Blueaka_Bold.css'
+import './styles/page-side-actions.css'
 // 全局组件
 import Icon from './components/Icon';
 import LoadingHeart from './components/LoadingHeart';

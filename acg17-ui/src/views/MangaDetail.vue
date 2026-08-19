@@ -634,57 +634,6 @@ export default {
   min-height: calc(100vh - 140px - 20px - 200px);
 }
 
-.side-btn {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background-color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
-  transition: all 0.3s;
-  color: #409eff;
-  font: inherit;
-}
-
-.side-btn:hover {
-  background-color: #f2f6fc;
-  color: #409eff;
-}
-
-.side-btn svg, .side-btn .icon {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-}
-
-.left-btn-group {
-  position: fixed;
-  top: 84px;
-  left: max(12px, calc(50% - 768px));
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.left-btn-group .side-btn {
-  pointer-events: auto;
-}
-
-.right-btn {
-  position: fixed;
-  right: max(12px, calc(50% - 768px));
-  bottom: 50px;
-  z-index: 20;
-}
-
 .manga-container {
   display: flex;
   gap: 30px;
@@ -1127,31 +1076,6 @@ export default {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 
-  .left-btn-group {
-    top: auto;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    flex-direction: row;
-    gap: 8px;
-    padding: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
-    transform: translateX(-50%);
-    backdrop-filter: blur(8px);
-  }
-
-  .left-btn-group .side-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    box-shadow: none;
-  }
-
-  .right-btn {
-    display: none;
-  }
 }
 
 /* 章节列表样式 */

@@ -94,6 +94,7 @@ import server from '@/util/request';
 import LoadingHeart from "../components/LoadingHeart";
 import Acg17Footer from "../components/Acg17Footer";
 import { useRecycleState, loadData } from '@/composables/useRecycleState';
+import { useBackToTop } from '@/composables/useBackToTop';
 import { withMediaStyle } from '@/util/media';
 import { createJustifiedRows } from '@/utils/justifiedGallery.mjs';
 
@@ -120,10 +121,7 @@ export default {
     const containerWidth = ref(0)
     let resizeObserver = null;
 
-    const showBackToTop = ref(false);
-    const handleScroll = () => {
-      showBackToTop.value = window.scrollY > 500;
-    };
+    const { showBackToTop, scrollToTop } = useBackToTop()
 
     const layoutRows = computed(() => createJustifiedRows(illustration.list, containerWidth.value));
 
@@ -134,14 +132,12 @@ export default {
     };
 
     onMounted(() => {
-        window.addEventListener('scroll', handleScroll);
         updateWidth()
         resizeObserver = new ResizeObserver(updateWidth)
         resizeObserver.observe(galleryContainer.value)
     });
 
     onUnmounted(() => {
-        window.removeEventListener('scroll', handleScroll);
         if (resizeObserver) resizeObserver.disconnect();
     });
     // --- 布局逻辑 End ---
@@ -321,13 +317,6 @@ export default {
       openPreview(randomIndex)
     }
 
-    function scrollToTop() {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-      });
-    }
-
     return {
       illustration, loadArtworks, layoutRows,
       isRecycle, toggleRecycle, setRecycle,
@@ -342,6 +331,7 @@ export default {
 
 <style scoped>
 section {
+  --page-side-actions-z-index: 8;
   margin: 84px auto 20px;
   max-width: 1380px;
   /* 屏幕高度 - 自身上下外边距高度 - 页脚高度 */
@@ -352,68 +342,6 @@ section {
     width: 100%;
     margin: 0 auto;
     position: relative;
-}
-
-.left-btn-group {
-    position: fixed;
-    top: 84px;
-    left: max(12px, calc(50% - 768px));
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 8;
-    pointer-events: none;
-}
-
-.left-btn-group .side-btn {
-    pointer-events: auto;
-}
-
-.side-btn {
-    position: relative;
-    width: 48px;
-    height: 48px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background-color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
-    transition: all 0.3s;
-    color: #409eff;
-    font: inherit;
-}
-
-.side-btn:hover {
-    background-color: #f2f6fc;
-    color: #409eff;
-}
-
-.side-btn:disabled {
-    cursor: not-allowed;
-    color: #a8abb2;
-    background-color: #f5f7fa;
-    opacity: 0.7;
-}
-
-.side-btn svg, .side-btn .icon {
-    width: 24px;
-    height: 24px;
-    fill: currentColor;
-}
-
-.right-btn {
-    position: fixed;
-    right: max(12px, calc(50% - 768px));
-    bottom: 50px;
-    z-index: 8;
-}
-
-.mobile-back-to-top {
-    display: none;
 }
 
 .gallery-row {
@@ -579,41 +507,5 @@ section {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 
-  .left-btn-group {
-    top: auto;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    flex-direction: row;
-    gap: 8px;
-    padding: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
-    transform: translateX(-50%);
-    backdrop-filter: blur(8px);
-  }
-
-  .left-btn-group .side-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    box-shadow: none;
-  }
-
-  .mobile-back-to-top {
-    display: flex;
-  }
-
-  .right-btn {
-    display: none;
-  }
-}
-
-@media print {
-  .left-btn-group,
-  .right-btn {
-    display: none;
-  }
 }
 </style>

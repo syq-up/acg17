@@ -205,6 +205,7 @@ import { useRoute, useRouter } from 'vue-router'
 import server from '@/util/request'
 import Acg17Footer from "../components/Acg17Footer"
 import Icon from "../components/Icon"
+import { useBackToTop } from '@/composables/useBackToTop'
 import { useRecycleState } from '@/composables/useRecycleState'
 import { withMediaStyle } from '@/util/media'
 
@@ -239,7 +240,7 @@ export default {
     const showImageModal = ref(false)
     const currentImageIndex = ref(0)
 
-    const showBackToTop = ref(false)
+    const { showBackToTop, scrollToTop } = useBackToTop()
     const showTitleSearch = ref(false)
     const titleSearchInput = ref(null)
     const activeTitle = computed(() => normalizeTitle(route.query.title))
@@ -253,10 +254,6 @@ export default {
     let gameRequestVersion = 0
     let pendingFilterFocus = false
     let pendingGameRemovalId = null
-
-    const handleScroll = () => {
-      showBackToTop.value = window.scrollY > 500
-    }
 
     // 获取游戏列表
     async function getGameList(pageNum = 1, deleted = false) {
@@ -469,13 +466,6 @@ export default {
       })
     }
 
-    function scrollToTop() {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-      })
-    }
-
     // 监听回收站状态变化，重新获取数据
     watch(isRecycle, () => {
       getGameList(1, isRecycle.value)
@@ -488,12 +478,10 @@ export default {
 
     // 组件挂载时获取数据
     onMounted(() => {
-      window.addEventListener('scroll', handleScroll)
       getGameList(1, isRecycle.value)
     })
 
     onUnmounted(() => {
-      window.removeEventListener('scroll', handleScroll)
       document.removeEventListener('keydown', handleImageKeydown)
       document.body.style.overflow = 'auto'
     })
@@ -691,76 +679,9 @@ section {
   justify-content: center;
 }
 
-.side-btn {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background-color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
-  transition: all 0.3s;
-  color: #409eff;
-  font: inherit;
-}
-
-.side-btn:hover {
-  background-color: #f2f6fc;
-  color: #409eff;
-}
-
-.side-btn svg, .side-btn .icon {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-}
-
-.left-btn-group {
-  position: fixed;
-  top: 84px;
-  left: max(12px, calc(50% - 768px));
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.left-btn-group .side-btn {
-  pointer-events: auto;
-}
-
-.right-btn {
-  position: fixed;
-  right: max(12px, calc(50% - 768px));
-  bottom: 50px;
-  z-index: 20;
-}
-
-.mobile-back-to-top {
-  display: none;
-}
-
 .side-btn.active {
   background: #ecf5ff;
   color: #1976d2;
-}
-
-.side-btn-status {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  box-sizing: border-box;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  background: #f56c6c;
 }
 
 .empty-game {
@@ -1326,36 +1247,6 @@ section {
     --title-height: 40px;
     margin: 64px auto 20px;
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .left-btn-group {
-    top: auto;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    flex-direction: row;
-    gap: 8px;
-    padding: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
-    transform: translateX(-50%);
-    backdrop-filter: blur(8px);
-  }
-
-  .left-btn-group .side-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    box-shadow: none;
-  }
-
-  .mobile-back-to-top {
-    display: flex;
-  }
-
-  .right-btn {
-    display: none;
   }
 
   .filter-panel {
