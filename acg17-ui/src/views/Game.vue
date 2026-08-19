@@ -5,18 +5,42 @@
 -->
 <template>
   <section>
-    <div class="side-btn-group left-btn-group" :style="{ right: '50%', marginRight: (containerWidth / 2 + 30) + 'px' }">
-      <div class="side-btn" @click="randomGame">
+    <div class="side-btn-group left-btn-group">
+      <button type="button" class="side-btn" aria-label="随机游戏" title="随机游戏" @click="randomGame">
         <icon icon="#icon-random"></icon>
-      </div>
-      <div class="side-btn" :class="{ active: showTitleSearch || hasTitleFilter }" @click="toggleTitleSearch">
+      </button>
+      <button
+        type="button"
+        class="side-btn"
+        :class="{ active: showTitleSearch || hasTitleFilter }"
+        aria-label="标题搜索"
+        title="标题搜索"
+        @click="toggleTitleSearch"
+      >
         <icon icon="#icon-search"></icon>
         <span v-if="hasTitleFilter" class="side-btn-status" aria-hidden="true"></span>
-      </div>
+      </button>
+      <button
+        v-show="showBackToTop"
+        type="button"
+        class="side-btn mobile-back-to-top"
+        aria-label="返回顶部"
+        title="返回顶部"
+        @click="scrollToTop"
+      >
+        <icon icon="#icon-sort-asc"></icon>
+      </button>
     </div>
-    <div class="side-btn right-btn" v-show="showBackToTop" @click="scrollToTop" :style="{ left: '50%', marginLeft: (containerWidth / 2 + 30) + 'px' }">
+    <button
+      v-show="showBackToTop"
+      type="button"
+      class="side-btn right-btn"
+      aria-label="返回顶部"
+      title="返回顶部"
+      @click="scrollToTop"
+    >
       <icon icon="#icon-sort-asc"></icon>
-    </div>
+    </button>
 
     <div class="filter-container" :class="{ 'is-visible': showTitleSearch }" @transitionend="handleFilterPanelTransitionEnd">
       <div class="filter-collapse">
@@ -215,7 +239,6 @@ export default {
     const showImageModal = ref(false)
     const currentImageIndex = ref(0)
 
-    const containerWidth = ref(1380)
     const showBackToTop = ref(false)
     const showTitleSearch = ref(false)
     const titleSearchInput = ref(null)
@@ -227,7 +250,6 @@ export default {
         ? `没有找到标题包含“${activeTitle.value}”的游戏`
         : '暂无游戏'
     ))
-    let resizeObserver = null
     let gameRequestVersion = 0
     let pendingFilterFocus = false
     let pendingGameRemovalId = null
@@ -235,14 +257,6 @@ export default {
     const handleScroll = () => {
       showBackToTop.value = window.scrollY > 500
     }
-
-    const updateWidth = () => {
-      const container = document.querySelector('.game-container')
-      if (container) {
-        containerWidth.value = container.clientWidth
-      }
-    }
-
 
     // 获取游戏列表
     async function getGameList(pageNum = 1, deleted = false) {
@@ -476,21 +490,12 @@ export default {
     onMounted(() => {
       window.addEventListener('scroll', handleScroll)
       getGameList(1, isRecycle.value)
-      nextTick(() => {
-        updateWidth()
-        window.addEventListener('resize', updateWidth)
-        resizeObserver = new ResizeObserver(() => updateWidth())
-        const container = document.querySelector('.game-container')
-        if (container) resizeObserver.observe(container)
-      })
     })
 
     onUnmounted(() => {
       window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', updateWidth)
       document.removeEventListener('keydown', handleImageKeydown)
       document.body.style.overflow = 'auto'
-      if (resizeObserver) resizeObserver.disconnect()
     })
 
     return {
@@ -513,7 +518,6 @@ export default {
       randomGame,
       scrollToTop,
       showBackToTop,
-      containerWidth,
       showTitleSearch,
       titleSearchInput,
       titleSearchDraft,
@@ -534,17 +538,13 @@ export default {
 </script>
 
 <style scoped>
-/* 响应式CSS变量 */
-* {
-  --column: 6;
-  --width: 220px;
-  --height: calc(var(--width) * 1.5 + var(--title-height));
-  --row-gap: 12px;
-  --title-height: 36px;
-  --container-padding: 20px;
-}
-
+/* 列表布局变量 */
 section {
+  --column: 6;
+  --card-max-width: 220px;
+  --gap: 12px;
+  --container-padding: 20px;
+  --title-height: 40px;
   margin: 84px auto 20px;
   max-width: 100%;
   padding: 0 var(--container-padding);
@@ -678,23 +678,25 @@ section {
   background: #66b1ff;
 }
 
-ul {
+.game-container {
   width: 100%;
   max-width: 1380px;
   padding: 0;
   margin: 0 auto;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(var(--column), var(--width));
-  grid-auto-rows: var(--height);
-  grid-row-gap: var(--row-gap);
-  justify-content: space-between;
+  grid-template-columns: repeat(var(--column), minmax(0, var(--card-max-width)));
+  grid-auto-rows: auto;
+  gap: var(--gap);
+  justify-content: center;
 }
 
 .side-btn {
   position: relative;
   width: 48px;
   height: 48px;
+  padding: 0;
+  border: 0;
   border-radius: 4px;
   background-color: #fff;
   display: flex;
@@ -703,8 +705,8 @@ ul {
   cursor: pointer;
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
   transition: all 0.3s;
-  z-index: 8;
   color: #409eff;
+  font: inherit;
 }
 
 .side-btn:hover {
@@ -721,14 +723,27 @@ ul {
 .left-btn-group {
   position: fixed;
   top: 84px;
+  left: max(12px, calc(50% - 768px));
   display: flex;
   flex-direction: column;
   gap: 10px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.left-btn-group .side-btn {
+  pointer-events: auto;
 }
 
 .right-btn {
   position: fixed;
+  right: max(12px, calc(50% - 768px));
   bottom: 50px;
+  z-index: 20;
+}
+
+.mobile-back-to-top {
+  display: none;
 }
 
 .side-btn.active {
@@ -773,13 +788,16 @@ ul {
   background: #ecf5ff;
 }
 
-ul li {
+.game-container > li {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   width: 100%;
-  height: var(--height);
+  height: auto;
   overflow: visible;
   border-radius: 10px;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
   position: relative;
   z-index: 1;
@@ -787,23 +805,22 @@ ul li {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-ul li:hover {
-  transform: translateY(-8px) scale(1.02);
+.game-container > li:hover {
+  transform: translateY(-4px) scale(1.01);
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
-  height: auto;
-  min-height: var(--height);
   z-index: 10;
 }
 
-ul li .game-img-container {
+.game-container > li .game-img-container {
   width: 100%;
-  height: calc(var(--height) - var(--title-height));
+  height: auto;
+  aspect-ratio: 2 / 3;
   overflow: hidden;
   border-radius: 10px 10px 0 0;
   background-color: #f1fcff;
 }
 
-ul li .game-img {
+.game-container > li .game-img {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -812,8 +829,11 @@ ul li .game-img {
   display: block;
 }
 
-ul li .game-info {
-  padding: 8px 12px;
+.game-container > li .game-info {
+  flex: 0 0 var(--title-height);
+  display: flex;
+  align-items: center;
+  padding: 5px 12px;
   background-color: #ffffff;
   border-radius: 0 0 10px 10px;
   overflow: hidden;
@@ -822,13 +842,8 @@ ul li .game-info {
   box-sizing: border-box;
 }
 
-ul li:hover .game-info {
+.game-container > li:hover .game-info {
   background-color: #f8f9fa;
-  overflow: visible;
-  height: auto;
-  min-height: var(--title-height);
-  line-clamp: unset;
-  -webkit-line-clamp: unset;
 }
 
 .game-title {
@@ -846,10 +861,46 @@ ul li:hover .game-info {
   word-break: break-word;
 }
 
-ul li:hover .game-title {
-  line-clamp: unset;
-  -webkit-line-clamp: unset;
-  overflow: visible;
+/* 卡片以 180px 左右为换列下限，宽屏最多 6 列 */
+@media (max-width: 1169px) {
+  section {
+    --column: 5;
+  }
+}
+
+@media (max-width: 979px) {
+  section {
+    --column: 4;
+  }
+}
+
+@media (max-width: 779px) {
+  section {
+    --column: 3;
+  }
+}
+
+@media (max-width: 579px) {
+  section {
+    --column: 2;
+  }
+}
+
+@media (max-width: 991px) and (min-width: 768px) {
+  section {
+    --gap: 10px;
+    --container-padding: 16px;
+    margin: 74px auto 20px;
+  }
+
+  .filter-container {
+    margin: 12px auto;
+  }
+
+  .game-title {
+    font-size: 13px;
+    line-height: 18px;
+  }
 }
 
 .game-list-leave-active {
@@ -1269,6 +1320,44 @@ ul li:hover .game-title {
 }
 
 @media (max-width: 767px) {
+  section {
+    --gap: 10px;
+    --container-padding: 12px;
+    --title-height: 40px;
+    margin: 64px auto 20px;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .left-btn-group {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    flex-direction: row;
+    gap: 8px;
+    padding: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+    transform: translateX(-50%);
+    backdrop-filter: blur(8px);
+  }
+
+  .left-btn-group .side-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .mobile-back-to-top {
+    display: flex;
+  }
+
+  .right-btn {
+    display: none;
+  }
+
   .filter-panel {
     padding: 12px;
   }
@@ -1362,6 +1451,23 @@ ul li:hover .game-title {
     bottom: 8px;
     padding: 5px 10px;
     font-size: 12px;
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  .game-container > li:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .game-container > li:hover .game-info {
+    background-color: #ffffff;
+  }
+
+  .game-container > li:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
   }
 }
 
