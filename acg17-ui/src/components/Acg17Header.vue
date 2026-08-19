@@ -22,7 +22,6 @@
         <div class="btn-group">
           <button
             type="button"
-            class="recycle-button"
             :class="{ active: isRecycle }"
             :aria-pressed="isRecycle"
             @click="toggleRecycle"
@@ -31,7 +30,6 @@
           </button>
           <button
             type="button"
-            class="all-button"
             :class="{ active: !isRecycle }"
             :aria-pressed="!isRecycle"
             @click="setRecycle(false)"
@@ -88,10 +86,9 @@ const HEADER_LAYOUT_MODE = Object.freeze({
   FULL: 0,
   NO_WELCOME: 1,
   TIGHT: 2,
-  CURRENT_NAV: 3,
+  NO_NAV: 3,
   DENSE: 4,
-  RECYCLE_ONLY: 5,
-  ULTRA: 6,
+  ULTRA: 5,
 })
 
 export default {
@@ -121,9 +118,8 @@ export default {
       'header-hidden': !store.state.acg17Header.show,
       'layout-no-welcome': headerLayoutMode.value >= HEADER_LAYOUT_MODE.NO_WELCOME,
       'layout-tight': headerLayoutMode.value >= HEADER_LAYOUT_MODE.TIGHT,
-      'layout-current-nav': headerLayoutMode.value >= HEADER_LAYOUT_MODE.CURRENT_NAV,
+      'layout-no-nav': headerLayoutMode.value >= HEADER_LAYOUT_MODE.NO_NAV,
       'layout-dense': headerLayoutMode.value >= HEADER_LAYOUT_MODE.DENSE,
-      'layout-recycle-only': headerLayoutMode.value >= HEADER_LAYOUT_MODE.RECYCLE_ONLY,
       'layout-ultra': headerLayoutMode.value >= HEADER_LAYOUT_MODE.ULTRA,
     }))
 
@@ -474,8 +470,12 @@ export default {
   --upload-padding-x: 20px;
 }
 
-.header.layout-current-nav .nav a:not(.active-navi) {
+.header.layout-no-nav .nav-left {
   display: none;
+}
+
+.header.layout-no-nav .center {
+  justify-content: flex-end;
 }
 
 .header.layout-dense {
@@ -487,14 +487,6 @@ export default {
   --nav-padding-x: 10px;
   --filter-padding-x: 10px;
   --upload-padding-x: 16px;
-}
-
-.header.layout-recycle-only .all-button {
-  display: none;
-}
-
-.header.layout-recycle-only .btn-group {
-  gap: 0;
 }
 
 .header.layout-ultra {
