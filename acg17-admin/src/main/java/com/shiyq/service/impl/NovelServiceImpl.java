@@ -21,10 +21,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class NovelServiceImpl extends ServiceImpl<NovelMapper, Novel> implements NovelService {
+
+    private static final Set<String> SORT_FIELDS = Set.of("created", "words", "updated");
+    private static final Set<String> SORT_ORDERS = Set.of("asc", "desc");
 
     private NovelMapper novelMapper;
     private NovelTagMapper novelTagMapper;
@@ -46,7 +50,14 @@ public class NovelServiceImpl extends ServiceImpl<NovelMapper, Novel> implements
     }
 
     @Override
-    public PageVO<NovelVO> getList(long pageNum, boolean deleted, Integer tagId, String keyword) {
+    public PageVO<NovelVO> getList(long pageNum, boolean deleted, Integer tagId, String keyword,
+                                   String sortBy, String sortOrder) {
+        if (!SORT_FIELDS.contains(sortBy)) {
+            throw new IllegalArgumentException("不支持的排序字段");
+        }
+        if (!SORT_ORDERS.contains(sortOrder)) {
+            throw new IllegalArgumentException("不支持的排序方向");
+        }
         int userId = UserContext.requireCurrentUserId();
         PageVO<NovelVO> pageVO = new PageVO<>(30L, pageNum);
         String normalizedKeyword = keyword == null ? null : keyword.trim();
@@ -54,7 +65,7 @@ public class NovelServiceImpl extends ServiceImpl<NovelMapper, Novel> implements
             normalizedKeyword = null;
         }
         List<Novel> novels = novelMapper.getListByCondition(
-                userId, pageNum, 30L, deleted, tagId, normalizedKeyword);
+                userId, pageNum, 30L, deleted, tagId, normalizedKeyword, sortBy, sortOrder);
         List<NovelVO> records = NovelConvert.INSTANCE.toNovelVOList(novels);
         attachTags(novels, records, userId);
         pageVO.setRecords(records);

@@ -19,7 +19,8 @@ public interface NovelService extends IService<Novel> {
     /**
      * 分页获取小说作品
      */
-    PageVO<NovelVO> getList(long pageNum, boolean deleted, Integer tagId, String keyword);
+    PageVO<NovelVO> getList(long pageNum, boolean deleted, Integer tagId, String keyword,
+                            String sortBy, String sortOrder);
 
     /**
      * 获取小说作品信息

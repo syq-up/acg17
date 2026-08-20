@@ -6,6 +6,7 @@ import com.shiyq.exception.ApiException;
 import com.shiyq.service.NovelChapterService;
 import com.shiyq.service.NovelService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +48,13 @@ public class NovelController {
     public ResultVO getList(@RequestParam @Positive(message = "页码必须大于0") long pageNum,
                             @RequestParam(defaultValue = "false") boolean deleted,
                             @RequestParam(required = false) @Positive(message = "标签ID必须大于0") Integer tagId,
-                            @RequestParam(required = false) @Size(max = 100, message = "搜索关键词不能超过100个字符") String keyword) {
-        return ResultVO.success(novelService.getList(pageNum, deleted, tagId, keyword));
+                            @RequestParam(required = false) @Size(max = 100, message = "搜索关键词不能超过100个字符") String keyword,
+                            @RequestParam(defaultValue = "created")
+                            @Pattern(regexp = "created|words|updated", message = "不支持的排序字段") String sortBy,
+                            @RequestParam(defaultValue = "desc")
+                            @Pattern(regexp = "asc|desc", message = "不支持的排序方向") String sortOrder) {
+        return ResultVO.success(novelService.getList(
+                pageNum, deleted, tagId, keyword, sortBy, sortOrder));
     }
 
     /**

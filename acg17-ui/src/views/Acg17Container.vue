@@ -1,7 +1,7 @@
 <template>
   <acg17-header></acg17-header>
   <router-view v-slot="{ Component }">
-    <keep-alive include="Manga">
+    <keep-alive :include="['Manga', 'Novel']">
       <component :is="Component" />
     </keep-alive>
   </router-view>

@@ -22,7 +22,15 @@
                 )
             </if>
         </where>
-        ORDER BY n.`id` DESC
+        <choose>
+            <when test="sortBy == 'words'">ORDER BY n.`total_words`</when>
+            <when test="sortBy == 'updated'">ORDER BY n.`update_time`</when>
+            <otherwise>ORDER BY n.`create_time`</otherwise>
+        </choose>
+        <choose>
+            <when test="sortOrder == 'asc'">ASC, n.`id` ASC</when>
+            <otherwise>DESC, n.`id` DESC</otherwise>
+        </choose>
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 

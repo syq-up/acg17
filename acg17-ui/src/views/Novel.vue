@@ -6,7 +6,7 @@
         <div class="filter-panel">
           <!-- 搜索框 -->
           <div class="search-section">
-            <el-input v-model="searchKeyword" placeholder="搜索小说..." clearable @input="handleSearch" class="search-input"
+            <el-input v-model="searchKeyword" placeholder="搜索书名或作者..." clearable @input="handleSearch" class="search-input"
               size="large">
               <template #prefix>
                 <icon icon="#icon-search"></icon>
@@ -54,10 +54,10 @@
               排序方式
             </span>
             <div class="sort-buttons">
-              <el-button :type="sortType === 'popularity' ? 'primary' : ''" @click="setSortType('popularity')"
+              <el-button :type="sortType === 'created' ? 'primary' : ''" @click="setSortType('created')"
                 class="sort-btn">
-                <icon icon="#icon-favorite-y"></icon>
-                人气排序
+                <icon icon="#icon-time"></icon>
+                最近添加
               </el-button>
               <div class="sort-btn-group">
                 <el-button :type="sortType === 'words' ? 'primary' : ''" @click="setSortType('words')" class="sort-btn">
@@ -69,11 +69,11 @@
                 </el-button>
               </div>
               <div class="sort-btn-group">
-                <el-button :type="sortType === 'time' ? 'primary' : ''" @click="setSortType('time')" class="sort-btn">
+                <el-button :type="sortType === 'updated' ? 'primary' : ''" @click="setSortType('updated')" class="sort-btn">
                   <icon icon="#icon-time"></icon>
                   更新时间
                 </el-button>
-                <el-button v-if="sortType === 'time'" @click="toggleSortOrder" size="small" class="sort-order-btn">
+                <el-button v-if="sortType === 'updated'" @click="toggleSortOrder" size="small" class="sort-order-btn">
                   <icon :icon="sortOrder === 'desc' ? '#icon-sort-asc' : '#icon-sort-desc'"></icon>
                 </el-button>
               </div>
@@ -98,7 +98,8 @@
 
       <!-- 小说列表 -->
       <div class="novel-table-container">
-        <el-table :data="novel.list" v-infinite-scroll="loadArtworks" :infinite-scroll-disabled="novel.disabled"
+        <el-table v-if="novel.list.length" :data="novel.list" v-infinite-scroll="loadMoreNovels"
+          :infinite-scroll-disabled="novel.loading || novel.error || novel.disabled || !pageActive"
           @row-click="toNovelContent" stripe class="novel-table">
 
           <el-table-column prop="title" label="书名" min-width="240">
@@ -172,6 +173,19 @@
             </template>
           </el-table-column>
         </el-table>
+
+        <div v-if="novel.error" class="list-state list-error" role="alert">
+          <span>小说列表加载失败，请重试</span>
+          <el-button type="primary" plain @click="retryLoadNovels">重新加载</el-button>
+        </div>
+
+        <div v-else-if="!novel.loading && novel.disabled && novel.list.length === 0" class="list-state list-empty">
+          <span>{{ emptyNovelText }}</span>
+          <div v-if="hasActiveFilters" class="list-state-actions">
+            <el-button v-if="activeKeyword" plain @click="clearSearch">清除搜索</el-button>
+            <el-button v-if="selectedTag !== null" plain @click="selectTag(null)">清除标签</el-button>
+          </div>
+        </div>
       </div>
 
       <!-- 加载状态 -->
@@ -181,87 +195,260 @@
     </div>
   </div>
 
-  <acg17-footer v-if="novel.disabled"></acg17-footer>
+  <acg17-footer v-if="novel.disabled && novel.list.length"></acg17-footer>
 </template>
 
 <script>
-import { reactive, ref, onBeforeMount, watch } from 'vue'
+import {
+  computed,
+  onActivated,
+  onBeforeMount,
+  onDeactivated,
+  onMounted,
+  onUnmounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue'
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router';
-import server from '@/util/request';
-import Acg17Footer from "../components/Acg17Footer";
-import { useRecycleState } from '@/composables/useRecycleState';
+import { useRoute, useRouter } from 'vue-router'
+import server from '@/util/request'
+import Acg17Footer from '../components/Acg17Footer'
+import { useRecycleState } from '@/composables/useRecycleState'
+
+const SORT_TYPES = new Set(['created', 'words', 'updated'])
+const SEARCH_DELAY = 300
+
+function firstQueryValue(value) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+function normalizeKeyword(value) {
+  return String(firstQueryValue(value) ?? '').trim()
+}
+
+function normalizeTagId(value) {
+  const tagId = Number(firstQueryValue(value))
+  return Number.isInteger(tagId) && tagId > 0 ? tagId : null
+}
+
+function normalizeSortType(value) {
+  const sortType = String(firstQueryValue(value) ?? '')
+  return SORT_TYPES.has(sortType) ? sortType : 'created'
+}
+
+function normalizeSortOrder(value) {
+  return firstQueryValue(value) === 'asc' ? 'asc' : 'desc'
+}
 
 export default {
-  name: "Novel",
+  name: 'Novel',
   components: {
     'acg17-footer': Acg17Footer
   },
   setup() {
     const store = useStore()
+    const route = useRoute()
     const router = useRouter()
-
-    // 使用全局回收站状态管理
-    const { isRecycle, toggleRecycle, setRecycle } = useRecycleState('novel')
-
-    // 筛选状态
-    const selectedTag = ref(null)
-    const sortType = ref('popularity')
-    const sortOrder = ref('desc') // 'asc' 升序, 'desc' 降序
-    const searchKeyword = ref('')
-
+    const { isRecycle } = useRecycleState('novel')
 
     const novel = reactive({
-      currentPage: 0, // 当前页
-      list: [], // 当前页数据
-      loading: false, // 加载下一页时显示loading
-      disabled: false,  // 加载到最后一页时禁用加载
-      tagList: [],  // 小说标签列表
+      currentPage: 0,
+      list: [],
+      loading: false,
+      error: false,
+      disabled: false,
+      total: 0,
+      tagList: [],
     })
-    // 加载标签列表
+
+    const activeKeyword = computed(() => normalizeKeyword(route.query.keyword))
+    const selectedTag = computed(() => normalizeTagId(route.query.tagId))
+    const sortType = computed(() => normalizeSortType(route.query.sortBy))
+    const sortOrder = computed(() => (
+      sortType.value === 'created' ? 'desc' : normalizeSortOrder(route.query.sortOrder)
+    ))
+    const searchKeyword = ref(activeKeyword.value)
+    const pageActive = ref(false)
+    const activeQueryKey = computed(() => JSON.stringify([
+      activeKeyword.value,
+      selectedTag.value,
+      sortType.value,
+      sortOrder.value,
+    ]))
+    const hasActiveFilters = computed(() => (
+      activeKeyword.value.length > 0 || selectedTag.value !== null
+    ))
+    const activeTagName = computed(() => novel.tagList.find(
+      item => Number(item.id) === selectedTag.value,
+    )?.name || '所选标签')
+    const emptyNovelText = computed(() => {
+      if (activeKeyword.value && selectedTag.value !== null) {
+        return `没有找到书名或作者包含“${activeKeyword.value}”且带有“${activeTagName.value}”标签的小说`
+      }
+      if (activeKeyword.value) {
+        return `没有找到书名或作者包含“${activeKeyword.value}”的小说`
+      }
+      if (selectedTag.value !== null) {
+        return `没有找到带有“${activeTagName.value}”标签的小说`
+      }
+      return isRecycle.value ? '回收站中暂无小说' : '暂无小说'
+    })
+
+    let loadedQueryKey = activeQueryKey.value
+    let novelRequestVersion = 0
+    let searchTimer = 0
+
     onBeforeMount(() => {
       server.get('/novel-tag/getList')
-        .then(res => {
-          novel.tagList = res.data
+        .then(response => {
+          novel.tagList = Array.isArray(response.data) ? response.data : []
         })
-        .catch(err => {
-          console.log(err)
+        .catch(error => {
+          console.error('获取小说标签失败:', error)
         })
     })
-    // 分页加载小说作品
-    function loadArtworks() {
+
+    function loadNovels() {
+      if (novel.loading || novel.error || novel.disabled) return
+
+      const requestVersion = novelRequestVersion
+      const pageNum = novel.currentPage + 1
       novel.loading = true
-      novel.disabled = true
+      novel.error = false
 
-      server.get('/novel/getList', {
-        params: {
-          pageNum: ++novel.currentPage,
-          deleted: isRecycle.value,
-          tagId: selectedTag.value || undefined,
-          keyword: searchKeyword.value.trim() || undefined
-        }
-      })
-        .then(res => {
-          novel.list.push(...res.data.records)
-          // records.length < 页大小：表示最后一页，置disabled=true，不再请求下一页
-          novel.disabled = res.data.records.length < res.data.size
-          novel.loading = false
+      const params = {
+        pageNum,
+        deleted: isRecycle.value,
+        sortBy: sortType.value,
+        sortOrder: sortOrder.value,
+      }
+      if (selectedTag.value !== null) params.tagId = selectedTag.value
+      if (activeKeyword.value) params.keyword = activeKeyword.value
 
-          // 如果当前有排序设置，对新加载的数据进行排序
-          if (sortType.value !== 'popularity') {
-            sortNovelList()
-          }
+      server.get('/novel/getList', { params })
+        .then(response => {
+          if (requestVersion !== novelRequestVersion) return
+
+          const pageData = response.data || {}
+          const records = Array.isArray(pageData.records) ? pageData.records : []
+          const existingIds = new Set(novel.list.map(item => item.id))
+          novel.list.push(...records.filter(item => !existingIds.has(item.id)))
+          novel.total = Number(pageData.total) || 0
+          novel.currentPage = Number(pageData.current) || pageNum
+          novel.disabled = records.length === 0 || novel.list.length >= novel.total
         })
-        .catch(err => {
-          console.log(err)
+        .catch(error => {
+          if (requestVersion !== novelRequestVersion) return
+          novel.error = true
+          console.error('获取小说列表失败:', error)
+        })
+        .finally(() => {
+          if (requestVersion === novelRequestVersion) novel.loading = false
         })
     }
-    // 跳转小说内容页
+
+    function loadMoreNovels() {
+      if (!pageActive.value) return
+      loadNovels()
+    }
+
+    function retryLoadNovels() {
+      if (novel.loading) return
+      novel.error = false
+      loadNovels()
+    }
+
+    function resetNovelList() {
+      novelRequestVersion += 1
+      loadedQueryKey = activeQueryKey.value
+      novel.currentPage = 0
+      novel.list = []
+      novel.loading = false
+      novel.error = false
+      novel.disabled = false
+      novel.total = 0
+      loadNovels()
+    }
+
+    function updateListQuery(overrides = {}) {
+      const keyword = Object.hasOwn(overrides, 'keyword')
+        ? normalizeKeyword(overrides.keyword)
+        : activeKeyword.value
+      const tagId = Object.hasOwn(overrides, 'tagId')
+        ? normalizeTagId(overrides.tagId)
+        : selectedTag.value
+      const nextSortType = Object.hasOwn(overrides, 'sortType')
+        ? normalizeSortType(overrides.sortType)
+        : sortType.value
+      const nextSortOrder = nextSortType === 'created'
+        ? 'desc'
+        : Object.hasOwn(overrides, 'sortOrder')
+          ? normalizeSortOrder(overrides.sortOrder)
+          : sortOrder.value
+      const nextQueryKey = JSON.stringify([keyword, tagId, nextSortType, nextSortOrder])
+      if (nextQueryKey === activeQueryKey.value) return
+
+      const query = {}
+      if (keyword) query.keyword = keyword
+      if (tagId !== null) query.tagId = String(tagId)
+      if (nextSortType !== 'created') query.sortBy = nextSortType
+      if (nextSortType !== 'created' && nextSortOrder === 'asc') query.sortOrder = 'asc'
+
+      router.replace({ name: 'Novel', query })
+    }
+
+    function clearSearchTimer() {
+      if (!searchTimer) return
+      window.clearTimeout(searchTimer)
+      searchTimer = 0
+    }
+
+    function handleSearch(value) {
+      clearSearchTimer()
+      const keyword = normalizeKeyword(value)
+      if (keyword === activeKeyword.value) return
+
+      searchTimer = window.setTimeout(() => {
+        searchTimer = 0
+        updateListQuery({ keyword })
+      }, SEARCH_DELAY)
+    }
+
+    function clearSearch() {
+      clearSearchTimer()
+      searchKeyword.value = ''
+      updateListQuery({ keyword: '' })
+    }
+
+    function selectTag(tagId) {
+      updateListQuery({ tagId })
+    }
+
+    function setSortType(type) {
+      const nextType = normalizeSortType(type)
+      if (nextType === 'created') {
+        updateListQuery({ sortType: 'created', sortOrder: 'desc' })
+        return
+      }
+
+      updateListQuery({
+        sortType: nextType,
+        sortOrder: sortType.value === nextType && sortOrder.value === 'desc' ? 'asc' : 'desc',
+      })
+    }
+
+    function toggleSortOrder() {
+      if (sortType.value === 'created') return
+      updateListQuery({ sortOrder: sortOrder.value === 'desc' ? 'asc' : 'desc' })
+    }
+
     function toNovelContent(row) {
+      clearSearchTimer()
       const novelId = typeof row === 'object' ? row.id : row
       router.push('/acg/novel/' + novelId)
     }
-    // 上传章节
+
     function toUploadChapter(novelId, novelTitle) {
       store.commit('openUploadDrawer', {
         type: 'novel',
@@ -269,136 +456,88 @@ export default {
         context: { novelId, novelTitle },
       })
     }
-    // 删除小说
+
     function deleteNovel(novelId) {
       server.delete('/novel/' + novelId)
         .then(() => {
-          // 从列表中移除对应的小说
           const index = novel.list.findIndex(item => item.id === novelId)
-          if (index !== -1) {
-            novel.list.splice(index, 1)
-          }
+          if (index !== -1) novel.list.splice(index, 1)
           ElMessage.success('小说删除成功！')
         })
-        .catch(err => {
-          console.log(err)
+        .catch(error => {
+          console.error('删除小说失败:', error)
         })
     }
 
-    // 恢复小说
     function restoreNovel(novelId) {
       server.put(`/novel/${novelId}/restore`)
         .then(() => {
-          // 从列表中移除对应的小说
           const index = novel.list.findIndex(item => item.id === novelId)
-          if (index !== -1) {
-            novel.list.splice(index, 1)
-          }
+          if (index !== -1) novel.list.splice(index, 1)
           ElMessage.success('小说恢复成功！')
         })
-        .catch(err => {
-          console.log(err)
+        .catch(error => {
+          console.error('恢复小说失败:', error)
         })
     }
 
-    // 筛选功能
-    function selectTag(tag) {
-      selectedTag.value = tag
-      resetList()
-    }
+    watch(activeKeyword, keyword => {
+      clearSearchTimer()
+      searchKeyword.value = keyword
+    })
 
-    function setSortType(type) {
-      // 如果点击的是同一个排序类型，则切换升序/降序
-      if (sortType.value === type && type !== 'popularity') {
-        sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
-      } else {
-        sortType.value = type
-        // 默认降序
-        sortOrder.value = 'desc'
+    watch(activeQueryKey, queryKey => {
+      if (route.name === 'Novel' && queryKey !== loadedQueryKey) resetNovelList()
+    })
+
+    watch(isRecycle, resetNovelList)
+
+    onMounted(() => {
+      pageActive.value = true
+      loadNovels()
+    })
+
+    onActivated(() => {
+      pageActive.value = true
+      if (activeQueryKey.value !== loadedQueryKey) {
+        resetNovelList()
+      } else if (!novel.list.length && !novel.loading && !novel.disabled) {
+        loadNovels()
       }
+    })
 
-      // 如果是人气排序，不做处理，直接返回
-      if (type === 'popularity') {
-        resetList()
-        return
-      }
+    onDeactivated(() => {
+      pageActive.value = false
+      clearSearchTimer()
+    })
 
-      // 对当前列表进行排序
-      sortNovelList()
-    }
-
-    // 排序小说列表
-    function sortNovelList() {
-      if (sortType.value === 'popularity') {
-        return // 人气排序不处理
-      }
-
-      novel.list.sort((a, b) => {
-        let valueA, valueB
-
-        if (sortType.value === 'words') {
-          // 字数排序 - 将字符串转换为数字进行比较
-          valueA = parseInt(a.totalWords?.replace(/[^\d]/g, '') || '0')
-          valueB = parseInt(b.totalWords?.replace(/[^\d]/g, '') || '0')
-        } else if (sortType.value === 'time') {
-          // 时间排序 - 将时间字符串转换为Date对象进行比较
-          valueA = new Date(a.updateTime || '1970-01-01')
-          valueB = new Date(b.updateTime || '1970-01-01')
-        }
-
-        // 根据排序方向返回比较结果
-        if (sortOrder.value === 'asc') {
-          return valueA > valueB ? 1 : valueA < valueB ? -1 : 0
-        } else {
-          return valueA < valueB ? 1 : valueA > valueB ? -1 : 0
-        }
-      })
-    }
-
-    // 切换排序方向
-    function toggleSortOrder() {
-      if (sortType.value !== 'popularity') {
-        sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
-        sortNovelList()
-      }
-    }
-
-    function resetList() {
-      novel.list = []
-      novel.currentPage = 0
-      novel.disabled = false
-      loadArtworks()
-    }
-
-    // 搜索处理
-    function handleSearch() {
-      resetList()
-    }
-
-    // 监听切换回收站列表
-    watch(isRecycle, () => {
-      resetList()
+    onUnmounted(() => {
+      novelRequestVersion += 1
+      clearSearchTimer()
     })
 
     return {
-      novel,
-      selectedTag,
-      sortType,
-      sortOrder,
-      searchKeyword,
-      loadArtworks,
-      toNovelContent,
-      toUploadChapter,
+      activeKeyword,
+      clearSearch,
       deleteNovel,
+      emptyNovelText,
+      handleSearch,
+      hasActiveFilters,
+      isRecycle,
+      loadMoreNovels,
+      novel,
+      pageActive,
       restoreNovel,
+      retryLoadNovels,
+      searchKeyword,
+      selectedTag,
       selectTag,
       setSortType,
-      sortNovelList,
+      sortOrder,
+      sortType,
+      toNovelContent,
+      toUploadChapter,
       toggleSortOrder,
-      handleSearch,
-      isRecycle,
-      toggleRecycle,
-      setRecycle
     }
   }
 }
@@ -810,6 +949,34 @@ export default {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   border: 1px solid #f0f0f0;
+}
+
+.list-state {
+  min-height: 260px;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: #909399;
+  text-align: center;
+  font-family: 'Blueaka', sans-serif;
+}
+
+.list-state-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.list-state-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.list-error {
+  color: #606266;
 }
 
 /* 响应式设计 */

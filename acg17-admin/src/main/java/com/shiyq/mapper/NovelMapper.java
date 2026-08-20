@@ -27,7 +27,9 @@ public interface NovelMapper extends BaseMapper<Novel> {
                                    @Param("pageSize") Long pageSize,
                                    @Param("deleted") Boolean deleted,
                                    @Param("tagId") Integer tagId,
-                                   @Param("keyword") String keyword);
+                                   @Param("keyword") String keyword,
+                                   @Param("sortBy") String sortBy,
+                                   @Param("sortOrder") String sortOrder);
 
     /**
      * 根据条件，查询插画作品总数
