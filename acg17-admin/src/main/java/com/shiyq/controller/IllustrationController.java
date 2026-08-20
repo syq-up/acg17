@@ -63,8 +63,8 @@ public class IllustrationController {
     /**
      * 随机获取一张插画作品
      */
-    @GetMapping("/getRandomArtwork")
-    public ResultVO getRandomArtwork() {
+    @GetMapping("/random")
+    public ResultVO getRandomIllustration() {
         IllustrationVO illustration = illustrationService.getRandomIllustration();
         if (illustration == null) {
             throw ApiException.notFound("没有可用插画");

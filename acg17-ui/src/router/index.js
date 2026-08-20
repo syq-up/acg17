@@ -86,12 +86,6 @@ const routes = [
     ],
   },
   {
-    path: '/random',
-    name: 'Random',
-    component: () => import('../views/RandomIllustration'),
-    meta: { title: '随机插画一张！', authRequired: false, },
-  },
-  {
     path: '/404',
     name: '404',
     component: () => import('../views/404'),

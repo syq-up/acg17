@@ -75,10 +75,12 @@ export default {
 
     // 获取随机图片的函数
     const getRandomImage = () => {
+      if (!isLoggedIn.value) return;
+
       // 清空之前的错误信息
       random.error = '';
 
-      server.get('/illustration/getRandomArtwork')
+      server.get('/illustration/random')
         .then(res => {
           if (res.data?.url) {
             random.url = res.data.url;

@@ -164,7 +164,7 @@ public class IllustrationServiceImpl extends ServiceImpl<IllustrationMapper, Ill
     @Override
     public IllustrationVO getRandomIllustration() {
         // 获取一条随机记录
-        Illustration illustration = illustrationMapper.getRandomRecord();
+        Illustration illustration = illustrationMapper.getRandomRecord(UserContext.requireCurrentUserId());
         if (illustration == null) {
             return null;
         }

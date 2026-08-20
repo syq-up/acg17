@@ -21,7 +21,10 @@
     </select>
 
     <select id="getRandomRecord" resultType="com.shiyq.entity.DO.Illustration">
-        SELECT * FROM `illustration` WHERE `deleted` = 0 ORDER BY RAND() LIMIT 1
+        SELECT * FROM `illustration`
+        WHERE `user_id` = #{userId} AND `deleted` = 0
+        ORDER BY RAND()
+        LIMIT 1
     </select>
 
     <update id="deleteByIdAndUserId">

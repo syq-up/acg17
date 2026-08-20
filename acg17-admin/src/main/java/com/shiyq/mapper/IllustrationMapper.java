@@ -38,8 +38,9 @@ public interface IllustrationMapper extends BaseMapper<Illustration> {
 
     /**
      * 随机获取一张插画作品
+     * @param userId 用户ID
      */
-    Illustration getRandomRecord();
+    Illustration getRandomRecord(@Param("userId") Integer userId);
 
     /**
      * 逻辑删除当前用户的插画

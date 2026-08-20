@@ -58,7 +58,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns(
                         "/user/login",
-                        "/illustration/getRandomArtwork",
                         "/media"
                 )  // 不拦截
         ;

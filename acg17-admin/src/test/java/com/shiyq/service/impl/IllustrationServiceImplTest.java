@@ -88,9 +88,24 @@ class IllustrationServiceImplTest {
 
     @Test
     void randomIllustrationReturnsNullWhenNoRecordExists() {
-        when(illustrationMapper.getRandomRecord()).thenReturn(null);
+        when(illustrationMapper.getRandomRecord(USER_ID)).thenReturn(null);
 
         assertNull(service.getRandomIllustration());
+
+        verify(illustrationMapper).getRandomRecord(USER_ID);
+    }
+
+    @Test
+    void randomIllustrationReturnsCurrentUsersSignedArtwork() {
+        Illustration illustration = illustration(11, 3);
+        illustration.setPath("random.png");
+        when(illustrationMapper.getRandomRecord(USER_ID)).thenReturn(illustration);
+
+        IllustrationVO result = service.getRandomIllustration();
+
+        assertEquals(11, result.getId());
+        assertEquals("/api/media?path=signed", result.getUrl());
+        verify(illustrationMapper).getRandomRecord(USER_ID);
     }
 
     @Test

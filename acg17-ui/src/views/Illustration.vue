@@ -4,7 +4,8 @@
       <button
         type="button"
         class="side-btn"
-        :disabled="illustration.list.length === 0 || sortMode"
+        :disabled="illustration.list.length === 0 || sortMode || randomPending"
+        :aria-busy="randomPending"
         aria-label="随机插画"
         title="随机插画"
         @click="randomArtwork($event)"
@@ -156,10 +157,12 @@
       v-show="!preview.imageError"
       class="preview-artwork"
       :src="selectedArtwork.url"
-      :alt="`第 ${preview.index + 1} 张插画`"
+      :alt="preview.standaloneArtwork ? '随机插画' : `第 ${preview.index + 1} 张插画`"
+      :title="preview.standaloneArtwork ? '双击切换随机插画' : ''"
       decoding="async"
       @load="handlePreviewLoad"
       @error="handlePreviewError"
+      @dblclick.stop="refreshRandomPreview"
       @touchstart.stop="touchstart"
       @touchmove.stop="touchmove"
       @touchend.stop="touchend"
@@ -177,7 +180,7 @@
       <icon icon="#icon-close"></icon>
     </button>
     <button
-      v-if="preview.index > 0"
+      v-if="!preview.standaloneArtwork && preview.index > 0"
       type="button"
       class="preview-control last-artwork-btn"
       aria-label="上一张插画"
@@ -187,7 +190,7 @@
       <icon icon="#icon-left"></icon>
     </button>
     <button
-      v-if="preview.index < illustration.list.length - 1"
+      v-if="!preview.standaloneArtwork && preview.index < illustration.list.length - 1"
       type="button"
       class="preview-control next-artwork-btn"
       aria-label="下一张插画"
@@ -196,7 +199,7 @@
     >
       <icon icon="#icon-right"></icon>
     </button>
-    <div class="preview-counter" aria-live="polite">
+    <div v-if="!preview.standaloneArtwork" class="preview-counter" aria-live="polite">
       {{ preview.index + 1 }} / {{ illustration.list.length }}
     </div>
   </div>
@@ -379,26 +382,48 @@ const previewCloseButton = ref(null)
 const preview = reactive({
   show: false,
   index: 0,
+  standaloneArtwork: null,
   startX: 0,
   moveX: 0,
   imageLoading: false,
   imageError: false,
 })
-const selectedArtwork = computed(() => illustration.list[preview.index] || null)
+const selectedArtwork = computed(() => preview.standaloneArtwork || illustration.list[preview.index] || null)
 let previewTriggerElement = null
 let bodyOverflowBeforePreview = ''
 
 function openPreview(index, event) {
   if (sortMode.value || !illustration.list[index]) return
 
-  previewTriggerElement = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  preview.standaloneArtwork = null
   preview.index = index
+  showPreview(event?.currentTarget)
+}
+
+function openStandalonePreview(artwork, triggerElement) {
+  if (!artwork?.url) return
+
+  preview.standaloneArtwork = artwork
+  preview.index = -1
+  showPreview(triggerElement)
+}
+
+function showPreview(triggerElement) {
+  previewTriggerElement = triggerElement instanceof HTMLElement ? triggerElement : null
   preview.imageLoading = true
   preview.imageError = false
   preview.show = true
   bodyOverflowBeforePreview = document.body.style.overflow
   document.body.style.overflow = 'hidden'
   nextTick(() => previewCloseButton.value?.focus())
+}
+
+function replaceStandalonePreview(artwork) {
+  if (!artwork?.url) return
+
+  preview.standaloneArtwork = artwork
+  preview.imageLoading = true
+  preview.imageError = false
 }
 
 function closePreview(restoreFocus = true) {
@@ -408,6 +433,7 @@ function closePreview(restoreFocus = true) {
   preview.show = false
   preview.imageLoading = false
   preview.imageError = false
+  preview.standaloneArtwork = null
   preview.startX = 0
   preview.moveX = 0
   previewTriggerElement = null
@@ -422,7 +448,7 @@ function closePreview(restoreFocus = true) {
 }
 
 function setPreviewIndex(index) {
-  if (index < 0 || index >= illustration.list.length) return
+  if (preview.standaloneArtwork || index < 0 || index >= illustration.list.length) return
   preview.index = index
   preview.imageLoading = true
   preview.imageError = false
@@ -491,6 +517,7 @@ function touchend() {
 
 const sortMode = ref(false)
 const sortPending = ref(false)
+const randomPending = ref(false)
 const drag = reactive({
   isDrag: false,
   originalList: [],
@@ -593,10 +620,34 @@ async function handleDragend(event) {
   }
 }
 
-function randomArtwork(event) {
+async function requestRandomArtwork() {
+  if (randomPending.value) return null
+
+  randomPending.value = true
+  try {
+    const response = await server.get('/illustration/random', { timeout: 15000 })
+    return response?.data?.url ? response.data : null
+  } catch (error) {
+    console.error('随机获取插画失败:', error)
+    return null
+  } finally {
+    randomPending.value = false
+  }
+}
+
+async function randomArtwork(event) {
   if (illustration.list.length === 0 || sortMode.value) return
-  const randomIndex = Math.floor(Math.random() * illustration.list.length)
-  openPreview(randomIndex, event)
+
+  const triggerElement = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  const artwork = await requestRandomArtwork()
+  if (artwork) openStandalonePreview(artwork, triggerElement)
+}
+
+async function refreshRandomPreview() {
+  if (!preview.show || !preview.standaloneArtwork) return
+
+  const artwork = await requestRandomArtwork()
+  if (artwork) replaceStandalonePreview(artwork)
 }
 
 onMounted(() => {

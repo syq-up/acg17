@@ -178,7 +178,7 @@ npm run preview
 | `/api/game` | 游戏信息、文件、收藏和回收站 |
 | `/api/media` | 校验短期签名后读取用户上传的媒体文件 |
 
-> 除登录、随机插画和签名媒体接口外，业务接口默认需要在请求头中携带 `Authorization: Bearer <token>`。前端会在登录后自动添加该请求头。
+> 除登录和签名媒体接口外，业务接口默认需要在请求头中携带 `Authorization: Bearer <token>`。前端会在登录后自动添加该请求头。
 
 ### API 约定
 
