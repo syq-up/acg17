@@ -30,7 +30,7 @@
             <span class="menu-text">目录</span>
           </div>
           <!-- 目录面板 -->
-          <div v-show="catalogMenu.show" class="side-menu-panel catalog-panel" ref="catalogPanelRef">
+          <div v-show="catalogMenu.show" class="side-menu-panel" ref="catalogPanelRef">
             <div class="panel-header">
               <div>
                 <span style="margin-right: 12px;">章节目录</span>
@@ -783,22 +783,23 @@ export default {
   position: fixed;
   left: calc(50% - var(--reader-max-width, 1000px) / 2 - 72px + 72px);
   top: calc(64px + 40px);
+  box-sizing: border-box;
   width: 400px;
   max-height: 70vh;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(15px);
-  border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #ffffff;
+  border: 1px solid #e8edf3;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(31, 45, 61, 0.1);
   z-index: 11;
   overflow: hidden;
-  animation: slideInRight 0.3s ease-out;
+  font-family: 'Blueaka', 'PingFang SC', sans-serif;
+  animation: slideInRight 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: translateX(-10px) scale(0.98);
   }
 
   to {
@@ -811,75 +812,102 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
-  color: white;
+  min-height: 56px;
+  box-sizing: border-box;
+  padding: 12px 16px 12px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #edf0f4;
+  color: #303133;
   font-weight: 600;
   font-size: 16px;
 }
 
 .panel-header .chapter-count {
   font-size: 12px;
-  opacity: 0.95;
+  color: #909399;
   font-weight: normal;
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  width: 24px;
-  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.3s ease;
+  flex: 0 0 32px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #909399;
+  font-family: Arial, sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
 .close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  color: #606266;
+  background-color: #f3f4f6;
+}
+
+.close-btn:focus-visible {
+  outline: 2px solid rgba(64, 158, 255, 0.35);
+  outline-offset: 1px;
 }
 
 .panel-content {
-  max-height: calc(70vh - 60px);
+  max-height: calc(70vh - 57px);
   overflow-y: auto;
   padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #d8dee8 transparent;
+}
+
+.panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background: #d8dee8;
 }
 
 .panel-content ::v-deep(.el-divider--horizontal) {
-  margin: 30px 0;
+  margin: 24px 0;
+  border-color: #edf0f4;
 }
 
 .panel-content ::v-deep(.el-divider--horizontal):first-child {
-  margin-top: 12px;
+  margin-top: 6px;
 }
 
 .panel-content ::v-deep(.el-divider__text.is-left) {
   left: 12px;
-  padding: 12px;
+  padding: 0 8px;
+  background: #ffffff;
+  color: #8a94a3;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 
 /* 目录面板样式 */
-.catalog-panel .panel-content {
-  padding: 8px 0;
-}
-
 .chapter-item {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 11px 20px 11px 17px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  border-bottom: 1px solid #f0f0f0;
+  transition: color 0.2s ease, background-color 0.2s ease;
+  border-bottom: 1px solid #f0f2f5;
+  border-left: 3px solid transparent;
 }
 
 .chapter-item:hover {
-  background: #f8f9ff;
+  background: #f5f9ff;
   color: #409eff;
 }
 
@@ -890,9 +918,9 @@ export default {
 }
 
 .chapter-item.active-chapter {
-  background: linear-gradient(135deg, #ecf5ff 0%, #e6f7ff 100%);
+  background: #eef6ff;
   color: #409eff;
-  font-weight: 500;
+  font-weight: 600;
   border-left: 3px solid #409eff;
 }
 
@@ -918,7 +946,7 @@ export default {
 
 /* 管理面板样式 */
 .management-panel .panel-content {
-  padding: 20px;
+  padding: 18px 20px 20px;
 }
 
 .management-section {
@@ -965,9 +993,10 @@ export default {
 
 /* 管理面板中的设置项样式 */
 .setting-item {
-  margin: 20px 0;
+  min-height: 36px;
+  margin: 16px 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
 }
 
@@ -978,10 +1007,10 @@ export default {
 .setting-item .setting-label {
   font-size: 13px;
   font-weight: 500;
-  color: #606266;
-  min-width: 60px;
+  color: #5f6977;
+  min-width: 64px;
   flex-shrink: 0;
-  line-height: 32px;
+  line-height: 36px;
 }
 
 /* 管理面板中的字体大小控制 */
@@ -993,42 +1022,43 @@ export default {
 }
 
 .setting-item .size-btn {
-  width: 50px;
-  height: 32px;
-  border: 1px solid #e4e7ed;
-  background: #f5f7fa;
+  width: 48px;
+  height: 36px;
+  border: 1px solid #dfe5ec;
+  background: #ffffff;
   color: #606266;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .setting-item .size-btn:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: 8px 0 0 8px;
   border-right: none;
 }
 
 .setting-item .size-btn:last-child {
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
   border-left: none;
 }
 
 .setting-item .size-btn:hover {
-  background: #ecf5ff;
+  background: #f0f7ff;
   color: #409eff;
   z-index: 1;
   border-color: #409eff;
 }
 
 .setting-item .font-size-display {
-  width: 50px;
-  height: 32px;
-  border: 1px solid #e4e7ed;
-  background: #f5f7fa;
+  width: 48px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #dfe5ec;
+  background: #f7f9fc;
   font-size: 14px;
   font-weight: 600;
   color: #303133;
@@ -1040,21 +1070,22 @@ export default {
 /* 管理面板中的宽度选项 */
 .setting-item .width-options {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   flex: 1;
 }
 
 .setting-item .width-option {
-  padding: 6px 12px;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
-  background: #f5f7fa;
+  min-width: 48px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #dfe5ec;
+  border-radius: 8px;
+  background: #ffffff;
   color: #606266;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 45px;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
   text-align: center;
 }
 
@@ -1065,7 +1096,7 @@ export default {
 
 .setting-item .width-option.active {
   border-color: #409eff;
-  background: #ecf5ff;
+  background: #eef6ff;
   color: #409eff;
 }
 
@@ -1077,14 +1108,15 @@ export default {
 }
 
 .setting-item .chapter-management-option {
+  min-height: 38px;
   padding: 8px 12px;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
-  background: #f5f7fa;
+  border: 1px solid #dfe5ec;
+  border-radius: 8px;
+  background: #ffffff;
   color: #606266;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
   flex: 1;
   text-align: center;
   display: flex;
@@ -1096,7 +1128,7 @@ export default {
 .setting-item .chapter-management-option:hover {
   border-color: #409eff;
   color: #409eff;
-  background: #ecf5ff;
+  background: #f0f7ff;
 }
 
 .setting-item .chapter-management-option:disabled {
@@ -1107,8 +1139,8 @@ export default {
 }
 
 .setting-item .chapter-management-option .icon {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 /* 更新对话框 */
@@ -1328,94 +1360,6 @@ export default {
   color: #c0c4cc;
   background: #fafafa;
   cursor: not-allowed;
-}
-
-/* 设置对话框 */
-.settings-dialog {
-  border-radius: 12px;
-}
-
-.settings-content {
-  padding: 20px 0;
-}
-
-.setting-group {
-  margin-bottom: 32px;
-}
-
-.setting-group:last-child {
-  margin-bottom: 0;
-}
-
-.setting-label {
-  display: block;
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-}
-
-/* 字体大小控制 */
-.font-size-controls {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.size-btn {
-  width: 60px;
-  height: 40px;
-  border: 2px solid #e4e7ed;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #606266;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.size-btn:hover {
-  border-color: #409eff;
-  color: #409eff;
-}
-
-.font-size-display {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
-  min-width: 30px;
-  text-align: center;
-}
-
-/* 宽度选项 */
-.width-options {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.width-option {
-  padding: 8px 16px;
-  border: 2px solid #e4e7ed;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #606266;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 60px;
-  text-align: center;
-}
-
-.width-option:hover {
-  border-color: #409eff;
-  color: #409eff;
-}
-
-.width-option.active {
-  border-color: #f56c6c;
-  background: #fef0f0;
-  color: #f56c6c;
 }
 
 /* 响应式设计 */

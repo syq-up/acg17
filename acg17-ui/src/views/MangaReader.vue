@@ -640,47 +640,90 @@ export default {
   top: calc(100% + 12px);
   right: 0;
   z-index: 1100;
-  width: 320px;
+  box-sizing: border-box;
+  width: 340px;
   max-height: 70vh;
   overflow: hidden;
   color: #606266;
-  background: rgba(255, 255, 255, .98);
-  border: 1px solid rgba(255, 255, 255, .2);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .15);
+  background: #ffffff;
+  border: 1px solid #e8edf3;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(31, 45, 61, .1);
+  font-family: 'Blueaka', 'PingFang SC', sans-serif;
+  animation: settingsPanelIn .22s cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes settingsPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  color: #fff;
-  background: #409eff;
+  min-height: 56px;
+  box-sizing: border-box;
+  padding: 12px 16px 12px 20px;
+  color: #303133;
+  background: #ffffff;
+  border-bottom: 1px solid #edf0f4;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .close-btn {
-  width: 24px;
-  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  color: #fff;
-  background: none;
-  font-size: 18px;
+  border: none;
+  border-radius: 8px;
+  color: #909399;
+  background: transparent;
+  font-family: Arial, sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  transition: color .2s ease, background-color .2s ease;
+}
+
+.close-btn:hover {
+  color: #606266;
+  background: #f3f4f6;
+}
+
+.close-btn:focus-visible {
+  outline: 2px solid rgba(64, 158, 255, .35);
+  outline-offset: 1px;
 }
 
 .panel-content {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
+  padding: 4px 20px 8px;
 }
 
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  min-height: 52px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.setting-item:last-child {
+  border-bottom: none;
 }
 
 .setting-item label,
@@ -689,18 +732,93 @@ export default {
   white-space: nowrap;
 }
 
+.setting-item label {
+  color: #5f6977;
+  font-weight: 500;
+}
+
 .setting-item span {
+  min-width: 46px;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border-radius: 8px;
   color: #409eff;
+  background: #eef6ff;
+  text-align: center;
 }
 
 .setting-item input[type='range'] {
   flex: 1;
+  min-width: 90px;
+  height: 4px;
+  margin: 0;
+  appearance: none;
+  border-radius: 999px;
+  outline: none;
+  background: #dfe5ec;
+  cursor: pointer;
+}
+
+.setting-item input[type='range']::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  appearance: none;
+  border: 2px solid #409eff;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, .2);
+}
+
+.setting-item input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: #dfe5ec;
+}
+
+.setting-item input[type='range']::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: #409eff;
+}
+
+.setting-item input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #409eff;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, .2);
+}
+
+.setting-item input[type='range']:focus-visible {
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, .14);
 }
 
 .setting-item input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-  accent-color: #409eff;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  outline: none;
+  background-color: #d8dee8;
+  background-image: radial-gradient(circle, #ffffff 0 8px, transparent 8.5px);
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  background-size: 22px 22px;
+  cursor: pointer;
+  transition: background-color .2s ease, background-position .2s ease;
+}
+
+.setting-item input[type='checkbox']:checked {
+  background-color: #409eff;
+  background-position: 18px 0;
+}
+
+.setting-item input[type='checkbox']:focus-visible {
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, .18);
 }
 
 .manga-display {
