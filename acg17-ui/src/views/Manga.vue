@@ -53,19 +53,49 @@
       :active-title="activeTitle"
       :selected-tag-ids="selectedTagIds"
       :result-total="manga.total"
-      :result-pending="manga.currentPage === 0 || (manga.loading && manga.currentPage === 1)"
+      :result-pending="manga.loading && manga.currentPage === 0"
       :is-recycle="isRecycle"
       @filters-change="updateFilters"
     />
 
-    <ul class="manga-container unselectable" v-infinite-scroll="loadMoreManga" :infinite-scroll-disabled="manga.disabled || !pageActive">
-      <li v-for="(manga) in manga.list" :key="manga.id" @click="goToMangaDetail(manga.id)">
-        <img class="manga-img" :src="withMediaStyle(manga.cover, 'small')" alt="manga">
-        <div class="manga-info">
-          <div class="manga-title" :title="manga.chineseTitle || manga.title">{{ manga.chineseTitle || manga.title }}</div>
-        </div>
+    <ul
+      class="manga-container unselectable"
+      v-infinite-scroll="loadMoreManga"
+      :infinite-scroll-disabled="manga.loading || manga.error || manga.disabled || !pageActive"
+    >
+      <li v-for="(manga) in manga.list" :key="manga.id">
+        <router-link :to="{ name: 'MangaDetail', params: { id: manga.id } }" class="manga-card">
+          <div class="manga-cover">
+            <img
+              v-if="manga.cover && !coverErrorIds.has(manga.id)"
+              class="manga-img"
+              :src="withMediaStyle(manga.cover, 'small')"
+              :alt="(manga.chineseTitle || manga.title || '漫画') + '封面'"
+              loading="lazy"
+              decoding="async"
+              @error="handleCoverError(manga.id)"
+            >
+            <div
+              v-else
+              class="manga-cover-placeholder"
+              role="img"
+              :aria-label="(manga.chineseTitle || manga.title || '漫画') + '封面'"
+            >
+              暂无封面
+            </div>
+            <span v-if="manga.favorite" class="manga-favorite" aria-label="已收藏" title="已收藏">★</span>
+          </div>
+          <div class="manga-info">
+            <div class="manga-title" :title="manga.chineseTitle || manga.title">{{ manga.chineseTitle || manga.title }}</div>
+            <div class="manga-title manga-title-expanded" aria-hidden="true">{{ manga.chineseTitle || manga.title }}</div>
+          </div>
+        </router-link>
       </li>
     </ul>
+    <div v-if="manga.error" class="manga-load-error" role="alert">
+      <span>加载失败，请重试</span>
+      <button type="button" @click="retryLoadManga">重试</button>
+    </div>
     <div v-if="!manga.loading && manga.disabled && manga.list.length === 0" class="empty-manga">
       <span>{{ emptyMangaText }}</span>
       <div v-if="hasActiveFilters" class="empty-manga-actions">
@@ -122,6 +152,7 @@ export default {
       currentPage: 0, // 当前页
       list: [], // 漫画数据
       loading: false, // 加载下一页时显示loading
+      error: false, // 加载失败
       disabled: false,  // 加载到最后一页时禁用加载
       total: 0, // 总记录数
     })
@@ -147,21 +178,23 @@ export default {
       if (hasActiveTags.value) return '没有同时包含这些标签的漫画'
       return '暂无漫画'
     })
+    const coverErrorIds = reactive(new Set())
     const pageActive = ref(false)
     let loadedFilterKey = activeFilterKey.value
     let mangaRequestVersion = 0
 
     // 分页加载漫画，用于无限滚动
     function loadManga() {
-      if (manga.loading || manga.disabled) return
+      if (manga.loading || manga.error || manga.disabled) return
 
       const requestVersion = mangaRequestVersion
+      const page = manga.currentPage + 1
       manga.loading = true
-      manga.disabled = true
+      manga.error = false
 
       // 构建查询参数
       const params = {
-        pageNum: ++manga.currentPage,
+        pageNum: page,
         deleted: isRecycle.value
       }
 
@@ -179,17 +212,14 @@ export default {
         .then(response => {
           if (requestVersion !== mangaRequestVersion) return
           manga.total = Number(response.data.total) || 0
-          // records.length!==0：当前页非空页，可能存在下一页，对当前页数据进行下一步处理
-          // records.length===0：当前页为空页，不存在下一页，置disabled=true，不再请求下一页
-          if (response.data.records.length !== 0) {
-            manga.list.push(...response.data.records)
-            manga.disabled = false
-          } else {
-            manga.disabled = true
-          }
+          const records = Array.isArray(response.data.records) ? response.data.records : []
+          manga.list.push(...records)
+          manga.currentPage = page
+          manga.disabled = records.length === 0 || manga.list.length >= manga.total
         })
         .catch(err => {
           if (requestVersion !== mangaRequestVersion) return
+          manga.error = true
           console.log(err)
         })
         .finally(() => {
@@ -200,6 +230,16 @@ export default {
     function loadMoreManga() {
       if (!pageActive.value) return
       loadManga()
+    }
+
+    function retryLoadManga() {
+      if (manga.loading) return
+      manga.error = false
+      loadManga()
+    }
+
+    function handleCoverError(id) {
+      coverErrorIds.add(id)
     }
 
     // 随机打开一个漫画
@@ -251,7 +291,9 @@ export default {
       manga.currentPage = 0
       manga.total = 0
       manga.loading = false
+      manga.error = false
       manga.disabled = false
+      coverErrorIds.clear()
       loadManga()
     }
 
@@ -294,8 +336,11 @@ export default {
       manga,
       withMediaStyle,
       emptyMangaText,
+      coverErrorIds,
       goToMangaDetail,
       isRecycle,
+      retryLoadManga,
+      handleCoverError,
       loadMoreManga,
       pageActive,
       randomManga,
@@ -402,6 +447,26 @@ section {
   background: #ecf5ff;
 }
 
+.manga-load-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px auto;
+  color: #f56c6c;
+  font-size: 14px;
+}
+
+.manga-load-error button {
+  padding: 6px 14px;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #c0392b;
+  font: inherit;
+  cursor: pointer;
+}
+
 .manga-container > li {
   box-sizing: border-box;
   display: flex;
@@ -419,6 +484,29 @@ section {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.manga-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 10px;
+}
+
+.manga-card:focus-visible {
+  outline: 3px solid #409eff;
+  outline-offset: 3px;
+}
+
+.manga-container > li .manga-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.41;
+}
+
 .manga-container > li:hover {
   transform: translateY(-8px) scale(1.02);
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
@@ -428,7 +516,7 @@ section {
 .manga-container > li .manga-img {
   box-sizing: border-box;
   width: 100%;
-  height: auto;
+  height: 100%;
   aspect-ratio: 1 / 1.41;
   border-radius: 10px 10px 0 0;
   background-color: #f5f7fa;
@@ -437,7 +525,32 @@ section {
   display: block;
 }
 
+.manga-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px 10px 0 0;
+  background-color: #f5f7fa;
+  color: #909399;
+  font-size: 13px;
+}
+
+.manga-favorite {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  color: #f5b301;
+  font-size: 20px;
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
 .manga-container > li .manga-info {
+  position: relative;
   flex: 0 0 var(--title-height);
   display: flex;
   align-items: center;
@@ -467,6 +580,35 @@ section {
   text-overflow: ellipsis;
   transition: all 0.3s ease;
   word-break: break-word;
+}
+
+.manga-title.manga-title-expanded {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  display: none;
+  box-sizing: border-box;
+  min-height: 100%;
+  align-items: center;
+  padding: inherit;
+  border-radius: inherit;
+  background-color: #f8f9fa;
+  line-clamp: unset;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .manga-container > li:hover .manga-info {
+    overflow: visible;
+  }
+
+  .manga-container > li:hover .manga-title-expanded {
+    display: flex;
+  }
 }
 
 /* 卡片以 180px 左右为换列下限，宽屏最多 6 列 */
