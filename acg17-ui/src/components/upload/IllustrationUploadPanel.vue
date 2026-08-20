@@ -41,6 +41,7 @@
 import { ref } from 'vue'
 import server from '@/util/request'
 import { withMediaStyle } from '@/util/media'
+import { notifyIllustrationRefresh } from '@/composables/useIllustrationRefresh'
 import uploadLoadingUrl from '@/assets/icon/upload/loading.svg'
 
 const images = ref([])
@@ -67,6 +68,7 @@ async function uploadIllustration({ file }) {
       image.id = res.data.id
       image.url = withMediaStyle(res.data.url, 'small')
     }
+    notifyIllustrationRefresh()
   } catch (error) {
     images.value = images.value.filter(item => item.id !== temporaryId)
     ElMessage.error(`上传失败【${error}】，请重试`)
