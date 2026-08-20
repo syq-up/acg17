@@ -1,17 +1,15 @@
 <template>
-  <div class="novel-reader" contenteditable="true" autofocus @keydown.left="changeChapter(-1)"
-    @keydown.right="changeChapter(1)" @keydown.esc="$router.back()" :style="{
+  <div class="novel-reader" :style="{
       '--reader-max-width': settings.selectedWidth === 'auto' ? '900px' : settings.selectedWidth + 'px'
     }">
 
     <!-- 顶部导航栏 -->
-    <div class="reader-header" contenteditable="false">
+    <div class="reader-header">
       <div class="header-content">
         <div class="header-left">
-          <el-button @click="$router.back()" text class="back-btn">
+          <button type="button" class="back-btn" aria-label="返回上一页" @click="$router.back()">
             <icon icon="#icon-left"></icon>
-            返回
-          </el-button>
+          </button>
           <div class="book-info">
             <h1 class="book-title">{{ chapter.novel.title }}</h1>
           </div>
@@ -21,7 +19,7 @@
     </div>
 
     <!-- 主要内容区域 -->
-    <div class="main-container" contenteditable="false">
+    <div class="main-container">
 
       <!-- 左侧菜单栏 -->
       <div class="left-side-menu-bar" ref="leftMenuBarRef">
@@ -42,7 +40,8 @@
             </div>
             <div class="panel-content">
               <div v-for="(item, i) in chapter.chapterList" :key="item.id" @click="toChapter(item.id, i)"
-                :class="{ 'active-chapter': i === chapter.currentChapterIndex }" class="chapter-item">
+                :class="{ 'active-chapter': i === chapter.currentChapterIndex, 'is-disabled': chapter.loading }"
+                :aria-disabled="chapter.loading" class="chapter-item">
                 <!-- <span class="chapter-number">{{ i + 1 }}</span> -->
                 <span class="chapter-item-title">{{ item.title }}</span>
               </div>
@@ -69,11 +68,13 @@
               <div class="setting-item">
                 <label class="setting-label">章节管理</label>
                 <div class="chapter-management-options">
-                  <button @click="openUpdatePanel" class="chapter-management-option">
+                  <button @click="openUpdatePanel" class="chapter-management-option"
+                    :disabled="!chapter.content || chapter.loading">
                     <icon icon="#icon-edit"></icon>
                     修改章节
                   </button>
-                  <button @click="toUploadChapter" class="chapter-management-option">
+                  <button @click="toUploadChapter" class="chapter-management-option"
+                    :disabled="!chapter.novel.id || chapter.loading">
                     <icon icon="#icon-add"></icon>
                     新增章节
                   </button>
@@ -82,18 +83,6 @@
 
               <!-- 阅读设置操作 -->
               <el-divider content-position="left">阅读设置</el-divider>
-
-              <!-- 正文字体 -->
-              <div class="setting-item">
-                <label class="setting-label">正文字体</label>
-                <div class="font-options">
-                  <button v-for="font in settings.fontOptions" :key="font.value"
-                    @click="settings.selectedFont = font.value"
-                    :class="['font-option', { 'active': settings.selectedFont === font.value }]">
-                    {{ font.label }}
-                  </button>
-                </div>
-              </div>
 
               <!-- 字体大小 -->
               <div class="setting-item">
@@ -117,27 +106,13 @@
                 </div>
               </div>
 
-              <!-- 翻页模式 -->
-              <div class="setting-item">
-                <label class="setting-label">翻页模式</label>
-                <div class="page-mode-options">
-                  <button @click="settings.pageMode = 'chapter'"
-                    :class="['page-mode-option', { 'active': settings.pageMode === 'chapter' }]">
-                    章节翻页
-                  </button>
-                  <button @click="settings.pageMode = 'scroll'"
-                    :class="['page-mode-option', { 'active': settings.pageMode === 'scroll' }]">
-                    滚动翻页
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 右侧工具栏 -->
-      <div class="right-side-tool-bar">
+      <div v-show="showBackToTop" class="right-side-tool-bar">
         <div class="tool-item" @click="scrollToTop" title="回到顶部">
           <icon icon="#icon-left" style="transform: rotate(90deg);"></icon>
           <span class="tool-text">顶部</span>
@@ -147,81 +122,77 @@
       <!-- 阅读主区域 -->
       <div class="reader-main">
         <div class="content-container">
-          <article v-show="!chapter.loading" class="chapter-article">
-            <header class="chapter-header">
-              <h2 class="chapter-title">{{ chapter.content.title }}</h2>
-              <div class="chapter-meta">
-                <div class="meta-item">
-                  <icon icon="#icon-words"></icon>
-                  <span>{{ chapter.content.totalWords }} 字</span>
-                </div>
-                <div class="meta-item">
-                  <icon icon="#icon-time"></icon>
-                  <span>{{ chapter.content.updateTime }}</span>
-                </div>
-                <div class="meta-item meta-tags">
-                  <icon icon="#icon-tag"></icon>
-                  <div class="chapter-tags">
-                    <el-tag v-for="(item, i) in chapter.novel.tags" :key="'meta-tag-' + i"
-                      v-show="item !== ''" size="small" class="meta-tag-item">
-                      {{ item }}
-                    </el-tag>
+          <div v-if="chapter.loading" class="reader-state reader-state-loading" role="status" aria-live="polite">
+            <acg17-loading-heart></acg17-loading-heart>
+            <p>正在加载章节...</p>
+          </div>
+
+          <div v-else-if="chapter.error && !chapter.content" class="reader-state reader-state-error" role="alert">
+            <h2>内容加载失败</h2>
+            <p>{{ chapter.error }}</p>
+            <el-button type="primary" plain @click="retryLoad">重新加载</el-button>
+          </div>
+
+          <div v-else-if="chapter.chapterList.length === 0" class="reader-state reader-state-empty">
+            <h2>暂无章节</h2>
+            <p>新增第一章后即可开始阅读。</p>
+            <div class="reader-state-actions">
+              <el-button type="primary" @click="toUploadChapter">新增第一章</el-button>
+              <el-button plain @click="loadNovel">刷新章节</el-button>
+            </div>
+          </div>
+
+          <template v-else-if="chapter.content">
+            <div v-if="chapter.error" class="chapter-error" role="alert">
+              <span>{{ chapter.error }}</span>
+              <el-button text type="primary" @click="retryLoad">重试</el-button>
+            </div>
+
+            <article class="chapter-article">
+              <header class="chapter-header">
+                <h2 class="chapter-title">{{ chapter.content.title }}</h2>
+                <div class="chapter-meta">
+                  <div class="meta-item">
+                    <icon icon="#icon-words"></icon>
+                    <span>{{ chapter.content.totalWords }} 字</span>
+                  </div>
+                  <div class="meta-item">
+                    <icon icon="#icon-time"></icon>
+                    <span>{{ chapter.content.updateTime }}</span>
+                  </div>
+                  <div class="meta-item meta-tags">
+                    <icon icon="#icon-tag"></icon>
+                    <div class="chapter-tags">
+                      <el-tag v-for="(item, i) in chapter.novel.tags" :key="'meta-tag-' + i"
+                        v-show="item !== ''" size="small" class="meta-tag-item">
+                        {{ item }}
+                      </el-tag>
+                    </div>
                   </div>
                 </div>
+              </header>
+              <div class="chapter-content" :style="{ fontSize: settings.fontSize + 'px' }">
+                <p v-for="(paragraph, index) in chapter.content.content" :key="index" class="paragraph">
+                  {{ paragraph }}
+                </p>
               </div>
-            </header>
-            <div class="chapter-content" :style="{
-              fontSize: settings.fontSize + 'px',
-              fontFamily: settings.selectedFont === 'Blueaka' ? '\'Blueaka\', \'PingFang SC\', sans-serif' :
-                settings.selectedFont === 'SimSun' ? '\'SimSun\', serif' :
-                  '\'KaiTi\', serif'
-            }">
-              <p v-for="(paragraph, index) in chapter.content.content" :key="index" class="paragraph">
-                {{ paragraph }}
-              </p>
-            </div>
-          </article>
-
-          <!-- 加载状态 -->
-          <div v-show="chapter.loading" class="loading-container">
-            <acg17-loading-heart></acg17-loading-heart>
-          </div>
+            </article>
+          </template>
         </div>
 
         <!-- 章节导航 -->
-        <div class="chapter-navigation">
-          <el-button :disabled="chapter.content.id === chapter.chapterList[0].id" @click="changeChapter(-1)"
-            class="nav-button prev-btn">
+        <div v-if="chapter.content && chapter.chapterList.length" class="chapter-navigation">
+          <button type="button" :disabled="!canGoPrevious || chapter.loading" @click="changeChapter(-1)"
+            class="chapter-nav-button prev-btn">
             <icon icon="#icon-left"></icon>
-            上一章
-          </el-button>
+            <span>上一章</span>
+          </button>
 
-          <el-dropdown trigger="hover" class="catalog-dropdown-nav">
-            <el-button text class="catalog-btn">
-              <icon icon="#icon-catalog"></icon>
-              目录
-              <span class="dropdown-arrow-small">▼</span>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu class="catalog-dropdown-menu">
-                <div class="catalog-header">
-                  <span>章节目录</span>
-                  <span class="chapter-count">共 {{ chapter.chapterList.length }} 章</span>
-                </div>
-                <el-dropdown-item v-for="(item, i) in chapter.chapterList" :key="item.id" @click="toChapter(item.id, i)"
-                  :class="{ 'active-chapter': i === chapter.currentChapterIndex }" class="chapter-dropdown-item">
-                  <span class="chapter-number">{{ i + 1 }}</span>
-                  <span class="dropdown-chapter-title">{{ item.title }}</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-
-          <el-button :disabled="chapter.content.id === chapter.chapterList[chapter.chapterList.length - 1].id"
-            @click="changeChapter(1)" class="nav-button next-btn">
-            下一章
+          <button type="button" :disabled="!canGoNext || chapter.loading"
+            @click="changeChapter(1)" class="chapter-nav-button next-btn">
+            <span>下一章</span>
             <icon icon="#icon-right"></icon>
-          </el-button>
+          </button>
         </div>
       </div>
     </div>
@@ -251,10 +222,11 @@
 </template>
 
 <script>
-import { reactive, onBeforeMount, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, reactive, onBeforeMount, onMounted, onUnmounted, ref } from 'vue';
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router';
 import server from '@/util/request';
+import { useBackToTop } from '@/composables/useBackToTop';
 import LoadingHeart from "../components/LoadingHeart";
 
 export default {
@@ -266,6 +238,10 @@ export default {
     const store = useStore()
     const route = useRoute()
     const router = useRouter()
+    const { showBackToTop, scrollToTop } = useBackToTop()
+    const headerVisibilityBeforeReader = Boolean(store.state.acg17Header?.show)
+
+    store.commit('setAcg17HeaderVisible', false)
 
     // 面板引用
     const catalogPanelRef = ref(null)
@@ -274,70 +250,126 @@ export default {
 
     const chapter = reactive({
       novel: { id: '', title: '', author: '', tags: [], totalWords: '', updateTime: '' },
-      chapterList: [{}],
-      content: { id: '', title: '', content: [], totalWords: '', updateTime: '' },
-      currentChapterIndex: 0,
+      chapterList: [],
+      content: null,
+      currentChapterIndex: -1,
       loading: false,
+      error: '',
     })
-    // 加载小说，和第一章内容
-    onBeforeMount(() => {
+
+    const canGoPrevious = computed(() => chapter.currentChapterIndex > 0)
+    const canGoNext = computed(() => (
+      chapter.currentChapterIndex >= 0
+      && chapter.currentChapterIndex < chapter.chapterList.length - 1
+    ))
+
+    let contentRequestVersion = 0
+    let failedChapterIndex = null
+
+    // 加载小说和第一章内容
+    async function loadNovel() {
+      const requestVersion = ++contentRequestVersion
       chapter.loading = true
-      server.get('/novel/getContentById/' + route.params.novelId)
-        .then(res => {
-          // 如果res.data为空，则进入404页面
-          if (!res.data) {
-            router.push('/404')
-            return
+      chapter.error = ''
+      chapter.content = null
+      chapter.currentChapterIndex = -1
+      chapter.chapterList = []
+      failedChapterIndex = null
+
+      try {
+        const res = await server.get('/novel/getContentById/' + route.params.novelId)
+        if (requestVersion !== contentRequestVersion) return
+
+        if (!res?.data) {
+          router.push('/404')
+          return
+        }
+        if (!Array.isArray(res.chapterList)) {
+          throw new Error('章节目录数据无效')
+        }
+
+        chapter.novel = res.data
+        chapter.chapterList = res.chapterList
+
+        if (chapter.chapterList.length > 0) {
+          if (!res.firstChapter) {
+            throw new Error('第一章内容缺失')
           }
-          chapter.novel = res.data
-          chapter.chapterList = res.chapterList
           chapter.content = res.firstChapter
-          chapter.loading = false
-        })
-        .catch(err => {
-          chapter.loading = false
-          console.log(err)
-        })
-    })
+          chapter.currentChapterIndex = 0
+        }
+        chapter.loading = false
+      } catch (error) {
+        if (requestVersion !== contentRequestVersion) return
+        console.error('加载小说内容失败:', error)
+        chapter.loading = false
+        chapter.error = '小说内容加载失败，请重试。'
+      }
+    }
+
+    onBeforeMount(loadNovel)
+
     // 切换章节
     function changeChapter(change) {
-      // 第一章不能跳上一章，最后一章不能跳下一章
-      if (chapter.currentChapterIndex === 0 && change === -1) return
-      if (chapter.currentChapterIndex === chapter.chapterList.length - 1 && change === 1) return
-      // 加载章节内容
-      chapter.currentChapterIndex = chapter.currentChapterIndex + change
-      getChapter(chapter.chapterList[chapter.currentChapterIndex].id)
+      if (chapter.loading) return
+      const targetIndex = chapter.currentChapterIndex + change
+      if (targetIndex < 0 || targetIndex >= chapter.chapterList.length) return
+      loadChapter(targetIndex)
     }
 
     // 跳转章节
     function toChapter(id, i) {
-      chapter.currentChapterIndex = i
-      getChapter(id)
+      if (chapter.loading || chapter.chapterList[i]?.id !== id) return
+      if (i === chapter.currentChapterIndex) {
+        catalogMenu.show = false
+        return
+      }
+      loadChapter(i)
     }
-    function getChapter(id) {
+
+    async function loadChapter(targetIndex) {
+      const targetChapter = chapter.chapterList[targetIndex]
+      if (chapter.loading || !targetChapter) return
+
+      const requestVersion = ++contentRequestVersion
       chapter.loading = true
-      server.get('/novel-chapter/getContentById/' + id)
-        .then(res => {
-          chapter.loading = false
-          chapter.content = res.data
-        })
-        .catch(err => {
-          chapter.loading = false
-          console.log(err)
-        })
+      chapter.error = ''
+      failedChapterIndex = null
+
+      try {
+        const res = await server.get('/novel-chapter/getContentById/' + targetChapter.id)
+        if (requestVersion !== contentRequestVersion) return
+        if (!res?.data) throw new Error('章节内容不存在')
+
+        chapter.content = res.data
+        chapter.currentChapterIndex = targetIndex
+        chapter.loading = false
+        catalogMenu.show = false
+        managementMenu.show = false
+
+        await nextTick()
+        window.scrollTo({ top: 0, behavior: 'auto' })
+      } catch (error) {
+        if (requestVersion !== contentRequestVersion) return
+        console.error('加载章节内容失败:', error)
+        chapter.loading = false
+        chapter.error = `章节「${targetChapter.title}」加载失败，请重试。`
+        failedChapterIndex = targetIndex
+      }
+    }
+
+    function retryLoad() {
+      if (failedChapterIndex !== null && chapter.content) {
+        loadChapter(failedChapterIndex)
+        return
+      }
+      loadNovel()
     }
 
     // 阅读设置
     const settings = reactive({
-      selectedFont: 'Blueaka',
       fontSize: 18,
       selectedWidth: 900,
-      pageMode: 'chapter',
-      fontOptions: [
-        { label: 'Blueaka', value: 'Blueaka' },
-        { label: '苹方', value: 'PingFang SC' },
-        { label: '无衬线体', value: 'sans-serif' }
-      ],
       widthOptions: [
         { label: '自动', value: 'auto' },
         { label: '640', value: 640 },
@@ -388,13 +420,46 @@ export default {
       }
     }
 
+    function isInteractiveTarget(target) {
+      return target?.isContentEditable
+        || ['A', 'INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(target?.tagName)
+        || Boolean(target?.closest?.('[role="dialog"]'))
+    }
+
+    function handleReaderKeydown(event) {
+      if (event.defaultPrevented || event.repeat || update.show || isInteractiveTarget(event.target)) return
+
+      if (event.key === 'Escape') {
+        if (catalogMenu.show || managementMenu.show) {
+          catalogMenu.show = false
+          managementMenu.show = false
+        } else {
+          router.back()
+        }
+        return
+      }
+
+      if (chapter.loading || !chapter.content) return
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        changeChapter(-1)
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        changeChapter(1)
+      }
+    }
+
     // 添加和移除事件监听器
     onMounted(() => {
       document.addEventListener('click', handleClickOutside)
+      document.addEventListener('keydown', handleReaderKeydown)
     })
 
     onUnmounted(() => {
+      contentRequestVersion += 1
       document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('keydown', handleReaderKeydown)
+      store.commit('setAcg17HeaderVisible', headerVisibilityBeforeReader)
     })
 
     // 更新章节
@@ -465,23 +530,15 @@ export default {
         settings.fontSize -= 2
       }
     }
-
-    // 回到顶部功能
-    function scrollToTop() {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      })
-    }
-
     return {
-      chapter, changeChapter,
+      chapter, canGoPrevious, canGoNext, changeChapter,
       toChapter,
+      loadNovel, retryLoad,
       settings, increaseFontSize, decreaseFontSize,
       update, openUpdatePanel, closeUpdatePanel, updateChapter, toUploadChapter,
       catalogMenu, managementMenu, toggleCatalogMenu, toggleManagementMenu,
       catalogPanelRef, managementPanelRef, leftMenuBarRef,
-      scrollToTop,
+      showBackToTop, scrollToTop,
     }
   }
 }
@@ -491,8 +548,7 @@ export default {
 /* 主容器 */
 .novel-reader {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  outline: none;
+  background: #f4f1ea;
   cursor: default;
 }
 
@@ -532,13 +588,39 @@ export default {
 .back-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   color: #606266;
-  font-size: 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.back-btn .icon {
+  position: relative;
+  top: 1px;
+  width: 20px;
+  height: 20px;
 }
 
 .back-btn:hover {
   color: #409eff;
+  background: #ecf5ff;
+  border-color: #d9ecff;
+}
+
+.back-btn:active {
+  transform: scale(0.94);
+}
+
+.back-btn:focus-visible {
+  outline: 2px solid rgba(64, 158, 255, 0.45);
+  outline-offset: 2px;
 }
 
 .book-info {
@@ -611,7 +693,7 @@ export default {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -625,7 +707,7 @@ export default {
   background: rgba(64, 158, 255, 0.1);
   border-color: #409eff;
   transform: scale(1.05);
-  box-shadow: 0 6px 25px rgba(64, 158, 255, 0.2);
+  box-shadow: 0 3px 12px rgba(64, 158, 255, 0.1);
 }
 
 .menu-item .icon {
@@ -657,7 +739,7 @@ export default {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -671,7 +753,7 @@ export default {
   background: rgba(64, 158, 255, 0.1);
   border-color: #409eff;
   transform: scale(1.05);
-  box-shadow: 0 6px 25px rgba(64, 158, 255, 0.2);
+  box-shadow: 0 3px 12px rgba(64, 158, 255, 0.1);
 }
 
 .tool-item .icon {
@@ -706,7 +788,7 @@ export default {
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(15px);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   z-index: 11;
   overflow: hidden;
@@ -799,6 +881,12 @@ export default {
 .chapter-item:hover {
   background: #f8f9ff;
   color: #409eff;
+}
+
+.chapter-item.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .chapter-item.active-chapter {
@@ -896,37 +984,6 @@ export default {
   line-height: 32px;
 }
 
-/* 管理面板中的字体选项 */
-.setting-item .font-options {
-  display: flex;
-  gap: 8px;
-  flex: 1;
-}
-
-.setting-item .font-option {
-  padding: 8px 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
-  background: #f5f7fa;
-  color: #606266;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  text-align: center;
-}
-
-.setting-item .font-option:hover {
-  border-color: #409eff;
-  color: #409eff;
-}
-
-.setting-item .font-option.active {
-  border-color: #409eff;
-  background: #ecf5ff;
-  color: #409eff;
-}
-
 /* 管理面板中的字体大小控制 */
 .setting-item .font-size-controls {
   display: flex;
@@ -1012,37 +1069,6 @@ export default {
   color: #409eff;
 }
 
-/* 管理面板中的翻页模式选项 */
-.setting-item .page-mode-options {
-  display: flex;
-  gap: 8px;
-  flex: 1;
-}
-
-.setting-item .page-mode-option {
-  padding: 8px 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
-  background: #f5f7fa;
-  color: #606266;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  text-align: center;
-}
-
-.setting-item .page-mode-option:hover {
-  border-color: #409eff;
-  color: #409eff;
-}
-
-.setting-item .page-mode-option.active {
-  border-color: #409eff;
-  background: #ecf5ff;
-  color: #409eff;
-}
-
 /* 管理面板中的章节管理选项 */
 .setting-item .chapter-management-options {
   display: flex;
@@ -1071,6 +1097,13 @@ export default {
   border-color: #409eff;
   color: #409eff;
   background: #ecf5ff;
+}
+
+.setting-item .chapter-management-option:disabled {
+  color: #c0c4cc;
+  background: #f5f7fa;
+  border-color: #e4e7ed;
+  cursor: not-allowed;
 }
 
 .setting-item .chapter-management-option .icon {
@@ -1110,9 +1143,9 @@ export default {
 }
 
 .content-container {
-  background: #ffffff;
+  background: #fffdf9;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
   margin-bottom: 32px;
   overflow: hidden;
 }
@@ -1174,7 +1207,7 @@ export default {
   font-size: 18px;
   line-height: 1.8;
   color: #303133;
-  font-family: 'PingFang SC', sans-serif;
+  font-family: 'Blueaka', sans-serif;
 }
 
 .chapter-content .paragraph {
@@ -1183,60 +1216,118 @@ export default {
   line-height: inherit;
 }
 
-.loading-container {
+.reader-state {
+  min-height: 400px;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 400px;
+  box-sizing: border-box;
+  padding: 48px 24px;
+  text-align: center;
+  color: #606266;
+}
+
+.reader-state h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  color: #303133;
+}
+
+.reader-state p {
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+.reader-state-loading p {
+  margin-top: -24px;
+  color: #909399;
+}
+
+.reader-state-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.chapter-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: #fef0f0;
+  border-bottom: 1px solid #fde2e2;
+  color: #f56c6c;
+  font-size: 14px;
 }
 
 /* 章节导航 */
 .chapter-navigation {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #ffffff;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: #fffdf9;
   border-radius: 12px;
-  padding: 20px 32px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
 }
 
-.nav-button {
+.chapter-nav-button {
+  min-width: 0;
+  min-height: 72px;
+  padding: 20px 28px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 12px 24px;
-  font-size: 16px;
-}
-
-.catalog-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  border: none;
   color: #606266;
+  background: transparent;
+  font-family: 'Blueaka', 'PingFang SC', sans-serif;
   font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
-.catalog-btn:hover {
+.chapter-nav-button.next-btn {
+  border-left: 1px solid #ebeef5;
+}
+
+.chapter-nav-button .icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s ease;
+}
+
+.chapter-nav-button:not(:disabled):hover {
   color: #409eff;
+  background: #f3f8ff;
 }
 
-/* 导航区域的目录下拉菜单 */
-.catalog-dropdown-nav {
-  margin: 0 16px;
+.chapter-nav-button.prev-btn:not(:disabled):hover .icon {
+  transform: translateX(-3px);
 }
 
-.dropdown-arrow-small {
-  margin-left: 6px;
-  font-size: 8px;
-  color: #909399;
-  transition: transform 0.3s ease;
-  display: inline-block;
+.chapter-nav-button.next-btn:not(:disabled):hover .icon {
+  transform: translateX(3px);
 }
 
-.catalog-dropdown-nav:hover .dropdown-arrow-small {
-  transform: rotate(180deg);
-  color: #409eff;
+.chapter-nav-button:not(:disabled):active {
+  background: #eaf3ff;
+}
+
+.chapter-nav-button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid rgba(64, 158, 255, 0.45);
+  outline-offset: -3px;
+}
+
+.chapter-nav-button:disabled {
+  color: #c0c4cc;
+  background: #fafafa;
+  cursor: not-allowed;
 }
 
 /* 设置对话框 */
@@ -1261,34 +1352,6 @@ export default {
   font-size: 16px;
   font-weight: 600;
   color: #303133;
-}
-
-/* 字体选项 */
-.font-options {
-  display: flex;
-  gap: 12px;
-}
-
-.font-option {
-  padding: 8px 20px;
-  border: 2px solid #e4e7ed;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #606266;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.font-option:hover {
-  border-color: #409eff;
-  color: #409eff;
-}
-
-.font-option.active {
-  border-color: #f56c6c;
-  background: #fef0f0;
-  color: #f56c6c;
 }
 
 /* 字体大小控制 */
@@ -1355,38 +1418,6 @@ export default {
   color: #f56c6c;
 }
 
-/* 翻页模式选项 */
-.page-mode-options {
-  display: flex;
-  gap: 12px;
-}
-
-.page-mode-option {
-  padding: 12px 24px;
-  border: 2px solid #e4e7ed;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #606266;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  text-align: center;
-}
-
-.page-mode-option:hover {
-  border-color: #409eff;
-  color: #409eff;
-}
-
-.page-mode-option.active {
-  border-color: #f56c6c;
-  background: #fef0f0;
-  color: #f56c6c;
-}
-
-
-
 /* 响应式设计 */
 @media (max-width: 768px) {
   .header-content {
@@ -1435,11 +1466,8 @@ export default {
   }
 
   .chapter-navigation {
-    padding: 16px 20px;
     margin-left: 0;
     /* 移动端取消左边距 */
-    flex-direction: column;
-    gap: 16px;
   }
 
   .side-menu-panel {
@@ -1450,19 +1478,47 @@ export default {
     max-height: 60vh;
   }
 
-  .nav-button {
-    width: 100%;
-    justify-content: center;
+  .chapter-nav-button {
+    min-height: 64px;
+    padding: 16px 20px;
   }
 }
 
 @media (max-width: 480px) {
+  .reader-main {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .content-container,
+  .chapter-navigation {
+    border-right: none;
+    border-left: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .chapter-nav-button {
+    min-height: 60px;
+    padding: 14px 12px;
+    font-size: 15px;
+  }
+
   .header-left {
     gap: 12px;
+    width: 100%;
+    min-width: 0;
   }
 
   .book-info {
-    display: none;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .book-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .chapter-meta {
@@ -1493,29 +1549,6 @@ export default {
   overflow: hidden;
   display: inline-block;
 }
-
-/* Element Plus 下拉菜单样式覆盖 */
-:deep(.el-dropdown-menu__item) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-}
-
-:deep(.el-dropdown-menu__item .icon) {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-}
-
-:deep(.el-dropdown-menu__item:hover) {
-  background-color: #f5f7fa;
-  color: #409eff;
-}
-
-
-
-
 
 /* 响应式设计 - 左侧菜单和右侧工具栏 */
 @media (max-width: 768px) {
