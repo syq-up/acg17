@@ -6,7 +6,16 @@
 <template>
   <section>
     <div class="side-btn-group left-btn-group">
-      <button type="button" class="side-btn" aria-label="随机游戏" title="随机游戏" @click="randomGame">
+      <button
+        ref="randomButton"
+        type="button"
+        class="side-btn"
+        aria-label="随机游戏"
+        :title="randomPending ? '正在随机选择游戏' : '随机游戏'"
+        :disabled="randomPending"
+        :aria-busy="randomPending"
+        @click="randomGame"
+      >
         <icon icon="#icon-random"></icon>
       </button>
       <button
@@ -73,26 +82,79 @@
       </div>
     </div>
 
-    <TransitionGroup name="game-list" tag="ul" class="game-container unselectable">
-      <li v-for="(game) in gameData.list" :key="game.id" @click="showGameDetail(game)">
-        <div class="game-img-container">
-          <img class="game-img" :src="withMediaStyle(game.cover, 'small')" :alt="game.title">
-        </div>
-        <div class="game-info">
-          <div class="game-title">{{ game.chineseTitle || game.title }}</div>
-        </div>
-      </li>
-    </TransitionGroup>
-    <div v-if="!gameData.loading && gameData.list.length === 0" class="empty-game">
+    <ul
+      class="game-container unselectable"
+      v-infinite-scroll="loadMoreGames"
+      :infinite-scroll-disabled="gameData.loading || gameData.error || gameData.disabled"
+    >
+      <TransitionGroup name="game-list">
+        <li v-for="game in gameData.list" :key="game.id">
+          <button type="button" class="game-card" @click="showGameDetail(game, $event)">
+            <div class="game-img-container">
+              <img
+                v-if="game.cover && !coverErrorIds.has(game.id)"
+                class="game-img"
+                :src="withMediaStyle(game.cover, 'small')"
+                :alt="`${game.chineseTitle || game.title || '游戏'}封面`"
+                loading="lazy"
+                decoding="async"
+                @error="handleCoverError(game.id)"
+              >
+              <div
+                v-else
+                class="game-cover-placeholder"
+                role="img"
+                :aria-label="`${game.chineseTitle || game.title || '游戏'}封面`"
+              >
+                暂无封面
+              </div>
+              <span v-if="game.favorite" class="game-favorite" aria-label="已收藏" title="已收藏">★</span>
+            </div>
+            <div class="game-info">
+              <div class="game-title" :title="game.chineseTitle || game.title">
+                {{ game.chineseTitle || game.title }}
+              </div>
+              <div class="game-title game-title-expanded" aria-hidden="true">
+                {{ game.chineseTitle || game.title }}
+              </div>
+            </div>
+          </button>
+        </li>
+      </TransitionGroup>
+    </ul>
+    <div v-if="gameData.error" class="game-load-error" role="alert">
+      <span>加载失败，请重试</span>
+      <button type="button" @click="retryLoadGames">重试</button>
+    </div>
+    <div
+      v-if="!gameData.loading && !gameData.error && gameData.disabled && gameData.list.length === 0"
+      class="empty-game"
+    >
       <span>{{ emptyGameText }}</span>
       <button v-if="hasTitleFilter" type="button" @click="clearTitleSearch">清除标题搜索</button>
     </div>
+    <acg17-loading-heart v-show="gameData.loading"></acg17-loading-heart>
   </section>
 
   <Transition name="game-modal" @after-leave="handleModalAfterLeave">
     <div v-if="showModal" class="modal-overlay" @click="closeModal">
-      <div class="modal-content" @click.stop>
-        <button type="button" class="close-btn" aria-label="关闭游戏详情" @click="closeModal">&times;</button>
+      <div
+        class="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="game-detail-title"
+        @click.stop
+      >
+        <button
+          ref="detailCloseButton"
+          type="button"
+          class="close-btn"
+          aria-label="关闭游戏详情"
+          :disabled="deletePending"
+          @click="closeModal"
+        >
+          &times;
+        </button>
 
         <div class="modal-body">
           <div class="game-detail-container">
@@ -112,7 +174,7 @@
 
             <div class="game-basic-info">
               <div class="game-heading">
-                <h2>{{ selectedGame.chineseTitle || selectedGame.title }}</h2>
+                <h2 id="game-detail-title">{{ selectedGame.chineseTitle || selectedGame.title }}</h2>
               </div>
 
               <div v-if="selectedGame.chineseTitle" class="info-row">
@@ -136,6 +198,8 @@
                   type="button"
                   :title="selectedGame.favorite ? '取消喜欢' : '添加喜欢'"
                   :aria-label="selectedGame.favorite ? '取消喜欢' : '添加喜欢'"
+                  :disabled="favoritePending"
+                  :aria-busy="favoritePending"
                   @click="toggleFavorite"
                 >
                   <icon :icon="selectedGame.favorite ? '#icon-favorite-y' : '#icon-favorite-n'" class="icon-svg"></icon>
@@ -145,6 +209,8 @@
                   type="button"
                   :title="selectedGame.deleted ? '恢复游戏' : '删除游戏'"
                   :aria-label="selectedGame.deleted ? '恢复游戏' : '删除游戏'"
+                  :disabled="deletePending"
+                  :aria-busy="deletePending"
                   @click="toggleDeleteStatus"
                 >
                   <icon :icon="selectedGame.deleted ? '#icon-restore' : '#icon-delete'" class="icon-svg"></icon>
@@ -156,9 +222,16 @@
           <div class="game-previews unselectable" v-if="selectedGame.previewImages && selectedGame.previewImages.length > 0">
             <h3>游戏预览</h3>
             <div class="preview-images">
-              <div v-for="(image, index) in selectedGame.previewImages" :key="index" class="preview-item">
-                <img :src="withMediaStyle(image, 'small')" :alt="`预览图 ${index + 1}`" loading="lazy" decoding="async" @click="showImagePreview(index)" />
-              </div>
+              <button
+                v-for="(image, index) in selectedGame.previewImages"
+                :key="index"
+                type="button"
+                class="preview-item"
+                :aria-label="`查看预览图 ${index + 1}`"
+                @click="showImagePreview(index, $event)"
+              >
+                <img :src="withMediaStyle(image, 'small')" :alt="`预览图 ${index + 1}`" loading="lazy" decoding="async">
+              </button>
             </div>
           </div>
         </div>
@@ -166,10 +239,25 @@
     </div>
   </Transition>
 
-  <div v-if="showImageModal" class="image-modal-overlay" @click="closeImageModal">
+  <div
+    v-if="showImageModal"
+    class="image-modal-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="游戏预览图"
+    @click="closeImageModal"
+  >
     <div class="image-modal-content" @click.stop>
       <img :src="selectedGame.previewImages[currentImageIndex]" :alt="`预览图 ${currentImageIndex + 1}`" />
-      <button type="button" class="image-close-btn" aria-label="关闭图片预览" @click="closeImageModal">&times;</button>
+      <button
+        ref="imageCloseButton"
+        type="button"
+        class="image-close-btn"
+        aria-label="关闭图片预览"
+        @click="closeImageModal"
+      >
+        &times;
+      </button>
       
       <button
         v-if="currentImageIndex > 0"
@@ -203,6 +291,7 @@
 import { computed, reactive, ref, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import server from '@/util/request'
+import LoadingHeart from "../components/LoadingHeart"
 import Acg17Footer from "../components/Acg17Footer"
 import Icon from "../components/Icon"
 import { useBackToTop } from '@/composables/useBackToTop'
@@ -217,6 +306,7 @@ function normalizeTitle(value) {
 export default {
   name: "Game",
   components: {
+    'acg17-loading-heart': LoadingHeart,
     'acg17-footer': Acg17Footer,
     'icon': Icon,
   },
@@ -225,12 +315,13 @@ export default {
     const router = useRouter()
 
     // 使用全局回收站状态管理
-    const { isRecycle, toggleRecycle, setRecycle } = useRecycleState('game')
+    const { isRecycle } = useRecycleState('game')
 
     const gameData = reactive({
-      currentPage: 1,
+      currentPage: 0,
       list: [],
       loading: false,
+      error: false,
       disabled: false,
       total: 0,
     })
@@ -239,6 +330,13 @@ export default {
     const selectedGame = ref({})
     const showImageModal = ref(false)
     const currentImageIndex = ref(0)
+    const favoritePending = ref(false)
+    const deletePending = ref(false)
+    const randomPending = ref(false)
+    const randomButton = ref(null)
+    const detailCloseButton = ref(null)
+    const imageCloseButton = ref(null)
+    const coverErrorIds = reactive(new Set())
 
     const { showBackToTop, scrollToTop } = useBackToTop()
     const showTitleSearch = ref(false)
@@ -254,19 +352,24 @@ export default {
     let gameRequestVersion = 0
     let pendingFilterFocus = false
     let pendingGameRemovalId = null
+    let modalClosing = false
+    let detailTriggerElement = null
+    let imageTriggerElement = null
+    let bodyOverflowBeforeModal = ''
 
-    // 获取游戏列表
-    async function getGameList(pageNum = 1, deleted = false) {
-      const requestVersion = ++gameRequestVersion
+    // 分页加载游戏列表
+    async function loadGames() {
+      if (gameData.loading || gameData.error || gameData.disabled) return
+
+      const requestVersion = gameRequestVersion
+      const pageNum = gameData.currentPage + 1
+      gameData.loading = true
+      gameData.error = false
+
       try {
-        gameData.loading = true
-        gameData.list = []
-        gameData.total = 0
-        gameData.disabled = false
-
         const params = {
           pageNum,
-          deleted
+          deleted: isRecycle.value
         }
         if (hasTitleFilter.value) params.title = activeTitle.value
 
@@ -275,18 +378,47 @@ export default {
         })
 
         if (requestVersion === gameRequestVersion && response.code === 200) {
-          const pageData = response.data
-          gameData.list = pageData.records || []
-          gameData.total = pageData.total || 0
-          gameData.currentPage = pageData.current || 1
-          gameData.disabled = pageData.records.length < pageData.size
+          const pageData = response.data || {}
+          const records = Array.isArray(pageData.records) ? pageData.records : []
+          const existingIds = new Set(gameData.list.map(game => game.id))
+          gameData.list.push(...records.filter(game => !existingIds.has(game.id)))
+          gameData.total = Number(pageData.total) || 0
+          gameData.currentPage = Number(pageData.current) || pageNum
+          gameData.disabled = records.length === 0 || gameData.list.length >= gameData.total
         }
       } catch (error) {
         if (requestVersion !== gameRequestVersion) return
+        gameData.error = true
         console.error('获取游戏列表失败:', error)
       } finally {
         if (requestVersion === gameRequestVersion) gameData.loading = false
       }
+    }
+
+    function loadMoreGames() {
+      loadGames()
+    }
+
+    function retryLoadGames() {
+      if (gameData.loading) return
+      gameData.error = false
+      loadGames()
+    }
+
+    function resetGameList() {
+      gameRequestVersion += 1
+      gameData.currentPage = 0
+      gameData.list = []
+      gameData.loading = false
+      gameData.error = false
+      gameData.disabled = false
+      gameData.total = 0
+      coverErrorIds.clear()
+      loadGames()
+    }
+
+    function handleCoverError(id) {
+      coverErrorIds.add(id)
     }
 
     function focusTitleSearchInput() {
@@ -345,8 +477,9 @@ export default {
 
     async function toggleFavorite() {
       const game = selectedGame.value
-      if (!game.id) return
+      if (!game.id || favoritePending.value) return
 
+      favoritePending.value = true
       try {
         const favorite = !game.favorite
         const response = await server.put(`/game/${game.id}/favorite?favorite=${favorite}`)
@@ -361,71 +494,120 @@ export default {
       } catch (error) {
         console.error('游戏收藏操作失败:', error)
         ElMessage.error('更新收藏状态失败')
+      } finally {
+        favoritePending.value = false
       }
     }
 
     async function toggleDeleteStatus() {
       const game = selectedGame.value
-      if (!game.id) return
+      if (!game.id || deletePending.value) return
 
+      const wasDeleted = Boolean(game.deleted)
+      deletePending.value = true
       try {
-        const response = game.deleted
+        const response = wasDeleted
           ? await server.put(`/game/${game.id}/restore`)
           : await server.delete(`/game/${game.id}`)
 
         if (response.code === 200) {
-          ElMessage.success(game.deleted ? '游戏已恢复' : '游戏已删除')
+          ElMessage.success(wasDeleted ? '游戏已恢复' : '游戏已删除')
           pendingGameRemovalId = game.id
-          closeModal()
+          modalClosing = true
+          showModal.value = false
         } else {
-          ElMessage.error(game.deleted ? '恢复游戏失败' : '删除游戏失败')
+          ElMessage.error(wasDeleted ? '恢复游戏失败' : '删除游戏失败')
         }
       } catch (error) {
         console.error('游戏删除/恢复操作失败:', error)
-        ElMessage.error(game.deleted ? '恢复游戏失败' : '删除游戏失败')
+        ElMessage.error(wasDeleted ? '恢复游戏失败' : '删除游戏失败')
+      } finally {
+        if (pendingGameRemovalId === null) deletePending.value = false
       }
     }
 
     // 显示游戏详情
-    function showGameDetail(game) {
+    function showGameDetail(game, trigger) {
+      if (showModal.value || modalClosing) return
+      const triggerElement = trigger?.currentTarget || trigger
+      detailTriggerElement = triggerElement instanceof HTMLElement
+        ? triggerElement
+        : randomButton.value
+      bodyOverflowBeforeModal = document.body.style.overflow
       selectedGame.value = game
       showModal.value = true
-      // 防止背景滚动
       document.body.style.overflow = 'hidden'
+      nextTick(() => detailCloseButton.value?.focus())
     }
 
     // 关闭详情弹出框
     function closeModal() {
+      if (!showModal.value || deletePending.value) return
+      if (showImageModal.value) {
+        closeImageModal()
+        return
+      }
+      modalClosing = true
       showModal.value = false
     }
 
     function handleModalAfterLeave() {
+      modalClosing = false
+      const returnFocusTarget = detailTriggerElement
+      let shouldBackfill = false
+
       if (pendingGameRemovalId !== null) {
         const listIndex = gameData.list.findIndex(item => item.id === pendingGameRemovalId)
         if (listIndex !== -1) {
           gameData.list.splice(listIndex, 1)
-          gameData.total = Math.max(0, gameData.total - 1)
+        }
+        gameData.total = Math.max(0, gameData.total - 1)
+        coverErrorIds.delete(pendingGameRemovalId)
+        if (gameData.currentPage > 0) {
+          gameData.currentPage = Math.max(0, gameData.currentPage - 1)
+          gameData.disabled = gameData.list.length >= gameData.total
+          shouldBackfill = !gameData.disabled
+        } else {
+          gameData.disabled = gameData.list.length >= gameData.total
         }
         pendingGameRemovalId = null
+        deletePending.value = false
       }
+
       selectedGame.value = {}
-      document.body.style.overflow = 'auto'
+      document.body.style.overflow = bodyOverflowBeforeModal
+      bodyOverflowBeforeModal = ''
+      detailTriggerElement = null
+
+      nextTick(() => {
+        const fallback = document.querySelector('.game-card') || randomButton.value
+        const focusTarget = returnFocusTarget?.isConnected ? returnFocusTarget : fallback
+        focusTarget?.focus()
+      })
+
+      if (shouldBackfill) loadGames()
     }
 
     // 显示图片预览
-    function showImagePreview(index) {
+    function showImagePreview(index, event) {
+      imageTriggerElement = event.currentTarget
       currentImageIndex.value = index
       showImageModal.value = true
-      // 添加键盘事件监听
-      document.addEventListener('keydown', handleImageKeydown)
+      nextTick(() => imageCloseButton.value?.focus())
     }
 
     // 关闭图片预览
     function closeImageModal() {
+      if (!showImageModal.value) return
+      const returnFocusTarget = imageTriggerElement
       showImageModal.value = false
       currentImageIndex.value = 0
-      // 移除键盘事件监听
-      document.removeEventListener('keydown', handleImageKeydown)
+      imageTriggerElement = null
+      nextTick(() => {
+        if (showModal.value && returnFocusTarget?.isConnected) {
+          returnFocusTarget.focus()
+        }
+      })
     }
 
     // 上一张图片
@@ -437,53 +619,78 @@ export default {
 
     // 下一张图片
     function nextImage() {
-      if (currentImageIndex.value < selectedGame.value.previewImages.length - 1) {
+      const previewImages = selectedGame.value.previewImages || []
+      if (currentImageIndex.value < previewImages.length - 1) {
         currentImageIndex.value++
       }
     }
 
-    // 键盘事件处理
-    function handleImageKeydown(event) {
-      switch (event.key) {
-        case 'ArrowLeft':
-          previousImage()
-          break
-        case 'ArrowRight':
-          nextImage()
-          break
-        case 'Escape':
-          closeImageModal()
-          break
+    function handlePageKeydown(event) {
+      if (!showModal.value) return
+
+      if (showImageModal.value) {
+        switch (event.key) {
+          case 'ArrowLeft':
+            event.preventDefault()
+            previousImage()
+            break
+          case 'ArrowRight':
+            event.preventDefault()
+            nextImage()
+            break
+          case 'Escape':
+            event.preventDefault()
+            closeImageModal()
+            break
+        }
+        return
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeModal()
       }
     }
 
     // 随机获取一个游戏
-    function randomGame() {
-      server.get('/game/random').then(response => {
-        if (response.code === 200) {
-          showGameDetail(response.data)
+    async function randomGame() {
+      if (randomPending.value) return
+
+      randomPending.value = true
+      try {
+        const response = await server.get('/game/random')
+        if (response.code === 200 && randomButton.value) {
+          showGameDetail(response.data, randomButton.value)
         }
-      })
+      } catch (error) {
+        console.error('随机获取游戏失败:', error)
+      } finally {
+        randomPending.value = false
+      }
     }
 
     // 监听回收站状态变化，重新获取数据
     watch(isRecycle, () => {
-      getGameList(1, isRecycle.value)
+      resetGameList()
     })
 
     watch(activeTitle, title => {
       titleSearchDraft.value = title
-      getGameList(1, isRecycle.value)
+      resetGameList()
     })
 
     // 组件挂载时获取数据
     onMounted(() => {
-      getGameList(1, isRecycle.value)
+      document.addEventListener('keydown', handlePageKeydown)
+      loadGames()
     })
 
     onUnmounted(() => {
-      document.removeEventListener('keydown', handleImageKeydown)
-      document.body.style.overflow = 'auto'
+      gameRequestVersion += 1
+      document.removeEventListener('keydown', handlePageKeydown)
+      if (showModal.value || modalClosing) {
+        document.body.style.overflow = bodyOverflowBeforeModal
+      }
     })
 
     return {
@@ -492,9 +699,13 @@ export default {
       selectedGame,
       showImageModal,
       currentImageIndex,
-      isRecycle,
-      toggleRecycle,
-      setRecycle,
+      favoritePending,
+      deletePending,
+      randomPending,
+      randomButton,
+      detailCloseButton,
+      imageCloseButton,
+      coverErrorIds,
       showGameDetail,
       closeModal,
       handleModalAfterLeave,
@@ -502,14 +713,15 @@ export default {
       closeImageModal,
       previousImage,
       nextImage,
-      getGameList,
+      loadMoreGames,
+      retryLoadGames,
+      handleCoverError,
       randomGame,
       scrollToTop,
       showBackToTop,
       showTitleSearch,
       titleSearchInput,
       titleSearchDraft,
-      activeTitle,
       hasTitleFilter,
       emptyGameText,
       toggleTitleSearch,
@@ -684,18 +896,27 @@ section {
   color: #1976d2;
 }
 
-.empty-game {
+.empty-game,
+.game-load-error {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  min-height: 260px;
   color: #909399;
   text-align: center;
 }
 
-.empty-game button {
+.empty-game {
+  min-height: 260px;
+}
+
+.game-load-error {
+  min-height: 160px;
+}
+
+.empty-game button,
+.game-load-error button {
   padding: 7px 14px;
   border: 1px solid #409eff;
   border-radius: 6px;
@@ -705,34 +926,54 @@ section {
   cursor: pointer;
 }
 
-.empty-game button:hover {
+.empty-game button:hover,
+.game-load-error button:hover {
   background: #ecf5ff;
 }
 
 .game-container > li {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
   min-width: 0;
   width: 100%;
-  height: auto;
-  overflow: visible;
-  border-radius: 10px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer;
   position: relative;
   z-index: 1;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.game-container > li:hover {
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+.game-container > li:hover,
+.game-container > li:focus-within {
   z-index: 10;
 }
 
-.game-container > li .game-img-container {
+.game-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+}
+
+.game-card:focus-visible {
+  outline: 3px solid rgba(64, 158, 255, 0.7);
+  outline-offset: 3px;
+}
+
+.game-img-container {
+  position: relative;
   width: 100%;
   height: auto;
   aspect-ratio: 2 / 3;
@@ -741,29 +982,61 @@ section {
   background-color: #f1fcff;
 }
 
-.game-container > li .game-img {
+.game-img,
+.game-cover-placeholder {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
+}
+
+.game-img {
   object-fit: contain;
   object-position: top;
   display: block;
 }
 
-.game-container > li .game-info {
+.game-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: #f1f3f5;
+  color: #909399;
+  font-size: 13px;
+}
+
+.game-favorite {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #ff5c64;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.game-info {
+  position: relative;
+  box-sizing: border-box;
   flex: 0 0 var(--title-height);
   display: flex;
   align-items: center;
+  height: var(--title-height);
   padding: 5px 12px;
+  overflow: hidden;
   background-color: #ffffff;
   border-radius: 0 0 10px 10px;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  height: var(--title-height);
-  box-sizing: border-box;
+  transition: background-color 0.3s ease;
 }
 
-.game-container > li:hover .game-info {
+.game-card:hover .game-info {
   background-color: #f8f9fa;
 }
 
@@ -780,6 +1053,44 @@ section {
   text-overflow: ellipsis;
   transition: all 0.3s ease;
   word-break: break-word;
+}
+
+.game-title.game-title-expanded {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  display: none;
+  box-sizing: border-box;
+  min-height: 100%;
+  align-items: center;
+  padding: inherit;
+  border-radius: inherit;
+  background-color: #f8f9fa;
+  line-clamp: unset;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.game-card:focus-visible .game-info {
+  overflow: visible;
+  background-color: #f8f9fa;
+}
+
+.game-card:focus-visible .game-title-expanded {
+  display: flex;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .game-card:hover .game-info {
+    overflow: visible;
+  }
+
+  .game-card:hover .game-title-expanded {
+    display: flex;
+  }
 }
 
 /* 卡片以 180px 左右为换列下限，宽屏最多 6 列 */
@@ -918,6 +1229,11 @@ section {
 .close-btn:hover {
   background-color: #e9ecef;
   color: #495057;
+}
+
+.close-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .modal-body {
@@ -1080,6 +1396,13 @@ section {
   fill: white;
 }
 
+.btn-icon:disabled {
+  pointer-events: none;
+  cursor: wait;
+  opacity: 0.6;
+  transform: none;
+}
+
 .game-previews {
   width: 100%;
   margin-top: 28px;
@@ -1101,6 +1424,11 @@ section {
 }
 
 .preview-item {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   cursor: pointer;
   transition: transform 0.3s ease;
 }
@@ -1109,7 +1437,13 @@ section {
   transform: translateY(-5px);
 }
 
+.preview-item:focus-visible {
+  outline: 3px solid rgba(64, 158, 255, 0.7);
+  outline-offset: 3px;
+}
+
 .preview-item img {
+  display: block;
   width: 100%;
   height: 200px;
   object-fit: cover;
@@ -1347,16 +1681,16 @@ section {
 
 /* 触摸设备优化 */
 @media (hover: none) and (pointer: coarse) {
-  .game-container > li:hover {
+  .game-card:hover {
     transform: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
-  .game-container > li:hover .game-info {
+  .game-card:hover .game-info {
     background-color: #ffffff;
   }
 
-  .game-container > li:active {
+  .game-card:active {
     transform: scale(0.98);
     transition: transform 0.1s ease;
   }
