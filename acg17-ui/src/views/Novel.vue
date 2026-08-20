@@ -2,12 +2,19 @@
   <div class="novel-page">
     <!-- 侧边栏筛选 -->
     <div class="sidebar">
-      <el-affix :offset="0" :z-index="9">
+      <el-affix :offset="76" :z-index="9">
         <div class="filter-panel">
           <!-- 搜索框 -->
           <div class="search-section">
-            <el-input v-model="searchKeyword" placeholder="搜索书名或作者..." clearable @input="handleSearch" class="search-input"
-              size="large">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索书名或作者..."
+              aria-label="搜索小说"
+              clearable
+              class="search-input"
+              size="large"
+              @input="handleSearch"
+            >
               <template #prefix>
                 <icon icon="#icon-search"></icon>
               </template>
@@ -20,7 +27,7 @@
           <div class="filter-section">
             <div class="filter-header">
               <h3 class="filter-title">
-                <icon icon="#icon-other"></icon>
+                <icon icon="#icon-tag"></icon>
                 <span>标签筛选</span>
               </h3>
               <el-button v-if="selectedTag !== null" @click="selectTag(null)" text size="small" class="clear-btn">
@@ -28,11 +35,34 @@
               </el-button>
             </div>
             <div class="tag-cloud">
-              <el-tag class="tag-item" :class="{ active: selectedTag === null }" @click="selectTag(null)" effect="plain">
+              <el-tag
+                class="tag-item"
+                :class="{ active: selectedTag === null }"
+                :aria-pressed="selectedTag === null"
+                title="全部"
+                effect="plain"
+                role="button"
+                tabindex="0"
+                @click="selectTag(null)"
+                @keydown.enter.prevent="selectTag(null)"
+                @keydown.space.prevent="selectTag(null)"
+              >
                 全部
               </el-tag>
-              <el-tag v-for="item in novel.tagList" :key="'tags-' + item.id" class="tag-item"
-                :class="{ active: selectedTag === item.id }" @click="selectTag(item.id)" effect="plain">
+              <el-tag
+                v-for="item in novel.tagList"
+                :key="'tags-' + item.id"
+                class="tag-item"
+                :class="{ active: selectedTag === item.id }"
+                :aria-pressed="selectedTag === item.id"
+                :title="item.name"
+                effect="plain"
+                role="button"
+                tabindex="0"
+                @click="selectTag(item.id)"
+                @keydown.enter.prevent="selectTag(item.id)"
+                @keydown.space.prevent="selectTag(item.id)"
+              >
                 {{ item.name }}
               </el-tag>
             </div>
@@ -81,7 +111,7 @@
           </div>
         </div>
 
-        <div class="toolbar-right">
+        <div v-if="showStats" class="toolbar-right">
           <div class="stats">
             <div class="stat-item">
               <div class="stat-label">作品总数</div>
@@ -100,45 +130,71 @@
       <div class="novel-table-container">
         <el-table v-if="novel.list.length" :data="novel.list" v-infinite-scroll="loadMoreNovels"
           :infinite-scroll-disabled="novel.loading || novel.error || novel.disabled || !pageActive"
-          @row-click="toNovelContent" stripe class="novel-table">
+          @row-click="toNovelContent" row-key="id" table-layout="fixed" stripe class="novel-table">
 
-          <el-table-column prop="title" label="书名" min-width="240">
+          <el-table-column prop="title" label="书名" min-width="250">
             <template #default="scope">
-              <div class="title-cell">
+              <div class="title-cell" :title="scope.row.title">
                 <span class="novel-title">{{ scope.row.title }}</span>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column prop="tags" label="标签" min-width="150">
+          <el-table-column v-if="visibleColumns.tags" prop="tags" label="标签" width="240">
             <template #default="scope">
-              <div class="tags-cell" v-if="scope.row.tags && scope.row.tags.length">
-                <el-tag v-for="(tag, i) in scope.row.tags" :key="'tag-' + i" size="small" class="tag-item">
+              <div
+                v-if="scope.row.tags && scope.row.tags.length"
+                class="tags-cell"
+                :title="scope.row.tags.join('、')"
+              >
+                <el-tag
+                  v-for="(tag, i) in scope.row.tags.slice(0, 3)"
+                  :key="'tag-' + i"
+                  size="small"
+                  class="novel-tag"
+                >
                   {{ tag }}
                 </el-tag>
+                <span v-if="scope.row.tags.length > 3" class="tag-overflow-count">
+                  +{{ scope.row.tags.length - 3 }}
+                </span>
               </div>
+              <span v-else class="empty-value">—</span>
             </template>
           </el-table-column>
 
-          <el-table-column prop="author" label="作者" width="100" align="center">
+          <el-table-column v-if="visibleColumns.author" prop="author" label="作者" width="120">
             <template #default="scope">
-              <span class="author-name">{{ scope.row.author }}</span>
+              <span class="author-name" :title="scope.row.author">{{ scope.row.author || '—' }}</span>
             </template>
           </el-table-column>
 
-          <el-table-column prop="totalWords" label="字数" width="90" align="center">
+          <el-table-column
+            v-if="visibleColumns.words"
+            prop="totalWords"
+            label="字数"
+            width="110"
+            align="right"
+            header-align="right"
+          >
             <template #default="scope">
-              <span class="word-count">{{ scope.row.totalWords }}</span>
+              <span class="word-count">{{ formatWordCount(scope.row.totalWords) }}</span>
             </template>
           </el-table-column>
 
-          <el-table-column prop="updateTime" label="更新时间" width="130" align="center">
+          <el-table-column
+            v-if="visibleColumns.updated"
+            prop="updateTime"
+            label="更新时间"
+            width="160"
+            align="center"
+          >
             <template #default="scope">
-              <span class="update-time">{{ scope.row.updateTime }}</span>
+              <span class="update-time">{{ scope.row.updateTime || '—' }}</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="90" align="center">
+          <el-table-column v-if="visibleColumns.actions" label="操作" width="96" align="center">
             <template #default="scope">
               <div class="action-buttons" @click.stop>
                 <el-button 
@@ -146,6 +202,8 @@
                   @click="toUploadChapter(scope.row.id, scope.row.title)"
                   text
                   size="small"
+                  class="action-button action-add"
+                  aria-label="新增章节"
                   title="新增章节"
                 >
                   <icon icon="#icon-add"></icon>
@@ -155,6 +213,8 @@
                   @click="deleteNovel(scope.row.id)"
                   text
                   size="small"
+                  class="action-button action-delete"
+                  aria-label="删除小说"
                   title="删除小说"
                 >
                   <icon icon="#icon-delete"></icon>
@@ -164,12 +224,24 @@
                   @click="restoreNovel(scope.row.id)"
                   text
                   size="small"
+                  class="action-button action-restore"
+                  aria-label="恢复小说"
                   title="恢复小说"
-                  class="no-margin"
                 >
                   <icon icon="#icon-restore"></icon>
                 </el-button>
               </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column
+            v-if="visibleColumns.indicator"
+            width="44"
+            align="center"
+            class-name="indicator-column"
+          >
+            <template #default>
+              <icon icon="#icon-right" class="row-indicator"></icon>
             </template>
           </el-table-column>
         </el-table>
@@ -218,6 +290,25 @@ import { useRecycleState } from '@/composables/useRecycleState'
 
 const SORT_TYPES = new Set(['created', 'words', 'updated'])
 const SEARCH_DELAY = 300
+const RESPONSIVE_LEVEL = Object.freeze({
+  FULL: 0,
+  NO_WORDS: 1,
+  NO_UPDATED: 2,
+  TOP_FILTER: 3,
+  NO_AUTHOR: 4,
+  NO_TAGS: 5,
+  NO_ACTIONS: 6,
+})
+
+function getResponsiveLevel(width) {
+  if (width <= 480) return RESPONSIVE_LEVEL.NO_ACTIONS
+  if (width <= 640) return RESPONSIVE_LEVEL.NO_TAGS
+  if (width <= 900) return RESPONSIVE_LEVEL.NO_AUTHOR
+  if (width <= 1100) return RESPONSIVE_LEVEL.TOP_FILTER
+  if (width <= 1280) return RESPONSIVE_LEVEL.NO_UPDATED
+  if (width <= 1366) return RESPONSIVE_LEVEL.NO_WORDS
+  return RESPONSIVE_LEVEL.FULL
+}
 
 function firstQueryValue(value) {
   return Array.isArray(value) ? value[0] : value
@@ -239,6 +330,12 @@ function normalizeSortType(value) {
 
 function normalizeSortOrder(value) {
   return firstQueryValue(value) === 'asc' ? 'asc' : 'desc'
+}
+
+function formatWordCount(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  const wordCount = Number(value)
+  return Number.isFinite(wordCount) ? wordCount.toLocaleString('zh-CN') : (value || '—')
 }
 
 export default {
@@ -270,6 +367,16 @@ export default {
     ))
     const searchKeyword = ref(activeKeyword.value)
     const pageActive = ref(false)
+    const responsiveLevel = ref(getResponsiveLevel(window.innerWidth))
+    const visibleColumns = computed(() => ({
+      words: responsiveLevel.value < RESPONSIVE_LEVEL.NO_WORDS,
+      updated: responsiveLevel.value < RESPONSIVE_LEVEL.NO_UPDATED,
+      author: responsiveLevel.value < RESPONSIVE_LEVEL.NO_AUTHOR,
+      tags: responsiveLevel.value < RESPONSIVE_LEVEL.NO_TAGS,
+      actions: responsiveLevel.value < RESPONSIVE_LEVEL.NO_ACTIONS,
+      indicator: responsiveLevel.value >= RESPONSIVE_LEVEL.NO_ACTIONS,
+    }))
+    const showStats = computed(() => responsiveLevel.value < RESPONSIVE_LEVEL.TOP_FILTER)
     const activeQueryKey = computed(() => JSON.stringify([
       activeKeyword.value,
       selectedTag.value,
@@ -351,6 +458,10 @@ export default {
     function loadMoreNovels() {
       if (!pageActive.value) return
       loadNovels()
+    }
+
+    function updateResponsiveLevel() {
+      responsiveLevel.value = getResponsiveLevel(window.innerWidth)
     }
 
     function retryLoadNovels() {
@@ -494,6 +605,7 @@ export default {
 
     onMounted(() => {
       pageActive.value = true
+      window.addEventListener('resize', updateResponsiveLevel)
       loadNovels()
     })
 
@@ -513,6 +625,7 @@ export default {
 
     onUnmounted(() => {
       novelRequestVersion += 1
+      window.removeEventListener('resize', updateResponsiveLevel)
       clearSearchTimer()
     })
 
@@ -521,6 +634,7 @@ export default {
       clearSearch,
       deleteNovel,
       emptyNovelText,
+      formatWordCount,
       handleSearch,
       hasActiveFilters,
       isRecycle,
@@ -533,11 +647,13 @@ export default {
       selectedTag,
       selectTag,
       setSortType,
+      showStats,
       sortOrder,
       sortType,
       toNovelContent,
       toUploadChapter,
       toggleSortOrder,
+      visibleColumns,
     }
   }
 }
@@ -562,34 +678,37 @@ export default {
 
 .filter-panel {
   font-family: 'Blueaka', sans-serif;
+  box-sizing: border-box;
+  max-height: calc(100vh - 88px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
   background: #ffffff;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
-  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  border: 1px solid #e8edf3;
+  box-shadow: 0 4px 18px rgba(31, 45, 61, 0.07);
 }
 
 /* 搜索区域 */
 .search-section {
-  margin-bottom: 20px;
+  flex: 0 0 auto;
 }
 
 .search-section :deep(input::placeholder) {
   font-family: 'Blueaka', sans-serif;
-}
-
-.search-section ::v-deep(input::-webkit-input-placeholder) {
-  font-family: 'Blueaka', sans-serif;
+  color: #a0a8b5;
 }
 
 .search-input {
-  border-radius: 12px;
+  width: 100%;
 }
 
 /* 筛选区域 */
 .filter-section {
-  margin-bottom: 24px;
+  min-height: 0;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .filter-section:last-child {
@@ -597,10 +716,11 @@ export default {
 }
 
 .filter-header {
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .filter-title {
@@ -620,9 +740,10 @@ export default {
 }
 
 .clear-btn {
-  color: #909399;
-  padding: 0;
+  min-height: 24px;
+  padding: 0 4px;
   font-size: 12px;
+  color: #8a94a3;
 }
 
 .clear-btn:hover {
@@ -681,28 +802,64 @@ export default {
 
 /* 标签云 */
 .tag-cloud {
+  min-height: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-content: flex-start;
+  gap: 7px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d8dee8 transparent;
+}
+
+.tag-cloud::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tag-cloud::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background: #d8dee8;
 }
 
 .tag-item {
+  max-width: 100%;
+  height: 30px;
+  padding: 0 9px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  font-size: 13px;
+  color: #5f6977;
+  background: #f6f8fb;
   border-radius: 8px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid #e1e7ee;
+  transition: color 0.2s ease, background-color 0.2s ease,
+  border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .tag-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+  transform: translateY(-1px);
+  color: #409eff;
+  background: #f0f7ff;
   border-color: #409eff;
+  box-shadow: 0 3px 8px rgba(64, 158, 255, 0.12);
+}
+
+.tag-item:focus-visible {
+  outline: none;
+  border-color: #409eff;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.16);
 }
 
 .tag-item.active {
   background: #409eff !important;
   color: white;
   border-color: #409eff !important;
+  box-shadow: 0 3px 9px rgba(64, 158, 255, 0.22);
+}
+
+.tag-item :deep(.el-tag__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 
@@ -719,7 +876,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  padding: 18px 24px 16px;
+  padding: 12px 20px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
@@ -844,102 +1001,205 @@ export default {
 /* 表格容器 */
 .novel-table-container {
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(31, 45, 61, 0.07);
+  border: 1px solid #e8edf3;
   overflow: hidden;
 }
 
-.novel-table-container ::v-deep(.cell) {
+.novel-table-container :deep(.cell) {
   font-family: 'Blueaka', sans-serif;
-  padding: 0 8px;
+  padding: 0 16px;
 }
 
 /* 表格样式 */
 .novel-table {
   width: 100%;
+  --el-table-border-color: #edf0f4;
+  --el-table-header-bg-color: #f6f8fb;
+  --el-table-header-text-color: #606a78;
+  --el-table-row-hover-bg-color: #f1f7ff;
+  --el-table-striped-bg-color: #fafbfd;
+  color: #3d4551;
+}
+
+.novel-table :deep(.el-table__header-wrapper th.el-table__cell) {
+  height: 48px;
+  padding: 0;
+  background: #f6f8fb;
+  border-bottom: 1px solid #e4e9f0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.novel-table :deep(.el-table__body-wrapper td.el-table__cell) {
+  height: 64px;
+  padding: 0;
+  border-bottom-color: #edf0f4;
+  transition: background-color 0.2s ease;
+}
+
+.novel-table :deep(.el-table__body tr) {
+  cursor: pointer;
+}
+
+.novel-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
+  background: #fafbfd;
+}
+
+.novel-table :deep(.el-table__body tr:hover > td.el-table__cell) {
+  background: #f1f7ff !important;
+}
+
+.novel-table :deep(.el-table__inner-wrapper::before) {
+  display: none;
 }
 
 /* 表格单元格样式 */
 .title-cell {
-  padding: 8px 0;
+  min-width: 0;
   font-family: 'Blueaka', sans-serif;
+  overflow: hidden;
 }
 
 .novel-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 16px;
-  font-weight: 400;
-  color: #303133;
+  line-height: 1.5;
+  font-weight: 500;
+  color: #273142;
   cursor: pointer;
-  transition: color 0.3s ease;
+  transition: color 0.2s ease;
 }
 
-.novel-title:hover {
+.novel-table :deep(.el-table__row:hover) .novel-title {
   color: #409eff;
 }
 
 .tags-cell {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px 0;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.tag-item {
+.novel-tag {
+  flex: 0 0 auto;
+  max-width: 88px;
+  font-size: 13px;
+  border-radius: 6px;
+  color: #5b6b80;
+  background: #f2f5f9;
+  border-color: #dfe6ee;
+}
+
+.novel-tag :deep(.el-tag__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-overflow-count {
+  flex: 0 0 auto;
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
   font-size: 12px;
-  border-radius: 4px;
+  line-height: 1;
+  color: #7b8492;
+  background: #eef1f5;
 }
 
 .author-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   color: #606266;
 }
 
 .word-count {
   font-size: 14px;
-  color: #303133;
-  font-weight: 500;
+  color: #465365;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .update-time {
-  font-size: 12px;
-  color: #909399;
+  font-size: 13px;
+  color: #7b8492;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-value {
+  color: #c0c4cc;
 }
 
 .action-buttons {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-.action-buttons .el-button {
-  transition: all 0.3s ease;
-  color: #909399;
-  width: 24px;
-  height: 24px;
+.action-buttons .action-button {
+  width: 30px;
+  height: 30px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: 0;
+  border-radius: 8px;
+  color: #8a94a3;
+  transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 }
 
-.el-button+.el-button {
+.action-buttons .action-button + .action-button {
   margin-left: 0;
 }
 
-.action-buttons .el-button .icon {
+.action-buttons .action-button .icon {
   width: 16px;
   height: 16px;
 }
 
-.action-buttons .el-button:hover {
+.action-buttons .action-button:hover {
   transform: translateY(-1px);
-  color: #409eff;
 }
 
-.action-buttons .no-margin {
-  margin-left: 6px;
+.action-buttons .action-add:hover,
+.action-buttons .action-restore:hover {
+  color: #409eff;
+  background: #ecf5ff;
+}
+
+.action-buttons .action-delete:hover {
+  color: #f56c6c;
+  background: #fef0f0;
+}
+
+.row-indicator {
+  width: 16px;
+  height: 16px;
+  color: #a0a8b5;
+}
+
+.novel-table :deep(.indicator-column .cell) {
+  padding: 0;
+  text-overflow: clip;
 }
 
 /* 加载状态 */
@@ -986,11 +1246,22 @@ export default {
   }
 }
 
-@media (max-width: 992px) {
-  .sidebar {
-    width: 260px;
+@media (max-width: 1100px) {
+  .novel-page {
+    flex-direction: column;
   }
 
+  .sidebar {
+    width: 100%;
+  }
+
+  .sidebar :deep(.el-affix),
+  .sidebar :deep(.el-affix > div) {
+    display: contents;
+  }
+}
+
+@media (max-width: 992px) {
   .filter-panel {
     padding: 20px;
   }
@@ -1029,18 +1300,7 @@ export default {
 
 @media (max-width: 768px) {
   .novel-page {
-    flex-direction: column;
     padding: 84px 16px 16px;
-  }
-
-  .sidebar {
-    width: 100%;
-    position: relative;
-    margin-bottom: 20px;
-  }
-
-  .sidebar .el-affix {
-    position: static !important;
   }
 
   .filter-panel {
@@ -1074,33 +1334,20 @@ export default {
   .toolbar {
     padding: 16px;
   }
-
-  .stats {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  /* 隐藏部分表格列 */
-  :deep(.el-table .el-table__cell:nth-child(4)),
-  :deep(.el-table .el-table__header .el-table__cell:nth-child(4)) {
-    display: none;
-  }
-}
-
-@media (max-width: 640px) {
-
-  /* 隐藏更多表格列 */
-  :deep(.el-table .el-table__cell:nth-child(3)),
-  :deep(.el-table .el-table__header .el-table__cell:nth-child(3)),
-  :deep(.el-table .el-table__cell:nth-child(6)),
-  :deep(.el-table .el-table__header .el-table__cell:nth-child(6)) {
-    display: none;
-  }
 }
 
 @media (max-width: 480px) {
   .novel-page {
-    padding: 84px 12px 12px;
+    padding: 84px 0 12px;
+  }
+
+  .filter-panel,
+  .toolbar,
+  .novel-table-container {
+    border-right: none;
+    border-left: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .filter-tags {
@@ -1123,12 +1370,6 @@ export default {
   .sort-buttons .sort-btn {
     flex: 1;
     min-width: 0;
-  }
-
-  /* 只显示关键列 */
-  :deep(.el-table .el-table__cell:nth-child(5)),
-  :deep(.el-table .el-table__header .el-table__cell:nth-child(5)) {
-    display: none;
   }
 }
 
@@ -1200,21 +1441,30 @@ export default {
   color: #409eff;
 }
 
-:deep(.el-table .el-tag) {
-  margin-right: 4px;
-  margin-bottom: 2px;
-}
-
 /* 搜索框样式覆盖 */
-:deep(.search-input .el-input__inner) {
-  border-radius: 12px;
-  border: 1px solid #e4e7ed;
-  transition: all 0.3s ease;
+:deep(.search-input .el-input__wrapper) {
+  min-height: 44px;
+  padding: 0 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px #e1e7ee inset;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-:deep(.search-input .el-input__inner:focus) {
-  border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+:deep(.search-input .el-input__wrapper:hover) {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #cbd4df inset;
+}
+
+:deep(.search-input .el-input__wrapper.is-focus) {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #409eff inset, 0 0 0 3px rgba(64, 158, 255, 0.1);
+}
+
+:deep(.search-input .el-input__inner) {
+  font-family: 'Blueaka', sans-serif;
+  font-size: 14px;
+  color: #303846;
 }
 
 /* 搜索框图标样式 */
@@ -1222,13 +1472,18 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-right: 8px;
 }
 
 :deep(.search-input .el-input__prefix .icon) {
-  margin-left: -4px;
-  width: 20px;
-  height: 20px;
-  color: #909399;
+  width: 17px;
+  height: 17px;
+  color: #8a94a3;
+  transition: color 0.2s ease;
+}
+
+:deep(.search-input .el-input__wrapper.is-focus .el-input__prefix .icon) {
+  color: #409eff;
 }
 
 /* 按钮样式覆盖 */
@@ -1245,18 +1500,19 @@ export default {
 
 /* 标签样式覆盖 */
 :deep(.tag-item.el-tag--plain) {
-  background: #fafafa;
-  border-color: #e4e7ed;
+  background: #f6f8fb;
+  border-color: #e1e7ee;
 }
 
 :deep(.tag-item.el-tag--plain:hover) {
-  background: #f0f9ff;
+  background: #f0f7ff;
   border-color: #409eff;
 }
 
 /* 分割线样式 */
 :deep(.el-divider--horizontal) {
-  margin: 20px 0;
-  border-color: #f0f0f0;
+  flex: 0 0 auto;
+  margin: 18px 0;
+  border-color: #edf0f4;
 }
 </style>
