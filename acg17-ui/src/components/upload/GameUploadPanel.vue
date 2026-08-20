@@ -122,7 +122,7 @@
             v-model="game.description"
             class="form-textarea"
             placeholder="请输入游戏简介"
-            rows="4"
+            rows="5"
           ></textarea>
         </div>
       </div>

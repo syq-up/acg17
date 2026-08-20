@@ -2,7 +2,13 @@
   <button class="btn-side-menu" @click="drawer = true">
     <icon icon="#icon-menu-1"></icon>
   </button>
-  <el-drawer v-model="drawer" direction="ltr" :size="232" :with-header="false">
+  <el-drawer
+    v-model="drawer"
+    direction="ltr"
+    :size="232"
+    :with-header="false"
+    append-to-body
+  >
     <div class="header">
       <button class="btn-side-menu-on" @click="drawer = false">
         <icon icon="#icon-menu-1"></icon>

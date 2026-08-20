@@ -51,20 +51,17 @@
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item>
-              <router-link :to="{ name: 'Account' }">
-                <icon icon="#icon-user"></icon>个人信息
-              </router-link>
+            <el-dropdown-item @click="goToAccount">
+              <span class="avatar-menu-item">
+                <icon icon="#icon-user"></icon>
+                个人中心
+              </span>
             </el-dropdown-item>
-            <el-dropdown-item divided>
-              <router-link to="/">
-                <icon icon="#icon-setting"></icon>设置
-              </router-link>
-            </el-dropdown-item>
-            <el-dropdown-item divided @click="logout">
-              <a href="javascript:void(0)" style="text-decoration: none; color: inherit;">
-                <icon icon="#icon-logout"></icon>退出
-              </a>
+            <el-dropdown-item @click="logout">
+              <span class="avatar-menu-item">
+                <icon icon="#icon-logout"></icon>
+                退出登录
+              </span>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -227,6 +224,10 @@ export default {
       router.push('/')
     }
 
+    const goToAccount = () => {
+      router.push({ name: 'Account' })
+    }
+
     // 判断路由是否激活
     const isRouteActive = (path) => {
       return route.path.startsWith(path)
@@ -239,6 +240,7 @@ export default {
       setRecycle,
       logout,
       goToHome,
+      goToAccount,
       isRouteActive,
       displayName,
       isAccountRoute,
@@ -506,16 +508,15 @@ export default {
   --filter-group-radius: 10px;
 }
 
-.el-dropdown-menu__item a {
-  display: grid;
-  grid-template-columns: repeat(2, max-content);
-  gap: 6px;
+.avatar-menu-item {
+  display: flex;
+  gap: 8px;
   align-items: center;
 }
 
-.el-dropdown-menu__item .icon {
-  width: 20px;
-  height: 20px;
+.avatar-menu-item .icon {
+  width: 16px;
+  height: 16px;
   fill: currentColor;
 }
 </style>
