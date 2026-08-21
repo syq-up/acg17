@@ -158,6 +158,12 @@ npm run preview
 
 生产构建产物位于 `acg17-ui/dist`。部署时需要让前端站点将 `/api` 整体转发到后端，其中包括 `/api/media` 签名媒体接口。
 
+## Docker 镜像部署
+
+仓库提供了生产镜像配置，可在本地或 CI 中构建后端、前端和数据库镜像，将三个镜像导出为单个 tar 文件，再由服务器执行 `docker load` 和 `docker compose up`。服务器只需要 Docker Engine 与 Docker Compose 插件，不需要安装项目的 Java、Node.js、Nginx、libvips 或 MySQL 环境。
+
+完整步骤见 [`deploy/README.md`](deploy/README.md)。
+
 ## 配置说明
 
 ### 后端接口
