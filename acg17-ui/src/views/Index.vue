@@ -29,10 +29,16 @@
     </div>
 
     <div class="footer font-blueaka">
-      Copyright © 2022&nbsp;
-      <a href="https://acg17.shiyq.top">acg17.shiyq.top</a>&nbsp;
-      All Rights Reserved&nbsp;
-      <a href="http://www.beian.gov.cn/" target="_blank" style="color: #409effd0">豫ICP备2021006771号</a>
+      <div class="footer-desktop">
+        Copyright © 2022&nbsp;
+        <a href="https://acg17.shiyq.top">acg17.shiyq.top</a>&nbsp;
+        All Rights Reserved&nbsp;
+        <a href="http://www.beian.gov.cn/" target="_blank" style="color: #409effd0">豫ICP备2021006771号</a>
+      </div>
+      <div class="footer-mobile">
+        © 2022&nbsp;<a href="https://acg17.shiyq.top">acg17.shiyq.top</a>&nbsp;
+        <a href="http://www.beian.gov.cn/" target="_blank" style="color: #409effd0">豫ICP备2021006771号</a>
+      </div>
     </div>
   </div>
 </template>
@@ -371,5 +377,79 @@ export default {
 
 .footer a:hover {
   text-decoration: underline;
+}
+
+.footer-mobile {
+  display: none;
+}
+
+/* Narrow screens keep the existing card design and expose the row by scrolling. */
+@media screen and (max-width: 1199px) {
+  .index-page {
+    height: 100dvh;
+  }
+
+  .background-container {
+    height: calc(100dvh - var(--m-height) * 2);
+  }
+
+  .card-container {
+    --responsive-card-width: clamp(160px, calc(140px + 5vw), 200px);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: 60px max(40px, var(--m-width));
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: safe center;
+    scroll-padding-inline: max(40px, var(--m-width));
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+
+  .card-wrapper {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .card {
+    width: var(--responsive-card-width);
+    height: auto;
+    min-height: 200px;
+    max-height: calc(100dvh - 180px);
+    aspect-ratio: 10 / 31;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  .card-container {
+    padding-inline: calc((100vw - var(--responsive-card-width)) / 2);
+    scroll-padding-inline: calc((100vw - var(--responsive-card-width)) / 2);
+    scroll-snap-type: x mandatory;
+  }
+
+  .card-wrapper {
+    scroll-snap-align: center;
+  }
+}
+
+@media screen and (max-width: 599px) {
+  .footer {
+    box-sizing: border-box;
+    height: auto;
+    min-height: var(--m-height);
+    padding-block: 4px;
+  }
+
+  .footer-desktop {
+    display: none;
+  }
+
+  .footer-mobile {
+    display: block;
+    white-space: nowrap;
+    line-height: 1.25;
+  }
 }
 </style>
