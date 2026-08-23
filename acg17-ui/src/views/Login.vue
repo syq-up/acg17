@@ -31,12 +31,18 @@
       </button>
     </form>
 
-    <div class="footer font-blueaka">
-      Copyright © 2022&nbsp;
-      <a href="https://acg17.shiyq.top">acg17.shiyq.top</a>&nbsp;
-      All Rights Reserved&nbsp;
-      <a href="http://www.beian.gov.cn/" target="_blank" style="color: #409effd0">豫ICP备2021006771号</a>
-    </div>
+    <footer class="footer font-blueaka">
+      <div class="footer-desktop">
+        Copyright © 2022&nbsp;
+        <a href="https://acg17.shiyq.top">acg17.shiyq.top</a>&nbsp;
+        All Rights Reserved&nbsp;
+        <a href="http://www.beian.gov.cn/" target="_blank" style="color: #409effd0">豫ICP备2021006771号</a>
+      </div>
+      <div class="footer-mobile">
+        © 2022&nbsp;<a href="https://acg17.shiyq.top">acg17.shiyq.top</a>&nbsp;
+        <a href="http://www.beian.gov.cn/" target="_blank" style="color: #409effd0">豫ICP备2021006771号</a>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -181,19 +187,22 @@ export default {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
 
-* {
-    /* 用于background-container外边距、页脚高度 */
-    --m-width: calc(min(3vh, 3vw));
-    --m-height: calc(min(4vh, 4vw));
+.login-page,
+.login-page * {
     box-sizing: border-box;
 }
 
 .login-page {
+    /* 用于背景边距、页眉和页脚的安全空间 */
+    --m-width: min(3dvh, 3vw);
+    --m-height: min(4dvh, 4vw);
+    --reserved-space: max(88px, calc(var(--m-height) + 70px));
     margin: 0;
-    padding: 0;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
+    padding-block: var(--reserved-space);
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+    width: 100%;
+    min-height: 100dvh;
+    overflow-x: clip;
     background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
     display: flex;
     justify-content: center;
@@ -202,12 +211,8 @@ export default {
 }
 
 .background-container {
-    margin: var(--m-height) var(--m-width);
-    width: calc(100vw - var(--m-width) * 2);
-    height: calc(100vh - var(--m-height) * 2);
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: fixed;
+    inset: var(--m-height) var(--m-width);
     border-radius: 35px;
     /* Glassmorphism Effect */
     background: rgba(255, 255, 255, 0.05);
@@ -220,8 +225,8 @@ export default {
 
 .logo {
   position: absolute;
-  top: calc(var(--m-height) + 25px);
-  left: calc(var(--m-width) + 25px);
+  top: max(calc(var(--m-height) + 25px), calc(env(safe-area-inset-top) + 16px));
+  left: max(calc(var(--m-width) + 25px), calc(env(safe-area-inset-left) + 16px));
   display: flex;
   align-items: center;
   z-index: 100;
@@ -259,7 +264,7 @@ export default {
 
 /* Background Bubbles */
 .bubble {
-    position: absolute;
+    position: fixed;
     bottom: -50px;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 50%;
@@ -271,15 +276,16 @@ export default {
     0% { transform: translateY(0) rotate(0deg); opacity: 0; }
     10% { opacity: 0.5; }
     90% { opacity: 0.5; }
-    100% { transform: translateY(-120vh) rotate(360deg); opacity: 0; }
+    100% { transform: translateY(-120dvh) rotate(360deg); opacity: 0; }
 }
 
 /* Login Container */
 .login-container {
     position: relative;
     z-index: 10;
-    width: 400px;
-    padding: 40px;
+    flex: 0 0 auto;
+    width: min(400px, 100%);
+    padding: 40px clamp(28px, 8vw, 40px);
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -299,7 +305,7 @@ export default {
 
 .login-title {
     font-family: 'Pacifico', cursive;
-    font-size: 3rem;
+    font-size: clamp(2.5rem, 12vw, 3rem);
     color: #fff;
     margin-bottom: 30px;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
@@ -427,7 +433,7 @@ export default {
 }
 
 .error-message.show {
-    max-height: 40px;
+    max-height: 72px;
     margin-bottom: 15px;
     opacity: 1;
     transform: translateY(0);
@@ -438,6 +444,7 @@ export default {
   bottom: 0;
   width: 100%;
   height: var(--m-height);
+  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
   display: flex;
   justify-content: center;
   align-items: center;
@@ -466,5 +473,58 @@ export default {
 
 .footer a:hover {
   text-decoration: underline;
+}
+
+.footer-mobile {
+  display: none;
+}
+
+@media (max-width: 599px) {
+  .footer {
+    height: auto;
+    min-height: var(--m-height);
+    padding-block: 4px max(4px, env(safe-area-inset-bottom));
+  }
+
+  .footer-desktop {
+    display: none;
+  }
+
+  .footer-mobile {
+    display: block;
+    white-space: nowrap;
+    line-height: 1.25;
+  }
+}
+
+@media (max-height: 560px) {
+  .login-page {
+    --reserved-space: 64px;
+  }
+
+  .login-container {
+    padding-block: 24px;
+  }
+
+  .login-title {
+    font-size: 2.4rem;
+    margin-bottom: 18px;
+  }
+
+  .input-group {
+    margin-bottom: 12px;
+  }
+
+  .login-btn {
+    margin-top: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble,
+  .login-container,
+  .footer {
+    animation: none;
+  }
 }
 </style>
