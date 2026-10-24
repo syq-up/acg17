@@ -39,17 +39,23 @@
               value-key="tagId"
               multiple
               filterable
-              allow-create
+              :allow-create="!groupTagGroup.available.some(tag => getMangaTagMatchRank(tag, groupTagGroup.query) === 0)"
+              :filter-method="query => { groupTagGroup.query = query }"
               default-first-option
               clearable
               placeholder="请选择或输入团队"
             >
               <el-option
-                v-for="tag in groupTagGroup.available"
+                v-for="tag in groupTagGroup.available.filter(tag => matchesMangaTag(tag, groupTagGroup.query))"
                 :key="tag.tagId"
-                :label="tag.tagName"
+                :label="getMangaTagName(tag)"
                 :value="tag"
-              />
+              >
+                <MangaTagPopover :tag="tag"><span>{{ getMangaTagName(tag) }}</span></MangaTagPopover>
+              </el-option>
+              <template #label="{ label, value }">
+                <MangaTagPopover :tag="value"><span>{{ label }}</span></MangaTagPopover>
+              </template>
             </el-select>
           </div>
           <div class="form-group">
@@ -61,17 +67,23 @@
               value-key="tagId"
               multiple
               filterable
-              allow-create
+              :allow-create="!artistTagGroup.available.some(tag => getMangaTagMatchRank(tag, artistTagGroup.query) === 0)"
+              :filter-method="query => { artistTagGroup.query = query }"
               default-first-option
               clearable
               placeholder="请选择或输入艺术家"
             >
               <el-option
-                v-for="tag in artistTagGroup.available"
+                v-for="tag in artistTagGroup.available.filter(tag => matchesMangaTag(tag, artistTagGroup.query))"
                 :key="tag.tagId"
-                :label="tag.tagName"
+                :label="getMangaTagName(tag)"
                 :value="tag"
-              />
+              >
+                <MangaTagPopover :tag="tag"><span>{{ getMangaTagName(tag) }}</span></MangaTagPopover>
+              </el-option>
+              <template #label="{ label, value }">
+                <MangaTagPopover :tag="value"><span>{{ label }}</span></MangaTagPopover>
+              </template>
             </el-select>
           </div>
         </div>
@@ -138,27 +150,27 @@
             </div>
             <div class="tag-display-area">
               <div class="selected-tags">
-                <button
-                  v-for="tag in group.selected"
-                  :key="tag.tagId"
-                  class="selected-tag"
-                  type="button"
-                  @click="removeTag(group, tag)"
-                >
-                  {{ tag.tagName }}
-                </button>
+                <MangaTagPopover v-for="tag in group.selected" :key="tag.tagId" :tag="tag">
+                  <button
+                    class="selected-tag"
+                    type="button"
+                    @click="removeTag(group, tag)"
+                  >
+                    {{ getMangaTagName(tag) }}
+                  </button>
+                </MangaTagPopover>
               </div>
               <div v-if="manga.tagMode === 'select'" class="available-tags">
-                <button
-                  v-for="tag in group.available"
-                  :key="tag.tagId"
-                  class="available-tag"
-                  :class="{ selected: isTagSelected(group, tag) }"
-                  type="button"
-                  @click="toggleTag(group, tag)"
-                >
-                  {{ tag.tagName }}
-                </button>
+                <MangaTagPopover v-for="tag in group.available" :key="tag.tagId" :tag="tag">
+                  <button
+                    class="available-tag"
+                    :class="{ selected: isTagSelected(group, tag) }"
+                    type="button"
+                    @click="toggleTag(group, tag)"
+                  >
+                    {{ getMangaTagName(tag) }}
+                  </button>
+                </MangaTagPopover>
               </div>
             </div>
           </div>
@@ -262,6 +274,8 @@
 import { onMounted, reactive, ref } from 'vue'
 import server from '@/util/request'
 import { MANGA_TAG_CATEGORIES } from '@/constants/mangaTagCategories'
+import MangaTagPopover from '@/components/manga/MangaTagPopover.vue'
+import { getMangaTagName, getMangaTagMatchRank, matchesMangaTag } from '@/util/mangaTags'
 
 const emit = defineEmits(['completed'])
 
@@ -309,6 +323,7 @@ const tagGroups = reactive(MANGA_TAG_CATEGORIES.map(category => ({
   ...category,
   placeholder: tagPlaceholders[category.key],
   input: '',
+  query: '',
   available: [],
   selected: [],
 })))
@@ -332,16 +347,19 @@ async function loadMangaTags() {
 }
 
 function addTag(group) {
-  const names = parseTagNames(group.input)
-  for (const tagName of names) {
-    if (!group.selected.some(tag => tag.tagName === tagName)) {
-      group.selected.push({ tagId: temporaryTagId--, tagName, tagCount: 0 })
+  const values = parseTagValues(group.input)
+  for (const raw of values) {
+    const tag = group.available.find(item => getMangaTagMatchRank(item, raw) === 0)
+      || group.selected.find(item => getMangaTagMatchRank(item, raw) === 0)
+      || { tagId: temporaryTagId--, raw, tagCount: 0 }
+    if (!group.selected.some(selected => selected.tagId === tag.tagId || selected.raw === tag.raw)) {
+      group.selected.push(tag)
     }
   }
   group.input = ''
 }
 
-function parseTagNames(input) {
+function parseTagValues(input) {
   return input
     .split('#')
     .map(tag => tag.trim())
@@ -440,11 +458,11 @@ async function addManga() {
 
 function serializeTag(tag, category) {
   if (typeof tag === 'string') {
-    return { tagName: tag.trim(), category }
+    return { raw: tag.trim(), category }
   }
   return {
     ...(tag.tagId > 0 ? { tagId: tag.tagId } : {}),
-    tagName: tag.tagName,
+    raw: tag.raw,
     category,
   }
 }

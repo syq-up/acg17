@@ -10,18 +10,20 @@
         <section class="current-tags-section">
           <h4>当前标签</h4>
           <div class="tags-list">
-            <span v-for="tag in localCurrentTags" :key="`current-${tag.tagId}`" class="tag current-tag">
-              {{ tag.tagName }}
-              <button
-                class="remove-tag-btn"
-                type="button"
-                title="删除标签"
-                :disabled="updatingTagIds.has(tag.tagId)"
-                @click="removeTagFromManga(tag.tagId)"
-              >
-                &times;
-              </button>
-            </span>
+            <MangaTagPopover v-for="tag in localCurrentTags" :key="`current-${tag.tagId}`" :tag="tag">
+              <span class="tag current-tag">
+                {{ getMangaTagName(tag) }}
+                <button
+                  class="remove-tag-btn"
+                  type="button"
+                  title="删除标签"
+                  :disabled="updatingTagIds.has(tag.tagId)"
+                  @click="removeTagFromManga(tag.tagId)"
+                >
+                  &times;
+                </button>
+              </span>
+            </MangaTagPopover>
             <span v-if="localCurrentTags.length === 0" class="no-tags">暂无标签</span>
           </div>
         </section>
@@ -29,17 +31,17 @@
         <section class="available-tags-section">
           <h4>可用标签</h4>
           <div class="tags-list">
-            <button
-              v-for="tag in availableTags"
-              :key="`available-${tag.tagId}`"
-              :class="['tag', 'available-tag', { added: isTagAdded(tag.tagId) }]"
-              type="button"
-              :disabled="isTagAdded(tag.tagId) || updatingTagIds.has(tag.tagId)"
-              @click="addTagToManga(tag.tagId)"
-            >
-              {{ tag.tagName }}
-              <span class="tag-count">{{ tag.tagCount || 0 }}</span>
-            </button>
+            <MangaTagPopover v-for="tag in availableTags" :key="`available-${tag.tagId}`" :tag="tag">
+              <button
+                :class="['tag', 'available-tag', { added: isTagAdded(tag.tagId) }]"
+                type="button"
+                :disabled="isTagAdded(tag.tagId) || updatingTagIds.has(tag.tagId)"
+                @click="addTagToManga(tag.tagId)"
+              >
+                {{ getMangaTagName(tag) }}
+                <span class="tag-count">{{ tag.tagCount || 0 }}</span>
+              </button>
+            </MangaTagPopover>
             <span v-if="availableTags.length === 0" class="no-tags">暂无可用标签</span>
           </div>
         </section>
@@ -48,7 +50,7 @@
           <h4>添加新标签</h4>
           <div class="add-tag-form">
             <input
-              v-model="newTagName"
+              v-model="newTagRaw"
               type="text"
               placeholder="输入新标签名称"
               class="tag-input"
@@ -57,7 +59,7 @@
             <button
               class="add-btn"
               type="button"
-              :disabled="creatingTag || !newTagName.trim()"
+              :disabled="creatingTag || !newTagRaw.trim()"
               @click="createAndAddTag"
             >
               添加
@@ -73,6 +75,8 @@
 import { computed, ref, watch } from 'vue'
 import server from '@/util/request'
 import { getMangaTagCategory } from '@/constants/mangaTagCategories'
+import MangaTagPopover from '@/components/manga/MangaTagPopover.vue'
+import { getMangaTagName, getMangaTagMatchRank } from '@/util/mangaTags'
 
 const props = defineProps({
   mangaId: {
@@ -94,7 +98,7 @@ const emit = defineEmits(['close', 'updated'])
 
 const availableTags = ref([])
 const localCurrentTags = ref([])
-const newTagName = ref('')
+const newTagRaw = ref('')
 const creatingTag = ref(false)
 const updatingTagIds = ref(new Set())
 const categoryConfig = computed(() => getMangaTagCategory(props.category))
@@ -103,7 +107,7 @@ const categoryName = computed(() => categoryConfig.value?.label || '')
 watch(
   () => props.category,
   category => {
-    newTagName.value = ''
+    newTagRaw.value = ''
     loadAvailableTags(category)
   },
   { immediate: true },
@@ -180,15 +184,24 @@ async function removeTagFromManga(tagId) {
 }
 
 async function createAndAddTag() {
-  const tagName = newTagName.value.trim()
+  const raw = newTagRaw.value.trim()
   const config = categoryConfig.value
-  if (!tagName || !config || creatingTag.value) return
+  if (!raw || !config || creatingTag.value) return
 
   creatingTag.value = true
   try {
+    const existingTag = availableTags.value.find(tag => getMangaTagMatchRank(tag, raw) === 0)
+      || localCurrentTags.value.find(tag => getMangaTagMatchRank(tag, raw) === 0)
+    if (existingTag) {
+      if (isTagAdded(existingTag.tagId) || await addTagToManga(existingTag.tagId)) {
+        newTagRaw.value = ''
+      }
+      return
+    }
+
     const res = await server.post('/manga-tag/get-or-create-by-category', null, {
       params: {
-        tagName,
+        raw,
         category: config.categoryId,
       },
     })
@@ -197,7 +210,7 @@ async function createAndAddTag() {
       await loadAvailableTags(props.category)
       const tagId = res.data.tagId ?? res.data.id
       if (await addTagToManga(tagId)) {
-        newTagName.value = ''
+        newTagRaw.value = ''
       }
     }
   } catch (error) {

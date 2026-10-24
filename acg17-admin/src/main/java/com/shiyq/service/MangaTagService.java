@@ -47,17 +47,17 @@ public interface MangaTagService {
     MangaTag getOwnedTagById(Integer tagId);
 
     /**
-     * 根据标签名和分类获取或创建标签
-     * @param tagName 标签名
+     * 根据原始标签和分类获取或创建标签
+     * @param raw 原始标签
      * @param category 分类标记
      * @return 标签对象
      */
-    MangaTag getOrCreateTagByNameAndCategory(String tagName, Integer category);
+    MangaTag getOrCreateTagByRawAndCategory(String raw, Integer category);
 
     /**
      * 更新当前用户拥有的标签。
      */
-    boolean updateOwnedTag(Integer tagId, String tagName, Integer category);
+    boolean updateOwnedTag(Integer tagId, String raw, Integer category);
 
     /**
      * 仅删除没有被漫画引用的标签。

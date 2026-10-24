@@ -33,17 +33,21 @@
             </div>
             <div v-for="group in selectedTagGroups" :key="'selected-group-' + group.key" class="selected-tag-group">
               <span class="selected-tag-category">{{ group.label }}</span>
-              <button
+              <MangaTagPopover
                 v-for="selectedTag in group.tags"
                 :key="'selected-' + selectedTag.tagId"
-                type="button"
-                class="selected-tag"
-                :aria-label="`移除标签 ${selectedTag.tagName}`"
-                @click="toggleTag(selectedTag.tagId)"
+                :tag="selectedTag"
               >
-                <span>{{ selectedTag.tagName }}</span>
-                <span class="selected-tag-remove" aria-hidden="true">×</span>
-              </button>
+                <button
+                  type="button"
+                  class="selected-tag"
+                  :aria-label="`移除标签 ${getMangaTagName(selectedTag)}`"
+                  @click="toggleTag(selectedTag.tagId)"
+                >
+                  <span>{{ getMangaTagName(selectedTag) }}</span>
+                  <span class="selected-tag-remove" aria-hidden="true">×</span>
+                </button>
+              </MangaTagPopover>
             </div>
           </div>
         </div>
@@ -83,7 +87,7 @@
                 ref="tagSearchInput"
                 v-model="tagSearch"
                 type="search"
-                placeholder="输入标签名称进行查找"
+                placeholder="输入标签名称或原始标签进行查找"
                 aria-label="搜索标签"
                 autocomplete="off"
                 spellcheck="false"
@@ -110,25 +114,29 @@
                 <span class="tag-group-count">{{ group.countText }}</span>
               </div>
               <div class="tags-container">
-                <button
+                <MangaTagPopover
                   v-for="item in group.tags"
                   :key="group.key + '-' + item.tagId"
-                  type="button"
-                  class="tag"
-                  :class="{
-                    active: isTagActive(item.tagId),
-                    'keyboard-active': isTagSearching && item.searchIndex === activeTagSearchIndex
-                  }"
-                  :aria-pressed="isTagActive(item.tagId)"
-                  @click="toggleTag(item.tagId)"
-                  @mouseenter="setActiveTagSearchIndex(item.searchIndex)"
+                  :tag="item"
                 >
-                  <template v-for="(part, partIndex) in item.nameParts" :key="partIndex">
-                    <mark v-if="part.match">{{ part.text }}</mark>
-                    <span v-else>{{ part.text }}</span>
-                  </template>
-                  <span class="tag-count">{{ item.tagCount }}</span>
-                </button>
+                  <button
+                    type="button"
+                    class="tag"
+                    :class="{
+                      active: isTagActive(item.tagId),
+                      'keyboard-active': isTagSearching && item.searchIndex === activeTagSearchIndex
+                    }"
+                    :aria-pressed="isTagActive(item.tagId)"
+                    @click="toggleTag(item.tagId)"
+                    @mouseenter="setActiveTagSearchIndex(item.searchIndex)"
+                  >
+                    <template v-for="(part, partIndex) in item.nameParts" :key="partIndex">
+                      <mark v-if="part.match">{{ part.text }}</mark>
+                      <span v-else>{{ part.text }}</span>
+                    </template>
+                    <span class="tag-count">{{ item.tagCount }}</span>
+                  </button>
+                </MangaTagPopover>
                 <button v-if="group.canToggle" type="button" class="expand-tag-btn" @click="toggleExpand(group.key)">
                   {{ group.expanded ? '收起' : `展开其余 ${group.hiddenCount} 个` }}
                   <icon
@@ -155,6 +163,8 @@
 import { computed, nextTick, onActivated, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import server from '@/util/request'
 import { MANGA_TAG_CATEGORIES } from '@/constants/mangaTagCategories'
+import MangaTagPopover from './MangaTagPopover.vue'
+import { getMangaTagName, getMangaTagMatchRank, matchesMangaTag, normalizeMangaTagQuery } from '@/util/mangaTags'
 
 const visibleLimits = {
   group: 16,
@@ -237,7 +247,7 @@ const filterPanelTitle = computed(() => {
   if (showTagList.value) return '标签筛选'
   return '漫画筛选'
 })
-const normalizedTagSearch = computed(() => normalizeTagName(tagSearch.value))
+const normalizedTagSearch = computed(() => normalizeMangaTagQuery(tagSearch.value))
 const isTagSearching = computed(() => normalizedTagSearch.value.length > 0)
 const tagGroups = computed(() => tagCategories.map(category => ({
   ...category,
@@ -253,18 +263,18 @@ const displayedTagGroups = computed(() => {
       const expanded = !query && tag.expandedCategories[group.key]
       const sourceTags = query
         ? sortedGroupTags
-          .filter(item => normalizeTagName(item.tagName).includes(query))
+          .filter(item => matchesMangaTag(item, query))
           .sort((a, b) => {
-            const rankDifference = getTagMatchRank(a.tagName, query) - getTagMatchRank(b.tagName, query)
+            const rankDifference = getMangaTagMatchRank(a, query) - getMangaTagMatchRank(b, query)
             if (rankDifference) return rankDifference
             const countDifference = Number(b.tagCount || 0) - Number(a.tagCount || 0)
             if (countDifference) return countDifference
-            return String(a.tagName).localeCompare(String(b.tagName), 'zh-CN')
+            return getMangaTagName(a).localeCompare(getMangaTagName(b), 'zh-CN')
           })
         : expanded ? sortedGroupTags : collapsedTags
       const tags = sourceTags.map(item => ({
         ...item,
-        nameParts: createTagNameParts(item.tagName, query),
+        nameParts: createTagNameParts(getMangaTagName(item), query),
         searchIndex: query ? searchIndex++ : -1,
       }))
       return {
@@ -302,28 +312,16 @@ const selectedTagGroups = computed(() => {
   }
   const unresolvedTags = normalizedSelectedTagIds.value
     .filter(tagId => !resolvedIds.has(tagId))
-    .map(tagId => ({ tagId, tagName: `标签 #${tagId}` }))
+    .map(tagId => ({ tagId, raw: `标签 #${tagId}` }))
   if (unresolvedTags.length) {
     groups.push({ key: 'unresolved', label: '标签', tags: unresolvedTags })
   }
   return groups
 })
 
-function normalizeTagName(value) {
-  return String(value ?? '').trim().toLocaleLowerCase()
-}
-
-function getTagMatchRank(tagName, query) {
-  const normalizedName = normalizeTagName(tagName)
-  if (normalizedName === query) return 0
-  if (normalizedName.startsWith(query)) return 1
-  return 2
-}
-
-function createTagNameParts(tagName, query) {
-  const name = String(tagName ?? '')
+function createTagNameParts(name, query) {
   if (!query) return [{ text: name, match: false }]
-  const matchIndex = normalizeTagName(name).indexOf(query)
+  const matchIndex = normalizeMangaTagQuery(name).indexOf(query)
   if (matchIndex < 0) return [{ text: name, match: false }]
   return [
     { text: name.slice(0, matchIndex), match: false },
@@ -412,7 +410,7 @@ function sortedTags(tags) {
   return tags.slice().sort((a, b) => {
     const countDifference = Number(b.tagCount || 0) - Number(a.tagCount || 0)
     if (countDifference) return countDifference
-    return String(a.tagName).localeCompare(String(b.tagName), 'zh-CN')
+    return getMangaTagName(a).localeCompare(getMangaTagName(b), 'zh-CN')
   })
 }
 

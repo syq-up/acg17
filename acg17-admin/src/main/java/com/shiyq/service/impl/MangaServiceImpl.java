@@ -453,8 +453,8 @@ public class MangaServiceImpl extends ServiceImpl<MangaMapper, Manga> implements
                     throw new IllegalArgumentException("标签不存在或分类不匹配");
                 }
             } else {
-                tag = mangaTagService.getOrCreateTagByNameAndCategory(
-                        tagVO.getTagName(), tagVO.getCategory());
+                tag = mangaTagService.getOrCreateTagByRawAndCategory(
+                        tagVO.getRaw(), tagVO.getCategory());
             }
             tagIds.add(tag.getId());
         }

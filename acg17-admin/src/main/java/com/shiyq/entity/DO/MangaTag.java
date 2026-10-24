@@ -36,10 +36,28 @@ public class MangaTag implements Serializable {
     private Integer userId;
 
     /**
+     * 原始标签
+     */
+    @TableField("raw")
+    private String raw;
+
+    /**
      * 标签名称
      */
-    @TableField("tag_name")
-    private String tagName;
+    @TableField("name")
+    private String name;
+
+    /**
+     * 标签描述
+     */
+    @TableField("intro")
+    private String intro;
+
+    /**
+     * 外部链接
+     */
+    @TableField("links")
+    private String links;
 
     /**
      * 分类标记，1-角色，2-男性，3-女性，4-混合，5-其他，6-原作，7-艺术家，8-团队

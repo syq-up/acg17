@@ -65,8 +65,8 @@ public class MangaTagController {
      */
     @PostMapping
     public ResultVO addTag(@Valid @RequestBody MangaTagCreateDTO request) {
-        MangaTag savedTag = mangaTagService.getOrCreateTagByNameAndCategory(
-                request.getTagName(), request.getCategory());
+        MangaTag savedTag = mangaTagService.getOrCreateTagByRawAndCategory(
+                request.getRaw(), request.getCategory());
         return ResultVO.success(savedTag);
     }
 
@@ -78,7 +78,7 @@ public class MangaTagController {
     @PutMapping
     public ResultVO updateTag(@Valid @RequestBody MangaTagUpdateDTO request) {
         boolean success = mangaTagService.updateOwnedTag(
-                request.getId(), request.getTagName(), request.getCategory());
+                request.getId(), request.getRaw(), request.getCategory());
         if (success) {
             return ResultVO.success("更新成功");
         }
@@ -121,15 +121,15 @@ public class MangaTagController {
     }
 
     /**
-     * 根据标签名和分类获取或创建标签
-     * @param tagName 标签名
+     * 根据原始标签和分类获取或创建标签
+     * @param raw 原始标签
      * @param category 分类标记（支持英文名称：character, male, female, mixed, other, original, artist, group 或数字：1-8）
      * @return 标签信息
      */
     @PostMapping("/get-or-create-by-category")
-    public ResultVO getOrCreateTagByNameAndCategory(
-            @RequestParam @NotBlank(message = "标签名称不能为空")
-            @Size(max = 50, message = "标签名称不能超过50个字符") String tagName,
+    public ResultVO getOrCreateTagByRawAndCategory(
+            @RequestParam @NotBlank(message = "原始标签不能为空")
+            @Size(max = 50, message = "原始标签不能超过50个字符") String raw,
             @RequestParam @Size(max = 16, message = "标签分类参数过长") String category) {
         // 将英文分类名称转换为数字分类
         Integer numericCategory = MangaConstant.parseCategory(category);
@@ -137,7 +137,7 @@ public class MangaTagController {
             throw new IllegalArgumentException("无效的分类参数");
         }
         
-        MangaTag tag = mangaTagService.getOrCreateTagByNameAndCategory(tagName, numericCategory);
+        MangaTag tag = mangaTagService.getOrCreateTagByRawAndCategory(raw, numericCategory);
         return ResultVO.success(tag);
     }
 }

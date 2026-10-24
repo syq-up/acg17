@@ -13,9 +13,9 @@ import lombok.Data;
 @Data
 public class MangaTagCreateDTO {
 
-    @NotBlank(message = "标签名称不能为空")
-    @Size(max = 50, message = "标签名称不能超过50个字符")
-    private String tagName;
+    @NotBlank(message = "原始标签不能为空")
+    @Size(max = 50, message = "原始标签不能超过50个字符")
+    private String raw;
 
     @NotNull(message = "标签分类不能为空")
     @Min(value = 1, message = "标签分类必须在1到8之间")

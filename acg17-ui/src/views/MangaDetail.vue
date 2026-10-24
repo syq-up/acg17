@@ -64,16 +64,16 @@
           <div v-for="group in tagGroups" :key="group.key" class="info-row unselectable">
             <span class="label">{{ group.label }}:</span>
             <div class="tags-container">
-              <button
-                v-for="tag in group.tags"
-                :key="tag.tagId"
-                type="button"
-                class="tag"
-                :title="`按${tag.tagName}筛选`"
-                @click="searchByTag(tag.tagId)"
-              >
-                {{ tag.tagName }} <span class="tag-count">{{ tag.tagCount }}</span>
-              </button>
+              <MangaTagPopover v-for="tag in group.tags" :key="tag.tagId" :tag="tag">
+                <button
+                  type="button"
+                  class="tag"
+                  :aria-label="`按${getMangaTagName(tag)}筛选`"
+                  @click="searchByTag(tag.tagId)"
+                >
+                  {{ getMangaTagName(tag) }} <span class="tag-count">{{ tag.tagCount }}</span>
+                </button>
+              </MangaTagPopover>
               <button
                 v-if="isTagManagementMode"
                 class="edit-tag-btn"
@@ -220,6 +220,8 @@ import { computed, reactive, onMounted, onUnmounted, ref, nextTick, watch } from
 import { useRoute, useRouter } from 'vue-router'
 import Acg17Footer from '../components/Acg17Footer'
 import MangaTagEditor from '../components/manga-detail/MangaTagEditor.vue'
+import MangaTagPopover from '@/components/manga/MangaTagPopover.vue'
+import { getMangaTagName } from '@/util/mangaTags'
 import { withMediaStyle } from '@/util/media'
 import server from '@/util/request'
 import { MANGA_TAG_CATEGORIES } from '@/constants/mangaTagCategories'
@@ -232,6 +234,7 @@ export default {
   components: {
     'acg17-footer': Acg17Footer,
     MangaTagEditor,
+    MangaTagPopover,
   },
   setup() {
     const route = useRoute()
@@ -806,6 +809,7 @@ export default {
       toggleFavorite,
       toggleDeleteStatus,
       searchByTag,
+      getMangaTagName,
       randomManga,
       scrollToTop,
       showBackToTopLeft,

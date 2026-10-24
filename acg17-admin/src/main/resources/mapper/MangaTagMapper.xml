@@ -3,7 +3,7 @@
 <mapper namespace="com.shiyq.mapper.MangaTagMapper">
 
     <select id="listWithCounts" resultType="com.shiyq.entity.VO.MangaTagVO">
-        SELECT t.`id` AS `tag_id`, t.`tag_name`, t.`category`, COUNT(active_manga.`id`) AS `tag_count`
+        SELECT t.`id` AS `tag_id`, t.`raw`, t.`name`, t.`intro`, t.`links`, t.`category`, COUNT(active_manga.`id`) AS `tag_count`
         FROM `manga_tag` t
         LEFT JOIN `manga_tag_relation` r ON r.`tag_id` = t.`id`
         LEFT JOIN `manga` active_manga
@@ -14,12 +14,12 @@
         <if test="category != null">
             AND t.`category` = #{category}
         </if>
-        GROUP BY t.`id`, t.`tag_name`, t.`category`
-        ORDER BY `tag_count` DESC, t.`tag_name`, t.`id`
+        GROUP BY t.`id`, t.`raw`, t.`category`
+        ORDER BY `tag_count` DESC, t.`raw`, t.`id`
     </select>
 
     <select id="listByMangaIdWithCounts" resultType="com.shiyq.entity.VO.MangaTagVO">
-        SELECT t.`id` AS `tag_id`, t.`tag_name`, t.`category`,
+        SELECT t.`id` AS `tag_id`, t.`raw`, t.`name`, t.`intro`, t.`links`, t.`category`,
                (
                    SELECT COUNT(*)
                    FROM `manga_tag_relation` count_relation
@@ -37,7 +37,7 @@
                 ON t.`id` = r.`tag_id`
                AND t.`user_id` = #{userId}
         WHERE r.`manga_id` = #{mangaId}
-        ORDER BY t.`category`, `tag_count` DESC, t.`tag_name`, t.`id`
+        ORDER BY t.`category`, `tag_count` DESC, t.`raw`, t.`id`
     </select>
 
 </mapper>

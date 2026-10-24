@@ -52,7 +52,7 @@ class RequestValidationTest {
     @Test
     void validatesTagCategoryAndReorderIds() {
         MangaTagCreateDTO tagRequest = new MangaTagCreateDTO();
-        tagRequest.setTagName("标签");
+        tagRequest.setRaw("标签");
         tagRequest.setCategory(7);
         assertTrue(validator.validate(tagRequest).isEmpty());
         tagRequest.setCategory(8);
