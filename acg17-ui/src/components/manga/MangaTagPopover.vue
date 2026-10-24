@@ -9,7 +9,7 @@
     :enterable="true"
     :persistent="false"
     :disabled="!hasDetails"
-    :popper-style="{ maxWidth: 'calc(100vw - 24px)', padding: '18px 20px', borderRadius: '12px' }"
+    :popper-style="{ maxWidth: 'calc(100vw - 24px)', borderRadius: '12px' }"
   >
     <template #reference><slot /></template>
     <div class="manga-tag-description">
@@ -75,6 +75,7 @@ const hasDetails = computed(() => {
 
 <style scoped>
 .manga-tag-description {
+  padding: 18px 20px;
   color: #303133;
   overflow-wrap: anywhere;
   max-height: min(420px, calc(100vh - 72px));
@@ -89,7 +90,6 @@ const hasDetails = computed(() => {
 }
 
 .tag-category {
-  margin-top: 2px;
   color: #909399;
   font-size: 12px;
 }
@@ -99,7 +99,6 @@ const hasDetails = computed(() => {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 8px;
-  margin-top: 14px;
   color: #909399;
   font-size: 12px;
 }
@@ -113,7 +112,7 @@ const hasDetails = computed(() => {
 }
 
 .tag-intro {
-  margin: 14px 0 0;
+  margin: 0;
   white-space: pre-line;
   font-size: 13px;
   line-height: 1.8;
